@@ -15,7 +15,11 @@ function App() {
   const [apiKey, setApiKey] = useState('')
   const [modelName, setModelName] = useState(() => localStorage.getItem('tts_model_name') || 'gemini-2.5-flash-preview-tts')
   const [models, setModels] = useState([])
-  const [provider, setProvider] = useState(() => localStorage.getItem('tts_provider') || 'fpt')
+  const [provider, setProvider] = useState(() => {
+    let p = localStorage.getItem('tts_provider');
+    if (p === 'vieneu') return 'fpt';
+    return p || 'fpt';
+  })
   const [vieneuMode, setVieneuMode] = useState(() => localStorage.getItem('tts_vieneu_mode') || 'remote')
   const [vieneuUrl, setVieneuUrl] = useState(() => localStorage.getItem('tts_vieneu_url') || 'http://localhost:23333/v1')
   const [fptApiKeys, setFptApiKeys] = useState(() => localStorage.getItem('tts_fpt_api_keys') || '')
@@ -399,7 +403,6 @@ function App() {
               <select value={provider} onChange={handleProviderChange}>
                 <option value="fpt">FPT AI TTS (API)</option>
                 <option value="gemini">Google Gemini (API)</option>
-                <option value="vieneu">VieNeu-TTS Turbo (Local)</option>
               </select>
             </div>
 
@@ -445,44 +448,7 @@ function App() {
               </>
             )}
 
-            {provider === 'vieneu' && (
-              <>
-                <div className="form-group" style={{ marginBottom: '1rem', marginTop: '1rem' }}>
-                  <label>Chế độ hoạt động (VieNeu Engine)</label>
-                  <div style={{ display: 'flex', gap: '15px', marginTop: '8px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '0.9rem' }}>
-                      <input type="radio" name="vieneuMode" value="remote" checked={vieneuMode === 'remote'} onChange={(e) => setVieneuMode(e.target.value)} />
-                      Remote Server (Nhanh)
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '0.9rem' }}>
-                      <input type="radio" name="vieneuMode" value="offline" checked={vieneuMode === 'offline'} onChange={(e) => setVieneuMode(e.target.value)} />
-                      Offline (Chậm nếu dùng CPU)
-                    </label>
-                  </div>
-                </div>
 
-                {vieneuMode === 'remote' && (
-                  <div className="form-group" style={{ marginBottom: '1rem' }}>
-                    <label>Remote Server URL</label>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <input
-                        type="text"
-                        value={vieneuUrl}
-                        onChange={e => setVieneuUrl(e.target.value)}
-                        placeholder="http://localhost:23333/v1"
-                        style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white' }}
-                      />
-                      <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={handleSaveSettings}>{t('save_key')}</button>
-                    </div>
-                  </div>
-                )}
-                {vieneuMode === 'offline' && (
-                  <div className="form-group" style={{ marginBottom: '1rem' }}>
-                    <button className="btn" style={{ width: '100%', background: '#334155' }} onClick={handleSaveSettings}>Lưu Thiết Lập Offline</button>
-                  </div>
-                )}
-              </>
-            )}
 
             {provider === 'fpt' && (
               <>

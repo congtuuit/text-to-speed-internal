@@ -43,7 +43,7 @@ class JobRequest(BaseModel):
     output_dir: str
     voice: str
     model_name: str = "gemini-2.5-flash-preview-tts"
-    provider: str = "gemini"
+    provider: str = "fpt"
     vieneu_mode: str = "remote"
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
@@ -55,7 +55,7 @@ class DocxJobRequest(BaseModel):
     output_dir: str
     voice: str
     model_name: str = "gemini-2.5-flash-preview-tts"
-    provider: str = "gemini"
+    provider: str = "fpt"
     vieneu_mode: str = "remote"
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
@@ -135,7 +135,7 @@ class TestVoiceRequest(BaseModel):
     text: str = "Xin chào, đây là giọng đọc thử."
     api_key: str = ""
     model_name: str = "gemini-2.5-flash-preview-tts"
-    provider: str = "gemini"
+    provider: str = "fpt"
     vieneu_mode: str = "remote"
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
@@ -155,14 +155,7 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
             pass
             
     try:
-        if req.provider == "vieneu":
-            from services.queue_manager import get_vieneu_instance
-            vieneu_tts = get_vieneu_instance(mode=req.vieneu_mode, api_base=req.vieneu_url)
-            voice_data = vieneu_tts.get_preset_voice(req.voice)
-            audio_data = vieneu_tts.infer(req.text, voice=voice_data)
-            vieneu_tts.save(audio_data, temp_file)
-            success = True
-        elif req.provider == "fpt":
+        if req.provider == "fpt":
             from services.queue_manager import process_fpt_tts
             keys = [k.split('|')[1].strip() if '|' in k else k.strip() for k in req.fpt_api_keys.split('\n') if k.strip()]
             success = process_fpt_tts(req.text, temp_file, req.voice, req.fpt_speed, keys)
@@ -175,7 +168,7 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
     
     if not success or not os.path.exists(temp_file):
         cleanup()
-        error_msg = "Failed to generate Gemini TTS audio. Check backend logs." if req.provider == "gemini" else "Lỗi tạo audio VieNeu-TTS. Vui lòng kiểm tra log backend."
+        error_msg = "Failed to generate Gemini TTS audio. Check backend logs." if req.provider == "gemini" else "Lỗi tạo audio. Vui lòng kiểm tra log backend."
         raise HTTPException(status_code=500, detail=error_msg)
         
     background_tasks.add_task(cleanup)
@@ -184,7 +177,7 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
 class SettingsRequest(BaseModel):
     api_key: str = ""
     model_name: str = ""
-    provider: str = "gemini"
+    provider: str = "fpt"
     vieneu_mode: str = "remote"
     vieneu_url: str = "http://localhost:23333/v1"
     fpt_api_keys: str = ""
@@ -218,10 +211,14 @@ def get_settings(db: Session = Depends(get_db)):
     fpt_api_keys_setting = db.query(models.Settings).filter(models.Settings.key == "fpt_api_keys").first()
     fpt_speed_setting = db.query(models.Settings).filter(models.Settings.key == "fpt_speed").first()
     max_workers_setting = db.query(models.Settings).filter(models.Settings.key == "max_workers").first()
+    provider_val = provider_setting.value if provider_setting else "fpt"
+    if provider_val == "vieneu":
+        provider_val = "fpt"
+        
     return {
         "api_key": api_key_setting.value if api_key_setting else "",
         "model_name": model_name_setting.value if model_name_setting else "gemini-2.5-flash-preview-tts",
-        "provider": provider_setting.value if provider_setting else "fpt",
+        "provider": provider_val,
         "vieneu_mode": vieneu_mode_setting.value if vieneu_mode_setting else "remote",
         "vieneu_url": vieneu_url_setting.value if vieneu_url_setting else "http://localhost:23333/v1",
         "fpt_api_keys": fpt_api_keys_setting.value if fpt_api_keys_setting else "",
@@ -255,7 +252,7 @@ def get_models(api_key: str = None, db: Session = Depends(get_db)):
         return {"models": []}
 
 @app.get("/api/voices")
-def get_voices(provider: str = "gemini"):
+def get_voices(provider: str = "fpt"):
     if provider == "fpt":
         return [
             {"id": "banmai", "name": "Ban Mai (Nữ miền Bắc)"},
@@ -268,17 +265,7 @@ def get_voices(provider: str = "gemini"):
             {"id": "lannhi", "name": "Lan Nhi (Nữ miền Nam)"},
             {"id": "ngoclam", "name": "Ngọc Lam (Nữ miền Trung)"}
         ]
-    if provider == "vieneu":
-        # Trả về danh sách tĩnh để tránh load model 3GB gây chậm API
-        return [
-            {"id": "Vinh", "name": "Vĩnh (nam miền Nam)"},
-            {"id": "Binh", "name": "Bình (nam miền Bắc)"},
-            {"id": "Tuyen", "name": "Tuyên (nam miền Bắc)"},
-            {"id": "Doan", "name": "Đoan (nữ miền Nam)"},
-            {"id": "Ly", "name": "Ly (nữ miền Bắc)"},
-            {"id": "Ngoc", "name": "Ngọc (nữ miền Bắc)"}
-        ]
-            
+
     return [
         {"id": "Puck", "name": "Puck (Nam - Vui vẻ, năng động)"},
         {"id": "Charon", "name": "Charon (Nam - Trầm ấm, mạnh mẽ)"},
