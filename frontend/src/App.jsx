@@ -19,11 +19,13 @@ function App() {
   const [vieneuMode, setVieneuMode] = useState(() => localStorage.getItem('tts_vieneu_mode') || 'remote')
   const [vieneuUrl, setVieneuUrl] = useState(() => localStorage.getItem('tts_vieneu_url') || 'http://localhost:23333/v1')
   const [fptApiKeys, setFptApiKeys] = useState(() => localStorage.getItem('tts_fpt_api_keys') || '')
-  const [fptSpeed, setFptSpeed] = useState(() => localStorage.getItem('tts_fpt_speed') || 0.8)
+  const [fptSpeed, setFptSpeed] = useState(() => localStorage.getItem('tts_fpt_speed') || 0)
+  const [maxWorkers, setMaxWorkers] = useState(() => parseInt(localStorage.getItem('tts_max_workers')) || 3)
   const [voices, setVoices] = useState([])
 
   const [isScanning, setIsScanning] = useState(false)
   const [fileCount, setFileCount] = useState(0)
+  const [docxChunksDir, setDocxChunksDir] = useState(null)
   const [isTestingVoice, setIsTestingVoice] = useState(false)
   const [audioUrl, setAudioUrl] = useState(null)
 
@@ -77,8 +79,10 @@ function App() {
           setVieneuMode(data.vieneu_mode || 'remote')
           setVieneuUrl(data.vieneu_url || 'http://localhost:23333/v1')
           setFptApiKeys(data.fpt_api_keys || '')
-          setFptSpeed(data.fpt_speed || 0.8)
-          fetchVoices(data.provider)
+          if (data.fpt_speed !== undefined) setFptSpeed(data.fpt_speed)
+          if (data.max_workers !== undefined) setMaxWorkers(data.max_workers)
+
+          fetchVoices(data.provider || 'fpt')
         } else {
           fetchVoices('fpt')
         }
@@ -97,7 +101,8 @@ function App() {
     localStorage.setItem('tts_vieneu_url', vieneuUrl)
     localStorage.setItem('tts_fpt_api_keys', fptApiKeys)
     localStorage.setItem('tts_fpt_speed', fptSpeed)
-  }, [inputDir, outputDir, voice, testText, modelName, provider, vieneuMode, vieneuUrl])
+    localStorage.setItem('tts_max_workers', maxWorkers)
+  }, [inputDir, outputDir, voice, testText, modelName, provider, vieneuMode, vieneuUrl, fptApiKeys, fptSpeed, maxWorkers])
 
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -118,7 +123,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
+        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers) })
       })
       if (res.ok) {
         Swal.fire({ icon: 'success', title: 'Lưu thành công!', background: '#1e293b', color: '#fff', timer: 1500, showConfirmButton: false });
@@ -136,7 +141,7 @@ function App() {
       await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: newModel, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
+        body: JSON.stringify({ api_key: apiKey, model_name: newModel, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers) })
       });
     } catch (err) { }
   }
@@ -152,13 +157,14 @@ function App() {
       await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: newProvider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
+        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: newProvider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers) })
       });
     } catch (err) { }
   }
 
   const handleScan = async () => {
     setIsScanning(true)
+    setDocxChunksDir(null)
     try {
       const res = await fetch(`${API_BASE_URL}/api/scan`, {
         method: 'POST',
@@ -196,29 +202,39 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/browse-docx`)
       const data = await res.json()
       if (data.path) {
-        const startRes = await fetch(`${API_BASE_URL}/api/jobs/docx`, {
+        const splitRes = await fetch(`${API_BASE_URL}/api/docx/split`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ docx_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
+          body: JSON.stringify({ docx_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers) })
         })
-        const startData = await startRes.json()
-        if (startRes.ok) {
-          alert(`Đã tạo DOCX Job ID: ${startData.job_id}. Tách thành ${startData.total_files} file nhỏ.`)
+        const splitData = await splitRes.json()
+        if (splitRes.ok) {
+          setDocxChunksDir(splitData.chunks_dir)
+          setFileCount(splitData.total_files)
+          Swal.fire({
+            icon: 'success',
+            title: 'Tách file thành công',
+            text: `Đã tách thành ${splitData.total_files} file nhỏ tại ${splitData.chunks_dir}. Vui lòng kiểm tra và bấm "Bắt đầu chuyển đổi" để chạy.`,
+            background: '#1e293b',
+            color: '#fff',
+            confirmButtonColor: '#3b82f6'
+          })
         } else {
-          alert(`Lỗi: ${startData.detail || "Unknown error"}`)
+          Swal.fire({ icon: 'error', title: 'Lỗi', text: splitData.detail || "Unknown error", background: '#1e293b', color: '#fff' })
         }
       }
     } catch (err) {
-      alert("Lỗi mạng khi chọn DOCX")
+      Swal.fire({ icon: 'error', title: 'Lỗi', text: "Lỗi mạng khi chọn DOCX", background: '#1e293b', color: '#fff' })
     }
   }
 
   const handleStartJob = async () => {
     try {
+      const targetInputDir = docxChunksDir || inputDir;
       const res = await fetch(`${API_BASE_URL}/api/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input_dir: inputDir, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
+        body: JSON.stringify({ input_dir: targetInputDir, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers) })
       })
       const data = await res.json()
       if (res.ok) {
@@ -232,7 +248,21 @@ function App() {
   }
 
   const handleDeleteJob = async () => {
-    if (!progress.job_id) return;
+    const result = await Swal.fire({
+      title: 'Xác nhận xóa?',
+      text: "Bạn có chắc muốn xoá TOÀN BỘ lịch sử các Job không?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#334155',
+      confirmButtonText: 'Có, Xóa hết!',
+      cancelButtonText: 'Huỷ',
+      background: '#1e293b',
+      color: '#fff'
+    })
+    
+    if (!result.isConfirmed) return;
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/jobs/${progress.job_id}`, { method: 'DELETE' })
       if (res.ok) {
@@ -240,6 +270,17 @@ function App() {
       }
     } catch (err) {
       console.error(err)
+    }
+  }
+
+  const handleRetryTask = async (taskId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/retry`, { method: 'POST' })
+      if (res.ok) {
+        // Will be updated by the next polling
+      }
+    } catch (err) {
+      console.error("Retry failed", err)
     }
   }
 
@@ -475,6 +516,21 @@ Account2 | 0987654321..."
                     <span style={{ minWidth: '40px', textAlign: 'center', background: '#334155', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>{fptSpeed}</span>
                   </div>
                 </div>
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label>Số luồng xử lý (Workers: 1 đến 10)</label>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      step="1"
+                      value={maxWorkers}
+                      onChange={e => setMaxWorkers(e.target.value)}
+                      style={{ flex: 1, accentColor: '#3b82f6' }}
+                    />
+                    <span style={{ minWidth: '40px', textAlign: 'center', background: '#334155', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>{maxWorkers}</span>
+                  </div>
+                </div>
                 <button className="btn" style={{ width: '100%', background: '#3b82f6' }} onClick={handleSaveSettings}>{t('save_key')}</button>
               </>
             )}
@@ -638,9 +694,26 @@ Account2 | 0987654321..."
 
             <div className="task-list">
               {progress.tasks && progress.tasks.map((task, idx) => (
-                <div className="task-item" key={idx}>
+                <div className="task-item" key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>{task.file_name}</span>
-                  <span className={`status-badge ${task.status.toLowerCase()}`}>{task.status}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {task.status === 'Error' && (
+                      <button 
+                        onClick={() => handleRetryTask(task.id)}
+                        style={{ 
+                          background: 'rgba(59, 130, 246, 0.2)', 
+                          color: '#60a5fa', 
+                          border: '1px solid #3b82f6', 
+                          borderRadius: '4px', 
+                          padding: '0.1rem 0.4rem', 
+                          fontSize: '0.8rem', 
+                          cursor: 'pointer' 
+                        }}>
+                        Chạy lại
+                      </button>
+                    )}
+                    <span className={`status-badge ${task.status.toLowerCase()}`}>{task.status}</span>
+                  </div>
                 </div>
               ))}
               {(!progress.tasks || progress.tasks.length === 0) && (

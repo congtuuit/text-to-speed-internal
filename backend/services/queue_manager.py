@@ -46,51 +46,113 @@ def get_vieneu_voices():
 import time
 import requests
 
+def _chunk_text_fpt(text: str, max_len: int = 200) -> list:
+    words = text.split()
+    chunks = []
+    current_chunk = []
+    current_len = 0
+    for w in words:
+        if current_len + len(w) + 1 > max_len and current_chunk:
+            chunks.append(" ".join(current_chunk))
+            current_chunk = [w]
+            current_len = len(w)
+        else:
+            current_chunk.append(w)
+            current_len += len(w) + 1
+    if current_chunk:
+        chunks.append(" ".join(current_chunk))
+    return chunks
+
 def process_fpt_tts(text: str, output_path: str, voice: str, speed: float, keys: list) -> bool:
     if not keys:
         print("No FPT API keys provided.")
         return False
         
-    for key in keys:
-        try:
-            res = requests.post(
-                "https://api.fpt.ai/hmi/tts/v5",
-                headers={
-                    "api-key": key,
-                    "speed": str(speed),
-                    "voice": voice
-                },
-                data=text.encode("utf-8"),
-                timeout=30
-            )
-            if res.status_code == 200:
-                data = res.json()
-                if data.get("error") == 0 and "async" in data:
-                    async_url = data["async"]
-                    # Polling
-                    max_retries = 30
-                    for _ in range(max_retries):
-                        time.sleep(2)
-                        audio_res = requests.get(async_url)
-                        # FPT returns the audio file directly when ready, so status_code will be 200 and content will be audio.
-                        # Wait, what if it returns JSON or 404 while processing? 
-                        # We assume if it returns 200 and content-type is audio or we just check if it's not a small json.
-                        if audio_res.status_code == 200 and 'json' not in audio_res.headers.get('content-type', '').lower():
-                            with open(output_path, "wb") as f:
-                                f.write(audio_res.content)
-                            return True
-            # If it failed or polling timed out, loop to the next key
-        except Exception as e:
-            print(f"FPT TTS Error with key {key}: {e}")
-            continue
+    chunks = _chunk_text_fpt(text, 200)
+    
+    import tempfile
+    import os
+    
+    chunk_files = []
+    success_all = True
+    
+    for i, chunk in enumerate(chunks):
+        chunk_success = False
+        for key in keys:
+            try:
+                res = requests.post(
+                    "https://api.fpt.ai/hmi/tts/v5",
+                    headers={
+                        "api-key": key,
+                        "speed": str(speed),
+                        "voice": voice
+                    },
+                    data=chunk.encode("utf-8"),
+                    timeout=30
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    if data.get("error") == 0 and "async" in data:
+                        async_url = data["async"]
+                        max_retries = 30
+                        for _ in range(max_retries):
+                            time.sleep(2)
+                            audio_res = requests.get(async_url)
+                            if audio_res.status_code == 200 and 'json' not in audio_res.headers.get('content-type', '').lower():
+                                fd, temp_file = tempfile.mkstemp(suffix=".mp3")
+                                os.close(fd)
+                                with open(temp_file, "wb") as f:
+                                    f.write(audio_res.content)
+                                chunk_files.append(temp_file)
+                                chunk_success = True
+                                break
+                if chunk_success:
+                    break
+            except Exception as e:
+                print(f"FPT TTS Error with key {key}: {e}")
+                continue
+                
+        if not chunk_success:
+            success_all = False
+            break
             
-    return False
+    if success_all and len(chunk_files) == len(chunks) and len(chunks) > 0:
+        try:
+            with open(output_path, "wb") as f_out:
+                for temp_file in chunk_files:
+                    with open(temp_file, "rb") as f_in:
+                        f_out.write(f_in.read())
+        except Exception as e:
+            print("Error merging FPT audio chunks:", e)
+            success_all = False
+    else:
+        success_all = False
+            
+    for temp_file in chunk_files:
+        if os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+            except:
+                pass
+                
+    return success_all
 
 class QueueManager:
     def __init__(self):
         self.is_running = False
         self.is_paused = False
-        self.thread = None
+        self.threads = []
+        self.max_workers = 3
+        self.db_lock = threading.Lock()
+
+    def set_workers(self, num: int):
+        self.max_workers = max(1, min(10, num))
+        if self.is_running:
+            while len(self.threads) < self.max_workers:
+                t = threading.Thread(target=self._worker_loop, daemon=True)
+                t.start()
+                self.threads.append(t)
+            print(f"QueueManager adjusted to {self.max_workers} workers.")
 
     def resume(self):
         self.is_paused = False
@@ -99,32 +161,45 @@ class QueueManager:
     def start(self):
         if not self.is_running:
             self.is_running = True
-            self.thread = threading.Thread(target=self._worker_loop, daemon=True)
-            self.thread.start()
-            print("QueueManager started.")
+            for i in range(self.max_workers):
+                t = threading.Thread(target=self._worker_loop, daemon=True, name=f"Worker-{i}")
+                t.start()
+                self.threads.append(t)
+            print(f"QueueManager started with {self.max_workers} workers.")
 
     def stop(self):
         self.is_running = False
-        if self.thread:
-            self.thread.join()
-            print("QueueManager stopped.")
+        for t in self.threads:
+            if t.is_alive():
+                t.join(timeout=1.0)
+        self.threads.clear()
+        print("QueueManager stopped.")
 
     def _worker_loop(self):
         while self.is_running:
+            with self.db_lock:
+                if len(self.threads) > self.max_workers:
+                    if threading.current_thread() in self.threads:
+                        self.threads.remove(threading.current_thread())
+                    break
+                    
             if self.is_paused:
                 time.sleep(2)
                 continue
 
             db = SessionLocal()
             try:
-                # Tìm 1 task đang pending
-                task = db.query(FileTask).filter(FileTask.status == "Pending").first()
+                task = None
+                with self.db_lock:
+                    # Tìm 1 task đang pending
+                    task = db.query(FileTask).filter(FileTask.status == "Pending").first()
+                    if task:
+                        # Cập nhật trạng thái
+                        task.status = "Processing"
+                        db.commit()
+                        
                 if task:
                     job = task.job
-                    
-                    # Cập nhật trạng thái
-                    task.status = "Processing"
-                    db.commit()
                     
                     try:
                         # Đọc nội dung file

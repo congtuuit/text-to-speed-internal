@@ -1,4 +1,5 @@
 import os
+import re
 from docx import Document
 
 def split_docx_to_txt(docx_path: str, output_dir: str, max_chars: int = 2800):
@@ -14,6 +15,8 @@ def split_docx_to_txt(docx_path: str, output_dir: str, max_chars: int = 2800):
     
     def save_chunk(text):
         nonlocal chunk_index
+        text = text.strip()
+        if not text: return
         file_name = f"{chunk_index:03d}.txt"
         file_path = os.path.join(output_dir, file_name)
         with open(file_path, "w", encoding="utf-8") as f:
@@ -30,11 +33,14 @@ def split_docx_to_txt(docx_path: str, output_dir: str, max_chars: int = 2800):
         else:
             if current_chunk:
                 save_chunk(current_chunk)
+                current_chunk = ""
             
             if len(para) > max_chars:
-                sentences = para.replace(". ", ".\n").split("\n")
+                sentences = re.split(r'(?<=[.?!])\s+', para)
                 temp_chunk = ""
                 for sent in sentences:
+                    sent = sent.strip()
+                    if not sent: continue
                     if len(temp_chunk) + len(sent) + 1 <= max_chars:
                         if temp_chunk:
                             temp_chunk += " " + sent
@@ -43,9 +49,34 @@ def split_docx_to_txt(docx_path: str, output_dir: str, max_chars: int = 2800):
                     else:
                         if temp_chunk:
                             save_chunk(temp_chunk)
+                        
                         if len(sent) > max_chars:
-                            save_chunk(sent)
-                            temp_chunk = ""
+                            # Tách theo dấu phẩy nếu câu vẫn quá dài
+                            sub_parts = re.split(r'(?<=[,;])\s+', sent)
+                            sub_chunk = ""
+                            for sub in sub_parts:
+                                sub = sub.strip()
+                                if not sub: continue
+                                if len(sub_chunk) + len(sub) + 1 <= max_chars:
+                                    if sub_chunk: sub_chunk += " " + sub
+                                    else: sub_chunk = sub
+                                else:
+                                    if sub_chunk: save_chunk(sub_chunk)
+                                    if len(sub) > max_chars:
+                                        # Cuối cùng cắt theo khoảng trắng
+                                        words = sub.split()
+                                        w_chunk = ""
+                                        for w in words:
+                                            if len(w_chunk) + len(w) + 1 <= max_chars:
+                                                if w_chunk: w_chunk += " " + w
+                                                else: w_chunk = w
+                                            else:
+                                                if w_chunk: save_chunk(w_chunk)
+                                                w_chunk = w
+                                        sub_chunk = w_chunk
+                                    else:
+                                        sub_chunk = sub
+                            temp_chunk = sub_chunk
                         else:
                             temp_chunk = sent
                 current_chunk = temp_chunk

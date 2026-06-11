@@ -48,6 +48,7 @@ class JobRequest(BaseModel):
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
     vieneu_url: str = "http://localhost:23333/v1"
+    max_workers: int = 3
 
 class DocxJobRequest(BaseModel):
     docx_path: str
@@ -59,6 +60,7 @@ class DocxJobRequest(BaseModel):
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
     vieneu_url: str = "http://localhost:23333/v1"
+    max_workers: int = 3
 
 from services.docx_helper import split_docx_to_txt
 
@@ -85,10 +87,38 @@ def create_job(req: JobRequest, db: Session = Depends(get_db)):
     if not files:
         raise HTTPException(status_code=400, detail="No .txt files found in input directory")
 
-    job = models.BatchJob(input_dir=req.input_dir, output_dir=req.output_dir, voice=req.voice, model_name=req.model_name)
+    is_docx_job = 1 if req.input_dir.endswith('_chunks') else 0
+    final_output_path = ""
+    actual_output_dir = req.output_dir
+    
+    if is_docx_job:
+        base_name = os.path.basename(req.input_dir).replace("_chunks", "")
+        final_output_path = os.path.join(req.output_dir, f"{base_name}.wav")
+        actual_output_dir = req.input_dir
+        
+    job = models.BatchJob(
+        input_dir=req.input_dir, 
+        output_dir=actual_output_dir, 
+        voice=req.voice, 
+        model_name=req.model_name, 
+        provider=req.provider,
+        is_docx_job=is_docx_job,
+        final_output_path=final_output_path
+    )
     db.add(job)
     db.commit()
     db.refresh(job)
+
+    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers))]:
+        if not v:
+            continue
+        setting = db.query(models.Settings).filter(models.Settings.key == k).first()
+        if not setting:
+            setting = models.Settings(key=k, value=v)
+            db.add(setting)
+        else:
+            setting.value = v
+    db.commit()
 
     for file_name in files:
         file_path = os.path.join(req.input_dir, file_name)
@@ -98,15 +128,7 @@ def create_job(req: JobRequest, db: Session = Depends(get_db)):
     db.commit()
     return {"job_id": job.id, "total_files": len(files)}
 
-@app.delete("/api/jobs/{job_id}")
-def delete_job(job_id: int, db: Session = Depends(get_db)):
-    job = db.query(models.BatchJob).filter(models.BatchJob.id == job_id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    db.query(models.FileTask).filter(models.FileTask.job_id == job_id).delete()
-    db.delete(job)
-    db.commit()
-    return {"status": "ok"}
+
 
 class TestVoiceRequest(BaseModel):
     voice: str
@@ -167,10 +189,11 @@ class SettingsRequest(BaseModel):
     vieneu_url: str = "http://localhost:23333/v1"
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
+    max_workers: int = 3
 
 @app.post("/api/settings")
 def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
-    for k, v in [("api_key", req.api_key), ("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed))]:
+    for k, v in [("api_key", req.api_key), ("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers))]:
         setting = db.query(models.Settings).filter(models.Settings.key == k).first()
         if not setting:
             setting = models.Settings(key=k, value=v)
@@ -178,6 +201,7 @@ def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
         else:
             setting.value = v
     db.commit()
+    queue_manager.set_workers(req.max_workers)
     
     # Resume queue in case it was paused due to quota/api key error
     queue_manager.resume()
@@ -193,6 +217,7 @@ def get_settings(db: Session = Depends(get_db)):
     vieneu_url_setting = db.query(models.Settings).filter(models.Settings.key == "vieneu_url").first()
     fpt_api_keys_setting = db.query(models.Settings).filter(models.Settings.key == "fpt_api_keys").first()
     fpt_speed_setting = db.query(models.Settings).filter(models.Settings.key == "fpt_speed").first()
+    max_workers_setting = db.query(models.Settings).filter(models.Settings.key == "max_workers").first()
     return {
         "api_key": api_key_setting.value if api_key_setting else "",
         "model_name": model_name_setting.value if model_name_setting else "gemini-2.5-flash-preview-tts",
@@ -200,7 +225,8 @@ def get_settings(db: Session = Depends(get_db)):
         "vieneu_mode": vieneu_mode_setting.value if vieneu_mode_setting else "remote",
         "vieneu_url": vieneu_url_setting.value if vieneu_url_setting else "http://localhost:23333/v1",
         "fpt_api_keys": fpt_api_keys_setting.value if fpt_api_keys_setting else "",
-        "fpt_speed": float(fpt_speed_setting.value) if fpt_speed_setting else 0.8
+        "fpt_speed": float(fpt_speed_setting.value) if fpt_speed_setting else 0.8,
+        "max_workers": int(max_workers_setting.value) if max_workers_setting else 3
     }
 
 @app.get("/api/models")
@@ -285,15 +311,15 @@ def browse_docx():
     except Exception as e:
         return {"path": "", "error": str(e)}
 
-@app.post("/api/jobs/docx")
-def create_docx_job(req: DocxJobRequest, db: Session = Depends(get_db)):
-    if not os.path.exists(req.docx_path) or not req.docx_path.endswith('.docx'):
+@app.post("/api/docx/split")
+def split_docx_endpoint(req: DocxJobRequest, db: Session = Depends(get_db)):
+    if not req.docx_path.endswith('.docx') and not req.docx_path.endswith('.doc'):
         raise HTTPException(status_code=400, detail="Invalid DOCX file")
         
     if not os.path.exists(req.output_dir):
         os.makedirs(req.output_dir)
         
-    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed))]:
+    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers))]:
         if not v:
             continue
         setting = db.query(models.Settings).filter(models.Settings.key == k).first()
@@ -306,34 +332,15 @@ def create_docx_job(req: DocxJobRequest, db: Session = Depends(get_db)):
         
     base_name = os.path.splitext(os.path.basename(req.docx_path))[0]
     chunks_dir = os.path.join(req.output_dir, f"{base_name}_chunks")
-    final_audio_path = os.path.join(req.output_dir, f"{base_name}.wav")
     
-    files = split_docx_to_txt(req.docx_path, chunks_dir)
+    max_length = 200 if req.provider == 'fpt' else 2800
+    files = split_docx_to_txt(req.docx_path, chunks_dir, max_chars=max_length)
     
-    job = models.BatchJob(
-        input_dir=chunks_dir, 
-        output_dir=chunks_dir, 
-        voice=req.voice, 
-        model_name=req.model_name,
-        provider=req.provider,
-        is_docx_job=1,
-        final_output_path=final_audio_path
-    )
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-
-    for file_name in files:
-        file_path = os.path.join(chunks_dir, file_name)
-        task = models.FileTask(job_id=job.id, file_name=file_name, file_path=file_path)
-        db.add(task)
-    
-    db.commit()
-    return {"job_id": job.id, "total_files": len(files)}
+    return {"chunks_dir": chunks_dir, "total_files": len(files)}
 
 @app.get("/api/jobs/latest/progress")
 def get_latest_job_progress(db: Session = Depends(get_db)):
-    job = db.query(models.BatchJob).order_by(models.BatchJob.id.desc()).first()
+    job = db.query(models.BatchJob).filter(models.BatchJob.status != "Cancelled").order_by(models.BatchJob.id.desc()).first()
     if not job:
         return {"status": "No jobs found"}
         
@@ -351,21 +358,30 @@ def get_latest_job_progress(db: Session = Depends(get_db)):
         "error": error,
         "processing": processing,
         "is_paused": queue_manager.is_paused,
-        "tasks": [{"file_name": t.file_name, "status": t.status} for t in tasks]
+        "tasks": [{"id": t.id, "file_name": t.file_name, "status": t.status} for t in tasks]
     }
+
+@app.post("/api/tasks/{task_id}/retry")
+def retry_task(task_id: int, db: Session = Depends(get_db)):
+    task = db.query(models.FileTask).filter(models.FileTask.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    task.status = "Pending"
+    
+    # Update job status if needed
+    job = db.query(models.BatchJob).filter(models.BatchJob.id == task.job_id).first()
+    if job and job.status in ["Completed", "Error", "Paused"]:
+        job.status = "Processing"
+        
+    db.commit()
+    queue_manager.resume()
+    return {"status": "ok"}
 
 @app.delete("/api/jobs/{job_id}")
 def delete_job(job_id: int, db: Session = Depends(get_db)):
-    job = db.query(models.BatchJob).filter(models.BatchJob.id == job_id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-        
-    # Hủy các task đang pending
-    db.query(models.FileTask).filter(
-        models.FileTask.job_id == job_id, 
-        models.FileTask.status == "Pending"
-    ).update({"status": "Cancelled"})
-    
-    job.status = "Cancelled"
+    # Xoá toàn bộ lịch sử thực sự trong DB theo yêu cầu của user
+    db.query(models.FileTask).delete()
+    db.query(models.BatchJob).delete()
     db.commit()
-    return {"status": "Job cancelled"}
+    return {"status": "ok"}
