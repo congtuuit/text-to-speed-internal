@@ -15,9 +15,11 @@ function App() {
   const [apiKey, setApiKey] = useState('')
   const [modelName, setModelName] = useState(() => localStorage.getItem('tts_model_name') || 'gemini-2.5-flash-preview-tts')
   const [models, setModels] = useState([])
-  const [provider, setProvider] = useState(() => localStorage.getItem('tts_provider') || 'gemini')
+  const [provider, setProvider] = useState(() => localStorage.getItem('tts_provider') || 'fpt')
   const [vieneuMode, setVieneuMode] = useState(() => localStorage.getItem('tts_vieneu_mode') || 'remote')
   const [vieneuUrl, setVieneuUrl] = useState(() => localStorage.getItem('tts_vieneu_url') || 'http://localhost:23333/v1')
+  const [fptApiKeys, setFptApiKeys] = useState(() => localStorage.getItem('tts_fpt_api_keys') || '')
+  const [fptSpeed, setFptSpeed] = useState(() => localStorage.getItem('tts_fpt_speed') || 0.8)
   const [voices, setVoices] = useState([])
 
   const [isScanning, setIsScanning] = useState(false)
@@ -74,9 +76,11 @@ function App() {
           setProvider(data.provider)
           setVieneuMode(data.vieneu_mode || 'remote')
           setVieneuUrl(data.vieneu_url || 'http://localhost:23333/v1')
+          setFptApiKeys(data.fpt_api_keys || '')
+          setFptSpeed(data.fpt_speed || 0.8)
           fetchVoices(data.provider)
         } else {
-          fetchVoices('gemini')
+          fetchVoices('fpt')
         }
       })
       .catch(err => console.error(err))
@@ -91,6 +95,8 @@ function App() {
     localStorage.setItem('tts_provider', provider)
     localStorage.setItem('tts_vieneu_mode', vieneuMode)
     localStorage.setItem('tts_vieneu_url', vieneuUrl)
+    localStorage.setItem('tts_fpt_api_keys', fptApiKeys)
+    localStorage.setItem('tts_fpt_speed', fptSpeed)
   }, [inputDir, outputDir, voice, testText, modelName, provider, vieneuMode, vieneuUrl])
 
   useEffect(() => {
@@ -103,7 +109,7 @@ function App() {
         }
       } catch (err) {
       }
-    }, 2000)
+    }, 5000)
     return () => clearInterval(interval)
   }, [])
 
@@ -112,7 +118,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
+        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
       })
       if (res.ok) {
         Swal.fire({ icon: 'success', title: 'Lưu thành công!', background: '#1e293b', color: '#fff', timer: 1500, showConfirmButton: false });
@@ -130,9 +136,9 @@ function App() {
       await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: newModel, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
+        body: JSON.stringify({ api_key: apiKey, model_name: newModel, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
       });
-    } catch (err) {}
+    } catch (err) { }
   }
 
   const handleProviderChange = async (e) => {
@@ -146,9 +152,9 @@ function App() {
       await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: newProvider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
+        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: newProvider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
       });
-    } catch (err) {}
+    } catch (err) { }
   }
 
   const handleScan = async () => {
@@ -193,7 +199,7 @@ function App() {
         const startRes = await fetch(`${API_BASE_URL}/api/jobs/docx`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ docx_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
+          body: JSON.stringify({ docx_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
         })
         const startData = await startRes.json()
         if (startRes.ok) {
@@ -212,7 +218,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input_dir: inputDir, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
+        body: JSON.stringify({ input_dir: inputDir, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
       })
       const data = await res.json()
       if (res.ok) {
@@ -244,7 +250,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: voice, text: testText, api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
+        body: JSON.stringify({ voice: voice, text: testText, api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
       })
       if (res.ok) {
         const blob = await res.blob()
@@ -287,7 +293,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: voice, text: quickText, api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
+        body: JSON.stringify({ voice: voice, text: quickText, api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
       })
       if (res.ok) {
         const blob = await res.blob()
@@ -350,6 +356,7 @@ function App() {
             <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label>Bộ Tạo Giọng (Provider)</label>
               <select value={provider} onChange={handleProviderChange}>
+                <option value="fpt">FPT AI TTS (API)</option>
                 <option value="gemini">Google Gemini (API)</option>
                 <option value="vieneu">VieNeu-TTS Turbo (Local)</option>
               </select>
@@ -430,9 +437,45 @@ function App() {
                 )}
                 {vieneuMode === 'offline' && (
                   <div className="form-group" style={{ marginBottom: '1rem' }}>
-                     <button className="btn" style={{ width: '100%', background: '#334155' }} onClick={handleSaveSettings}>Lưu Thiết Lập Offline</button>
+                    <button className="btn" style={{ width: '100%', background: '#334155' }} onClick={handleSaveSettings}>Lưu Thiết Lập Offline</button>
                   </div>
                 )}
+              </>
+            )}
+
+            {provider === 'fpt' && (
+              <>
+                <div className="form-group" style={{ marginBottom: '1rem', marginTop: '1rem' }}>
+                  <label>Danh sách API Keys (FPT AI)</label>
+                  <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0.25rem 0 0.5rem 0' }}>
+                    Mỗi key 1 dòng. Định dạng: <code>Tên tài khoản | API_KEY</code> hoặc chỉ cần nhập <code>API_KEY</code>.
+                  </p>
+                  <textarea
+                    value={fptApiKeys}
+                    onChange={e => setFptApiKeys(e.target.value)}
+                    placeholder="Ví dụ:
+Account1 | abcdef123456...
+Account2 | 0987654321..."
+                    rows={4}
+                    style={{ width: '100%', background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white', fontFamily: 'monospace' }}
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label>Tốc độ đọc (Speed: -3 đến 3)</label>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <input
+                      type="range"
+                      min="-3"
+                      max="3"
+                      step="0.1"
+                      value={fptSpeed}
+                      onChange={e => setFptSpeed(e.target.value)}
+                      style={{ flex: 1, accentColor: '#3b82f6' }}
+                    />
+                    <span style={{ minWidth: '40px', textAlign: 'center', background: '#334155', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>{fptSpeed}</span>
+                  </div>
+                </div>
+                <button className="btn" style={{ width: '100%', background: '#3b82f6' }} onClick={handleSaveSettings}>{t('save_key')}</button>
               </>
             )}
           </div>
@@ -501,10 +544,10 @@ function App() {
                 }}
               />
             </div>
-            <button 
-              className="btn btn-giant" 
+            <button
+              className="btn btn-giant"
               style={{ width: 'auto', padding: '0.75rem 2.5rem', fontSize: '1.1rem' }}
-              onClick={handleQuickConvert} 
+              onClick={handleQuickConvert}
               disabled={isQuickConverting || !apiKey || !quickText.trim()}
             >
               {isQuickConverting ? t('testing') : t('quick_convert')}
@@ -512,10 +555,10 @@ function App() {
             {quickAudioUrl && (
               <div style={{ marginTop: '1rem', display: 'flex', gap: '10px', alignItems: 'center' }}>
                 <audio src={quickAudioUrl} controls autoPlay style={{ flex: 1, borderRadius: '8px' }} />
-                <a 
-                  href={quickAudioUrl} 
-                  download={`tts_audio_${new Date().toISOString().replace(/[:T]/g, '-').split('.')[0]}.wav`} 
-                  className="btn" 
+                <a
+                  href={quickAudioUrl}
+                  download={`tts_audio_${new Date().toISOString().replace(/[:T]/g, '-').split('.')[0]}.wav`}
+                  className="btn"
                   style={{ background: '#10b981', width: 'auto', padding: '0.75rem 1.5rem', textDecoration: 'none', display: 'inline-block', textAlign: 'center' }}
                 >
                   ⬇ Tải về
@@ -536,10 +579,11 @@ function App() {
                   style={{ flex: 1 }}
                 />
                 <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={() => handleBrowse(setInputDir)}>{t('browse')}</button>
-                <button className="btn" style={{ width: 'auto', background: '#3b82f6' }} onClick={handleBrowseDocx}>Chọn .docx</button>
                 <button className="btn" style={{ width: 'auto' }} onClick={handleScan} disabled={isScanning}>
                   {isScanning ? t('scanning') : t('scan')}
                 </button>
+                <br />
+                <button className="btn" style={{ width: 'auto', background: '#3b82f6' }} onClick={handleBrowseDocx}>Chọn .docx</button>
               </div>
               {fileCount > 0 && <small style={{ color: '#10b981' }}>{t('found_files', { count: fileCount })}</small>}
             </div>
@@ -566,13 +610,13 @@ function App() {
           <div className="glass-panel">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{t('status_dashboard')}</h2>
-              {progress.status === 'Completed' && (
-                <button 
-                  className="btn" 
-                  style={{ width: 'auto', padding: '0.4rem 1rem', background: '#ef4444', fontSize: '0.9rem' }} 
+              {['Pending', 'Processing', 'Paused', 'Completed', 'Error', 'Cancelled'].includes(progress.status) && (
+                <button
+                  className="btn"
+                  style={{ width: 'auto', padding: '0.4rem 1rem', background: '#ef4444', fontSize: '0.9rem' }}
                   onClick={handleDeleteJob}
                 >
-                  Xóa Lịch Sử
+                  {['Pending', 'Processing', 'Paused'].includes(progress.status) ? 'Dừng & Xoá Job' : 'Xóa Lịch Sử'}
                 </button>
               )}
             </div>

@@ -43,6 +43,49 @@ def get_vieneu_voices():
     return [] # deprecated
 # ---------------------------
 
+import time
+import requests
+
+def process_fpt_tts(text: str, output_path: str, voice: str, speed: float, keys: list) -> bool:
+    if not keys:
+        print("No FPT API keys provided.")
+        return False
+        
+    for key in keys:
+        try:
+            res = requests.post(
+                "https://api.fpt.ai/hmi/tts/v5",
+                headers={
+                    "api-key": key,
+                    "speed": str(speed),
+                    "voice": voice
+                },
+                data=text.encode("utf-8"),
+                timeout=30
+            )
+            if res.status_code == 200:
+                data = res.json()
+                if data.get("error") == 0 and "async" in data:
+                    async_url = data["async"]
+                    # Polling
+                    max_retries = 30
+                    for _ in range(max_retries):
+                        time.sleep(2)
+                        audio_res = requests.get(async_url)
+                        # FPT returns the audio file directly when ready, so status_code will be 200 and content will be audio.
+                        # Wait, what if it returns JSON or 404 while processing? 
+                        # We assume if it returns 200 and content-type is audio or we just check if it's not a small json.
+                        if audio_res.status_code == 200 and 'json' not in audio_res.headers.get('content-type', '').lower():
+                            with open(output_path, "wb") as f:
+                                f.write(audio_res.content)
+                            return True
+            # If it failed or polling timed out, loop to the next key
+        except Exception as e:
+            print(f"FPT TTS Error with key {key}: {e}")
+            continue
+            
+    return False
+
 class QueueManager:
     def __init__(self):
         self.is_running = False
@@ -121,6 +164,14 @@ class QueueManager:
                                     audio_data = vieneu_tts.infer(text, voice=voice_data)
                                     vieneu_tts.save(audio_data, output_path)
                                     success = True
+                                elif job_provider == "fpt":
+                                    setting_keys = db.query(Settings).filter(Settings.key == "fpt_api_keys").first()
+                                    setting_speed = db.query(Settings).filter(Settings.key == "fpt_speed").first()
+                                    keys_str = setting_keys.value if setting_keys else ""
+                                    speed_val = float(setting_speed.value) if setting_speed else 0.8
+                                    
+                                    keys = [k.split('|')[1].strip() if '|' in k else k.strip() for k in keys_str.split('\n') if k.strip()]
+                                    success = process_fpt_tts(text, output_path, job.voice, speed_val, keys)
                                 else:
                                     success = False
                                 if success:

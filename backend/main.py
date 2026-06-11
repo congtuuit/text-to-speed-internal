@@ -45,6 +45,8 @@ class JobRequest(BaseModel):
     model_name: str = "gemini-2.5-flash-preview-tts"
     provider: str = "gemini"
     vieneu_mode: str = "remote"
+    fpt_api_keys: str = ""
+    fpt_speed: float = 0.8
     vieneu_url: str = "http://localhost:23333/v1"
 
 class DocxJobRequest(BaseModel):
@@ -54,6 +56,8 @@ class DocxJobRequest(BaseModel):
     model_name: str = "gemini-2.5-flash-preview-tts"
     provider: str = "gemini"
     vieneu_mode: str = "remote"
+    fpt_api_keys: str = ""
+    fpt_speed: float = 0.8
     vieneu_url: str = "http://localhost:23333/v1"
 
 from services.docx_helper import split_docx_to_txt
@@ -111,6 +115,8 @@ class TestVoiceRequest(BaseModel):
     model_name: str = "gemini-2.5-flash-preview-tts"
     provider: str = "gemini"
     vieneu_mode: str = "remote"
+    fpt_api_keys: str = ""
+    fpt_speed: float = 0.8
     vieneu_url: str = "http://localhost:23333/v1"
 
 @app.post("/api/test-voice")
@@ -134,6 +140,10 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
             audio_data = vieneu_tts.infer(req.text, voice=voice_data)
             vieneu_tts.save(audio_data, temp_file)
             success = True
+        elif req.provider == "fpt":
+            from services.queue_manager import process_fpt_tts
+            keys = [k.split('|')[1].strip() if '|' in k else k.strip() for k in req.fpt_api_keys.split('\n') if k.strip()]
+            success = process_fpt_tts(req.text, temp_file, req.voice, req.fpt_speed, keys)
         else:
             provider = TTSProvider(api_key=req.api_key)
             success = provider.process_text_to_speech(req.text, temp_file, req.voice, req.model_name)
@@ -155,10 +165,12 @@ class SettingsRequest(BaseModel):
     provider: str = "gemini"
     vieneu_mode: str = "remote"
     vieneu_url: str = "http://localhost:23333/v1"
+    fpt_api_keys: str = ""
+    fpt_speed: float = 0.8
 
 @app.post("/api/settings")
 def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
-    for k, v in [("api_key", req.api_key), ("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url)]:
+    for k, v in [("api_key", req.api_key), ("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed))]:
         setting = db.query(models.Settings).filter(models.Settings.key == k).first()
         if not setting:
             setting = models.Settings(key=k, value=v)
@@ -179,12 +191,16 @@ def get_settings(db: Session = Depends(get_db)):
     provider_setting = db.query(models.Settings).filter(models.Settings.key == "provider").first()
     vieneu_mode_setting = db.query(models.Settings).filter(models.Settings.key == "vieneu_mode").first()
     vieneu_url_setting = db.query(models.Settings).filter(models.Settings.key == "vieneu_url").first()
+    fpt_api_keys_setting = db.query(models.Settings).filter(models.Settings.key == "fpt_api_keys").first()
+    fpt_speed_setting = db.query(models.Settings).filter(models.Settings.key == "fpt_speed").first()
     return {
         "api_key": api_key_setting.value if api_key_setting else "",
         "model_name": model_name_setting.value if model_name_setting else "gemini-2.5-flash-preview-tts",
-        "provider": provider_setting.value if provider_setting else "gemini",
+        "provider": provider_setting.value if provider_setting else "fpt",
         "vieneu_mode": vieneu_mode_setting.value if vieneu_mode_setting else "remote",
-        "vieneu_url": vieneu_url_setting.value if vieneu_url_setting else "http://localhost:23333/v1"
+        "vieneu_url": vieneu_url_setting.value if vieneu_url_setting else "http://localhost:23333/v1",
+        "fpt_api_keys": fpt_api_keys_setting.value if fpt_api_keys_setting else "",
+        "fpt_speed": float(fpt_speed_setting.value) if fpt_speed_setting else 0.8
     }
 
 @app.get("/api/models")
@@ -214,6 +230,18 @@ def get_models(api_key: str = None, db: Session = Depends(get_db)):
 
 @app.get("/api/voices")
 def get_voices(provider: str = "gemini"):
+    if provider == "fpt":
+        return [
+            {"id": "banmai", "name": "Ban Mai (Nữ miền Bắc)"},
+            {"id": "leminh", "name": "Lê Minh (Nam miền Bắc)"},
+            {"id": "thuminh", "name": "Thu Minh (Nữ miền Bắc)"},
+            {"id": "minhquang", "name": "Minh Quang (Nam miền Nam)"},
+            {"id": "myan", "name": "Mỹ An (Nữ miền Trung)"},
+            {"id": "linhsan", "name": "Linh San (Nữ miền Nam)"},
+            {"id": "giahuy", "name": "Gia Huy (Nam miền Trung)"},
+            {"id": "lannhi", "name": "Lan Nhi (Nữ miền Nam)"},
+            {"id": "ngoclam", "name": "Ngọc Lam (Nữ miền Trung)"}
+        ]
     if provider == "vieneu":
         # Trả về danh sách tĩnh để tránh load model 3GB gây chậm API
         return [
@@ -265,6 +293,17 @@ def create_docx_job(req: DocxJobRequest, db: Session = Depends(get_db)):
     if not os.path.exists(req.output_dir):
         os.makedirs(req.output_dir)
         
+    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed))]:
+        if not v:
+            continue
+        setting = db.query(models.Settings).filter(models.Settings.key == k).first()
+        if not setting:
+            setting = models.Settings(key=k, value=v)
+            db.add(setting)
+        else:
+            setting.value = v
+    db.commit()
+        
     base_name = os.path.splitext(os.path.basename(req.docx_path))[0]
     chunks_dir = os.path.join(req.output_dir, f"{base_name}_chunks")
     final_audio_path = os.path.join(req.output_dir, f"{base_name}.wav")
@@ -314,3 +353,19 @@ def get_latest_job_progress(db: Session = Depends(get_db)):
         "is_paused": queue_manager.is_paused,
         "tasks": [{"file_name": t.file_name, "status": t.status} for t in tasks]
     }
+
+@app.delete("/api/jobs/{job_id}")
+def delete_job(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(models.BatchJob).filter(models.BatchJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+        
+    # Hủy các task đang pending
+    db.query(models.FileTask).filter(
+        models.FileTask.job_id == job_id, 
+        models.FileTask.status == "Pending"
+    ).update({"status": "Cancelled"})
+    
+    job.status = "Cancelled"
+    db.commit()
+    return {"status": "Job cancelled"}
