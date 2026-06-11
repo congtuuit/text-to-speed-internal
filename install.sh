@@ -1,57 +1,57 @@
 #!/bin/bash
 
-echo "Kiểm tra môi trường..."
+echo "Checking environment..."
 if ! command -v python3 &> /dev/null; then
-    echo "[CẢNH BÁO] Không tìm thấy Python3! Đang thử cài đặt tự động..."
+    echo "[WARNING] Python3 not found! Attempting automatic installation..."
     if command -v apt &> /dev/null; then sudo apt update && sudo apt install -y python3 python3-venv python3-pip
     elif command -v brew &> /dev/null; then brew install python
-    else echo "[LỖI] Không thể tự động cài. Vui lòng tự cài Python 3.9+."; exit 1; fi
+    else echo "[ERROR] Cannot install automatically. Please install Python 3.9+ manually."; exit 1; fi
 fi
 
 if ! command -v npm &> /dev/null; then
-    echo "[CẢNH BÁO] Không tìm thấy Node.js! Đang thử cài đặt tự động..."
+    echo "[WARNING] Node.js not found! Attempting automatic installation..."
     if command -v apt &> /dev/null; then sudo apt update && sudo apt install -y nodejs npm
     elif command -v brew &> /dev/null; then brew install node
-    else echo "[LỖI] Không thể tự động cài. Vui lòng tự cài Node.js v18+."; exit 1; fi
+    else echo "[ERROR] Cannot install automatically. Please install Node.js v18+ manually."; exit 1; fi
 fi
 
 if ! command -v ffmpeg &> /dev/null; then
-    echo "[CẢNH BÁO] Không tìm thấy FFmpeg! Đang thử cài đặt tự động..."
+    echo "[WARNING] FFmpeg not found! Attempting automatic installation..."
     if command -v apt &> /dev/null; then sudo apt update && sudo apt install -y ffmpeg
     elif command -v brew &> /dev/null; then brew install ffmpeg
-    else echo "[LỖI] Không thể tự động cài. Vui lòng tự cài FFmpeg."; exit 1; fi
+    else echo "[ERROR] Cannot install automatically. Please install FFmpeg manually."; exit 1; fi
 fi
 
 echo "=============================================="
-echo "CÀI ĐẶT TEXT-TO-SPEECH (BACKEND)"
+echo "INSTALLING TEXT-TO-SPEECH (BACKEND)"
 echo "=============================================="
 cd backend
 
 if [ ! -d "venv" ]; then
-    echo "Đang tạo môi trường ảo Python (venv)..."
+    echo "Creating Python virtual environment (venv)..."
     python3 -m venv venv
 fi
 
-echo "Đang cài đặt thư viện Python..."
+echo "Installing Python libraries..."
 source venv/bin/activate
 pip install -r requirements.txt
 cd ..
 
 echo ""
 echo "=============================================="
-echo "CÀI ĐẶT TEXT-TO-SPEECH (FRONTEND)"
+echo "INSTALLING TEXT-TO-SPEECH (FRONTEND)"
 echo "=============================================="
 cd frontend
 if [ ! -f ".env" ]; then
-    echo "Đang tạo file .env mặc định..."
+    echo "Creating default .env file..."
     echo "VITE_API_BASE_URL=http://localhost:8000" > .env
 fi
-echo "Đang cài đặt thư viện Node.js..."
+echo "Installing Node.js libraries..."
 npm install
 cd ..
 
 echo ""
 echo "=============================================="
-echo "CÀI ĐẶT HOÀN TẤT!"
-echo "Vui lòng đọc file SETUP_GUIDE.md để biết cách chạy ứng dụng."
+echo "INSTALLATION COMPLETE!"
+echo "Please read SETUP_GUIDE.md to learn how to run the application."
 echo "=============================================="
