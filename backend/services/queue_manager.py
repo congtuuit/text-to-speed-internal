@@ -5,6 +5,44 @@ from database import SessionLocal
 from models import FileTask, BatchJob, Settings
 from services.tts_provider import TTSProvider
 
+# --- VieNeu Lazy Loading ---
+_vieneu_tts_instance = None
+_current_vieneu_mode = None
+_current_vieneu_url = None
+
+def get_vieneu_instance(mode="remote", api_base="http://localhost:23333/v1"):
+    global _vieneu_tts_instance
+    global _current_vieneu_mode
+    global _current_vieneu_url
+    
+    if _vieneu_tts_instance is not None:
+        if _current_vieneu_mode != mode or _current_vieneu_url != api_base:
+            try:
+                _vieneu_tts_instance.close()
+            except:
+                pass
+            _vieneu_tts_instance = None
+            
+    if _vieneu_tts_instance is None:
+        from vieneu import Vieneu
+        if mode == "remote":
+            _vieneu_tts_instance = Vieneu(mode="remote", api_base=api_base, model_name="pnnbao-ump/VieNeu-TTS-v2")
+        else:
+            import os
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            os.environ["HF_HOME"] = os.path.join(project_root, ".models_cache", "huggingface")
+            os.environ["TORCH_HOME"] = os.path.join(project_root, ".models_cache", "torch")
+            _vieneu_tts_instance = Vieneu()
+            
+        _current_vieneu_mode = mode
+        _current_vieneu_url = api_base
+        
+    return _vieneu_tts_instance
+
+def get_vieneu_voices():
+    return [] # deprecated
+# ---------------------------
+
 class QueueManager:
     def __init__(self):
         self.is_running = False
@@ -61,12 +99,30 @@ class QueueManager:
                         # Lấy model_name từ job (cố định theo lúc tạo job)
                         model_name = job.model_name if job.model_name else "gemini-2.5-flash-preview-tts"
                         
-                        # Gọi TTS Provider với Auto-Retry
-                        provider = TTSProvider(api_key=api_key)
+                        # Lấy provider
+                        job_provider = job.provider if job.provider else "gemini"
+                        if job_provider == "gemini":
+                            provider = TTSProvider(api_key=api_key)
+                        else:
+                            provider = None
                         max_retries = 3
                         for attempt in range(max_retries):
                             try:
-                                success = provider.process_text_to_speech(text, output_path, job.voice, model_name=model_name)
+                                if job_provider == "gemini":
+                                    success = provider.process_text_to_speech(text, output_path, job.voice, model_name=model_name)
+                                elif job_provider == "vieneu":
+                                    setting_mode = db.query(Settings).filter(Settings.key == "vieneu_mode").first()
+                                    setting_url = db.query(Settings).filter(Settings.key == "vieneu_url").first()
+                                    v_mode = setting_mode.value if setting_mode else "remote"
+                                    v_url = setting_url.value if setting_url else "http://localhost:23333/v1"
+                                    
+                                    vieneu_tts = get_vieneu_instance(mode=v_mode, api_base=v_url)
+                                    voice_data = vieneu_tts.get_preset_voice(job.voice)
+                                    audio_data = vieneu_tts.infer(text, voice=voice_data)
+                                    vieneu_tts.save(audio_data, output_path)
+                                    success = True
+                                else:
+                                    success = False
                                 if success:
                                     task.status = "Done"
                                     task.output_path = output_path

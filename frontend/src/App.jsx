@@ -4,38 +4,7 @@ import Swal from 'sweetalert2'
 import './index.css'
 import { API_BASE_URL } from './config'
 
-const GEMINI_VOICES = [
-  {
-    id: 'Puck',
-    name: 'Puck',
-    gender: 'Male',
-    description: 'Giọng nam trầm ấm, rõ ràng.'
-  },
-  {
-    id: 'Charon',
-    name: 'Charon',
-    gender: 'Male',
-    description: 'Giọng nam trung, tự nhiên.'
-  },
-  {
-    id: 'Kore',
-    name: 'Kore',
-    gender: 'Female',
-    description: 'Giọng nữ nhẹ nhàng, truyền cảm.'
-  },
-  {
-    id: 'Fenrir',
-    name: 'Fenrir',
-    gender: 'Male',
-    description: 'Giọng nam mạnh mẽ, dứt khoát.'
-  },
-  {
-    id: 'Aoede',
-    name: 'Aoede',
-    gender: 'Female',
-    description: 'Giọng nữ ấm áp, linh hoạt.'
-  }
-];
+
 
 function App() {
   const { t, i18n } = useTranslation()
@@ -46,6 +15,10 @@ function App() {
   const [apiKey, setApiKey] = useState('')
   const [modelName, setModelName] = useState(() => localStorage.getItem('tts_model_name') || 'gemini-2.5-flash-preview-tts')
   const [models, setModels] = useState([])
+  const [provider, setProvider] = useState(() => localStorage.getItem('tts_provider') || 'gemini')
+  const [vieneuMode, setVieneuMode] = useState(() => localStorage.getItem('tts_vieneu_mode') || 'remote')
+  const [vieneuUrl, setVieneuUrl] = useState(() => localStorage.getItem('tts_vieneu_url') || 'http://localhost:23333/v1')
+  const [voices, setVoices] = useState([])
 
   const [isScanning, setIsScanning] = useState(false)
   const [fileCount, setFileCount] = useState(0)
@@ -75,6 +48,17 @@ function App() {
     } catch (err) { }
   }
 
+  const fetchVoices = async (prov) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/voices?provider=${prov}`)
+      const data = await res.json()
+      setVoices(data || [])
+      return data || []
+    } catch (err) {
+      return []
+    }
+  }
+
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/settings`)
       .then(res => res.json())
@@ -86,6 +70,14 @@ function App() {
         if (data.model_name) {
           setModelName(data.model_name)
         }
+        if (data.provider) {
+          setProvider(data.provider)
+          setVieneuMode(data.vieneu_mode || 'remote')
+          setVieneuUrl(data.vieneu_url || 'http://localhost:23333/v1')
+          fetchVoices(data.provider)
+        } else {
+          fetchVoices('gemini')
+        }
       })
       .catch(err => console.error(err))
   }, [])
@@ -96,7 +88,10 @@ function App() {
     localStorage.setItem('tts_voice', voice)
     localStorage.setItem('tts_test_text', testText)
     localStorage.setItem('tts_model_name', modelName)
-  }, [inputDir, outputDir, voice, testText, modelName])
+    localStorage.setItem('tts_provider', provider)
+    localStorage.setItem('tts_vieneu_mode', vieneuMode)
+    localStorage.setItem('tts_vieneu_url', vieneuUrl)
+  }, [inputDir, outputDir, voice, testText, modelName, provider, vieneuMode, vieneuUrl])
 
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -117,10 +112,10 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: modelName })
+        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
       })
       if (res.ok) {
-        alert(t("alerts.saved_success"))
+        Swal.fire({ icon: 'success', title: 'Lưu thành công!', background: '#1e293b', color: '#fff', timer: 1500, showConfirmButton: false });
         fetchModels(apiKey)
       }
     } catch (err) {
@@ -135,7 +130,23 @@ function App() {
       await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: newModel })
+        body: JSON.stringify({ api_key: apiKey, model_name: newModel, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
+      });
+    } catch (err) {}
+  }
+
+  const handleProviderChange = async (e) => {
+    const newProvider = e.target.value;
+    setProvider(newProvider);
+    const newVoices = await fetchVoices(newProvider);
+    if (newVoices.length > 0) {
+      setVoice(newVoices[0].id);
+    }
+    try {
+      await fetch(`${API_BASE_URL}/api/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: newProvider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
       });
     } catch (err) {}
   }
@@ -182,7 +193,7 @@ function App() {
         const startRes = await fetch(`${API_BASE_URL}/api/jobs/docx`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ docx_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey })
+          body: JSON.stringify({ docx_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
         })
         const startData = await startRes.json()
         if (startRes.ok) {
@@ -201,7 +212,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input_dir: inputDir, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey })
+        body: JSON.stringify({ input_dir: inputDir, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
       })
       const data = await res.json()
       if (res.ok) {
@@ -233,7 +244,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: voice, text: testText, api_key: apiKey, model_name: modelName })
+        body: JSON.stringify({ voice: voice, text: testText, api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
       })
       if (res.ok) {
         const blob = await res.blob()
@@ -242,7 +253,7 @@ function App() {
         const errData = await res.json()
         Swal.fire({
           icon: 'error',
-          title: 'Gemini API Error',
+          title: provider === 'gemini' ? 'Gemini API Error' : 'VieNeu TTS Error',
           text: errData.detail || t("alerts.test_voice_error"),
           background: '#1e293b',
           color: '#fff',
@@ -276,7 +287,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: voice, text: quickText, api_key: apiKey, model_name: modelName })
+        body: JSON.stringify({ voice: voice, text: quickText, api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl })
       })
       if (res.ok) {
         const blob = await res.blob()
@@ -337,42 +348,93 @@ function App() {
             <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('settings')}</h2>
 
             <div className="form-group" style={{ marginBottom: '1rem' }}>
-              <label>{t('api_key')}</label>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={e => setApiKey(e.target.value)}
-                  placeholder="AIzaSy..."
-                  style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white' }}
-                />
-                <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={handleSaveSettings}>{t('save_key')}</button>
-              </div>
+              <label>Bộ Tạo Giọng (Provider)</label>
+              <select value={provider} onChange={handleProviderChange}>
+                <option value="gemini">Google Gemini (API)</option>
+                <option value="vieneu">VieNeu-TTS Turbo (Local)</option>
+              </select>
             </div>
 
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Google Gemini Model</label>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <select
-                  value={modelName}
-                  onChange={handleModelChange}
-                  style={{ flex: 1 }}
-                >
-                  {fallbackModels.map(fallback => {
-                    const val = fallback.name.replace('models/', '');
-                    if (models && models.length > 0 && !models.find(m => m.name === fallback.name || m.name === val)) {
-                      return <option key={'fb_' + val} value={val}>{val}</option>;
-                    }
-                    return null;
-                  })}
-                  {allModels.map(m => {
-                    const val = m.name.replace('models/', '');
-                    return <option key={m.name} value={val}>{m.displayName || val}</option>
-                  })}
-                </select>
-                <button className="btn" style={{ width: 'auto', background: '#3b82f6' }} onClick={() => fetchModels(apiKey)}>Refresh</button>
-              </div>
-            </div>
+            {provider === 'gemini' && (
+              <>
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label>{t('api_key')}</label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      type="password"
+                      value={apiKey}
+                      onChange={e => setApiKey(e.target.value)}
+                      placeholder="AIzaSy..."
+                      style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white' }}
+                    />
+                    <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={handleSaveSettings}>{t('save_key')}</button>
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Google Gemini Model</label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <select
+                      value={modelName}
+                      onChange={handleModelChange}
+                      style={{ flex: 1 }}
+                    >
+                      {fallbackModels.map(fallback => {
+                        const val = fallback.name.replace('models/', '');
+                        if (models && models.length > 0 && !models.find(m => m.name === fallback.name || m.name === val)) {
+                          return <option key={'fb_' + val} value={val}>{val}</option>;
+                        }
+                        return null;
+                      })}
+                      {allModels.map(m => {
+                        const val = m.name.replace('models/', '');
+                        return <option key={m.name} value={val}>{m.displayName || val}</option>
+                      })}
+                    </select>
+                    <button className="btn" style={{ width: 'auto', background: '#3b82f6' }} onClick={() => fetchModels(apiKey)}>Refresh</button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {provider === 'vieneu' && (
+              <>
+                <div className="form-group" style={{ marginBottom: '1rem', marginTop: '1rem' }}>
+                  <label>Chế độ hoạt động (VieNeu Engine)</label>
+                  <div style={{ display: 'flex', gap: '15px', marginTop: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                      <input type="radio" name="vieneuMode" value="remote" checked={vieneuMode === 'remote'} onChange={(e) => setVieneuMode(e.target.value)} />
+                      Remote Server (Nhanh)
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                      <input type="radio" name="vieneuMode" value="offline" checked={vieneuMode === 'offline'} onChange={(e) => setVieneuMode(e.target.value)} />
+                      Offline (Chậm nếu dùng CPU)
+                    </label>
+                  </div>
+                </div>
+
+                {vieneuMode === 'remote' && (
+                  <div className="form-group" style={{ marginBottom: '1rem' }}>
+                    <label>Remote Server URL</label>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <input
+                        type="text"
+                        value={vieneuUrl}
+                        onChange={e => setVieneuUrl(e.target.value)}
+                        placeholder="http://localhost:23333/v1"
+                        style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white' }}
+                      />
+                      <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={handleSaveSettings}>{t('save_key')}</button>
+                    </div>
+                  </div>
+                )}
+                {vieneuMode === 'offline' && (
+                  <div className="form-group" style={{ marginBottom: '1rem' }}>
+                     <button className="btn" style={{ width: '100%', background: '#334155' }} onClick={handleSaveSettings}>Lưu Thiết Lập Offline</button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <div className="glass-panel">
@@ -380,9 +442,9 @@ function App() {
             <div className="form-group">
               <label>{t('voice_selection')}</label>
               <select value={voice} onChange={e => setVoice(e.target.value)}>
-                {GEMINI_VOICES.map((v) => (
+                {voices.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.name} ({v.gender}) - {v.description}
+                    {v.name}
                   </option>
                 ))}
               </select>

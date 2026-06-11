@@ -43,12 +43,18 @@ class JobRequest(BaseModel):
     output_dir: str
     voice: str
     model_name: str = "gemini-2.5-flash-preview-tts"
+    provider: str = "gemini"
+    vieneu_mode: str = "remote"
+    vieneu_url: str = "http://localhost:23333/v1"
 
 class DocxJobRequest(BaseModel):
     docx_path: str
     output_dir: str
     voice: str
     model_name: str = "gemini-2.5-flash-preview-tts"
+    provider: str = "gemini"
+    vieneu_mode: str = "remote"
+    vieneu_url: str = "http://localhost:23333/v1"
 
 from services.docx_helper import split_docx_to_txt
 
@@ -103,11 +109,12 @@ class TestVoiceRequest(BaseModel):
     text: str = "Xin chào, đây là giọng đọc thử."
     api_key: str = ""
     model_name: str = "gemini-2.5-flash-preview-tts"
+    provider: str = "gemini"
+    vieneu_mode: str = "remote"
+    vieneu_url: str = "http://localhost:23333/v1"
 
 @app.post("/api/test-voice")
 def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
-    provider = TTSProvider(api_key=req.api_key)
-    
     # Tạo file tạm thời duy nhất để tránh xung đột khi gọi liên tục
     fd, temp_file = tempfile.mkstemp(suffix=".wav", prefix="tts_")
     os.close(fd)
@@ -120,25 +127,38 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
             pass
             
     try:
-        success = provider.process_text_to_speech(req.text, temp_file, req.voice, req.model_name)
+        if req.provider == "vieneu":
+            from services.queue_manager import get_vieneu_instance
+            vieneu_tts = get_vieneu_instance(mode=req.vieneu_mode, api_base=req.vieneu_url)
+            voice_data = vieneu_tts.get_preset_voice(req.voice)
+            audio_data = vieneu_tts.infer(req.text, voice=voice_data)
+            vieneu_tts.save(audio_data, temp_file)
+            success = True
+        else:
+            provider = TTSProvider(api_key=req.api_key)
+            success = provider.process_text_to_speech(req.text, temp_file, req.voice, req.model_name)
     except Exception as e:
         cleanup()
         raise HTTPException(status_code=500, detail=str(e))
     
     if not success or not os.path.exists(temp_file):
         cleanup()
-        raise HTTPException(status_code=500, detail="Failed to generate Gemini TTS audio. Check backend logs.")
+        error_msg = "Failed to generate Gemini TTS audio. Check backend logs." if req.provider == "gemini" else "Lỗi tạo audio VieNeu-TTS. Vui lòng kiểm tra log backend."
+        raise HTTPException(status_code=500, detail=error_msg)
         
     background_tasks.add_task(cleanup)
     return FileResponse(temp_file, media_type="audio/wav")
 
 class SettingsRequest(BaseModel):
-    api_key: str
-    model_name: str = "gemini-2.5-flash-preview-tts"
+    api_key: str = ""
+    model_name: str = ""
+    provider: str = "gemini"
+    vieneu_mode: str = "remote"
+    vieneu_url: str = "http://localhost:23333/v1"
 
 @app.post("/api/settings")
 def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
-    for k, v in [("api_key", req.api_key), ("model_name", req.model_name)]:
+    for k, v in [("api_key", req.api_key), ("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url)]:
         setting = db.query(models.Settings).filter(models.Settings.key == k).first()
         if not setting:
             setting = models.Settings(key=k, value=v)
@@ -154,11 +174,17 @@ def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
 
 @app.get("/api/settings")
 def get_settings(db: Session = Depends(get_db)):
-    api_key = db.query(models.Settings).filter(models.Settings.key == "api_key").first()
-    model_name = db.query(models.Settings).filter(models.Settings.key == "model_name").first()
+    api_key_setting = db.query(models.Settings).filter(models.Settings.key == "api_key").first()
+    model_name_setting = db.query(models.Settings).filter(models.Settings.key == "model_name").first()
+    provider_setting = db.query(models.Settings).filter(models.Settings.key == "provider").first()
+    vieneu_mode_setting = db.query(models.Settings).filter(models.Settings.key == "vieneu_mode").first()
+    vieneu_url_setting = db.query(models.Settings).filter(models.Settings.key == "vieneu_url").first()
     return {
-        "api_key": api_key.value if api_key else "",
-        "model_name": model_name.value if model_name else "gemini-2.5-flash-preview-tts"
+        "api_key": api_key_setting.value if api_key_setting else "",
+        "model_name": model_name_setting.value if model_name_setting else "gemini-2.5-flash-preview-tts",
+        "provider": provider_setting.value if provider_setting else "gemini",
+        "vieneu_mode": vieneu_mode_setting.value if vieneu_mode_setting else "remote",
+        "vieneu_url": vieneu_url_setting.value if vieneu_url_setting else "http://localhost:23333/v1"
     }
 
 @app.get("/api/models")
@@ -185,6 +211,27 @@ def get_models(api_key: str = None, db: Session = Depends(get_db)):
         return {"models": []}
     except Exception as e:
         return {"models": []}
+
+@app.get("/api/voices")
+def get_voices(provider: str = "gemini"):
+    if provider == "vieneu":
+        # Trả về danh sách tĩnh để tránh load model 3GB gây chậm API
+        return [
+            {"id": "Vinh", "name": "Vĩnh (nam miền Nam)"},
+            {"id": "Binh", "name": "Bình (nam miền Bắc)"},
+            {"id": "Tuyen", "name": "Tuyên (nam miền Bắc)"},
+            {"id": "Doan", "name": "Đoan (nữ miền Nam)"},
+            {"id": "Ly", "name": "Ly (nữ miền Bắc)"},
+            {"id": "Ngoc", "name": "Ngọc (nữ miền Bắc)"}
+        ]
+            
+    return [
+        {"id": "Puck", "name": "Puck (Nam - Vui vẻ, năng động)"},
+        {"id": "Charon", "name": "Charon (Nam - Trầm ấm, mạnh mẽ)"},
+        {"id": "Kore", "name": "Kore (Nữ - Thanh thoát, dịu dàng)"},
+        {"id": "Fenrir", "name": "Fenrir (Nam - Trầm, cá tính)"},
+        {"id": "Aoede", "name": "Aoede (Nữ - Trầm ấm, nội lực)"}
+    ]
 
 @app.get("/api/browse-folder")
 def browse_folder():
@@ -229,6 +276,7 @@ def create_docx_job(req: DocxJobRequest, db: Session = Depends(get_db)):
         output_dir=chunks_dir, 
         voice=req.voice, 
         model_name=req.model_name,
+        provider=req.provider,
         is_docx_job=1,
         final_output_path=final_audio_path
     )

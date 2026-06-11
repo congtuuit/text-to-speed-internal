@@ -11,6 +11,7 @@ class BatchJob(Base):
     output_dir = Column(String)
     voice = Column(String)
     model_name = Column(String, default="gemini-2.5-flash-preview-tts")
+    provider = Column(String, default="gemini")
     is_docx_job = Column(Integer, default=0)
     final_output_path = Column(String, nullable=True)
     status = Column(String, default="Pending") # Pending, Processing, Completed, Error
