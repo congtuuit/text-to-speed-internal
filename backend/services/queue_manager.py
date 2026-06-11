@@ -8,7 +8,12 @@ from services.tts_provider import TTSProvider
 class QueueManager:
     def __init__(self):
         self.is_running = False
+        self.is_paused = False
         self.thread = None
+
+    def resume(self):
+        self.is_paused = False
+        print("QueueManager resumed.")
 
     def start(self):
         if not self.is_running:
@@ -25,6 +30,10 @@ class QueueManager:
 
     def _worker_loop(self):
         while self.is_running:
+            if self.is_paused:
+                time.sleep(2)
+                continue
+
             db = SessionLocal()
             try:
                 # Tìm 1 task đang pending
@@ -52,17 +61,34 @@ class QueueManager:
                         # Lấy model_name từ job (cố định theo lúc tạo job)
                         model_name = job.model_name if job.model_name else "gemini-2.5-flash-preview-tts"
                         
-                        # Gọi TTS Provider
+                        # Gọi TTS Provider với Auto-Retry
                         provider = TTSProvider(api_key=api_key)
-                        success = provider.process_text_to_speech(text, output_path, job.voice, model_name=model_name)
-                        
-                        if success:
-                            task.status = "Done"
-                            task.output_path = output_path
-                        else:
-                            task.status = "Error"
-                            task.error_message = "API Call failed"
-                            
+                        max_retries = 3
+                        for attempt in range(max_retries):
+                            try:
+                                success = provider.process_text_to_speech(text, output_path, job.voice, model_name=model_name)
+                                if success:
+                                    task.status = "Done"
+                                    task.output_path = output_path
+                                    break
+                                else:
+                                    if attempt == max_retries - 1:
+                                        task.status = "Error"
+                                        task.error_message = "API Call failed after retries"
+                            except Exception as e:
+                                err_msg = str(e).lower()
+                                # Check if it's a quota or invalid key error
+                                if "quota" in err_msg or "invalid" in err_msg or "exhausted" in err_msg or "key" in err_msg:
+                                    self.is_paused = True
+                                    task.status = "Pending"
+                                    task.error_message = "Paused due to API Key/Quota limit. Waiting for new key."
+                                    break
+                                else:
+                                    if attempt == max_retries - 1:
+                                        task.status = "Error"
+                                        task.error_message = str(e)
+                                    else:
+                                        time.sleep(2) # Đợi trước khi retry
                     except Exception as e:
                         task.status = "Error"
                         task.error_message = str(e)

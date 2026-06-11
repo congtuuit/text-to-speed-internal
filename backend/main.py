@@ -80,6 +80,16 @@ def create_job(req: JobRequest, db: Session = Depends(get_db)):
     db.commit()
     return {"job_id": job.id, "total_files": len(files)}
 
+@app.delete("/api/jobs/{job_id}")
+def delete_job(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(models.BatchJob).filter(models.BatchJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    db.query(models.FileTask).filter(models.FileTask.job_id == job_id).delete()
+    db.delete(job)
+    db.commit()
+    return {"status": "ok"}
+
 class TestVoiceRequest(BaseModel):
     voice: str
     text: str = "Xin chào, đây là giọng đọc thử."
@@ -128,6 +138,10 @@ def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
         else:
             setting.value = v
     db.commit()
+    
+    # Resume queue in case it was paused due to quota/api key error
+    queue_manager.resume()
+    
     return {"status": "ok"}
 
 @app.get("/api/settings")
@@ -195,5 +209,6 @@ def get_latest_job_progress(db: Session = Depends(get_db)):
         "done": done,
         "error": error,
         "processing": processing,
+        "is_paused": queue_manager.is_paused,
         "tasks": [{"file_name": t.file_name, "status": t.status} for t in tasks]
     }

@@ -192,6 +192,18 @@ function App() {
     }
   }
 
+  const handleDeleteJob = async () => {
+    if (!progress.job_id) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/jobs/${progress.job_id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setProgress({ status: 'Idle', total: 0, done: 0, error: 0, processing: 0, tasks: [] })
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   const handleTestVoice = async () => {
     setIsTestingVoice(true)
     setAudioUrl(null)
@@ -467,10 +479,21 @@ function App() {
           </div>
 
           <div className="glass-panel">
-            <h2 style={{ marginTop: 0, marginBottom: '0.5rem', fontSize: '1.25rem' }}>{t('status_dashboard')}</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{t('status_dashboard')}</h2>
+              {progress.status === 'Completed' && (
+                <button 
+                  className="btn" 
+                  style={{ width: 'auto', padding: '0.4rem 1rem', background: '#ef4444', fontSize: '0.9rem' }} 
+                  onClick={handleDeleteJob}
+                >
+                  Xóa Lịch Sử
+                </button>
+              )}
+            </div>
 
             <div className="stats">
-              <span>{t('state')} <strong style={{ color: '#fff' }}>{progress.status}</strong></span>
+              <span>{t('state')} <strong style={{ color: progress.is_paused ? '#ef4444' : '#fff' }}>{progress.is_paused ? 'PAUSED (QUOTA/KEY ERROR)' : progress.status}</strong></span>
               <span>{t('total_tasks')} <strong style={{ color: '#fff' }}>{progress.total}</strong></span>
             </div>
 
