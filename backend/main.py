@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import os
+import requests
 
 from database import engine, Base, get_db
 import models
@@ -82,32 +83,79 @@ class TestVoiceRequest(BaseModel):
     voice: str
     text: str = "Xin chào, đây là giọng đọc thử."
     api_key: str = ""
+    model_name: str = "gemini-3.1-flash-tts-preview"
 
 @app.post("/api/test-voice")
 def test_voice(req: TestVoiceRequest):
     provider = TTSProvider(api_key=req.api_key)
     temp_file = os.path.join(tempfile.gettempdir(), "test_voice.mp3")
-    provider.process_text_to_speech(req.text, temp_file, req.voice)
+    
+    # Xoá file cũ nếu có để tránh cache
+    if os.path.exists(temp_file):
+        try:
+            os.remove(temp_file)
+        except:
+            pass
+            
+    try:
+        success = provider.process_text_to_speech(req.text, temp_file, req.voice, req.model_name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    if not success or not os.path.exists(temp_file):
+        raise HTTPException(status_code=500, detail="Failed to generate Gemini TTS audio. Check backend logs.")
+        
     return FileResponse(temp_file, media_type="audio/mpeg")
 
 class SettingsRequest(BaseModel):
     api_key: str
+    model_name: str = "gemini-3.1-flash-tts-preview"
 
 @app.post("/api/settings")
 def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
-    setting = db.query(models.Settings).filter(models.Settings.key == "api_key").first()
-    if not setting:
-        setting = models.Settings(key="api_key", value=req.api_key)
-        db.add(setting)
-    else:
-        setting.value = req.api_key
+    for k, v in [("api_key", req.api_key), ("model_name", req.model_name)]:
+        setting = db.query(models.Settings).filter(models.Settings.key == k).first()
+        if not setting:
+            setting = models.Settings(key=k, value=v)
+            db.add(setting)
+        else:
+            setting.value = v
     db.commit()
     return {"status": "ok"}
 
 @app.get("/api/settings")
 def get_settings(db: Session = Depends(get_db)):
-    setting = db.query(models.Settings).filter(models.Settings.key == "api_key").first()
-    return {"api_key": setting.value if setting else ""}
+    api_key = db.query(models.Settings).filter(models.Settings.key == "api_key").first()
+    model_name = db.query(models.Settings).filter(models.Settings.key == "model_name").first()
+    return {
+        "api_key": api_key.value if api_key else "",
+        "model_name": model_name.value if model_name else "gemini-3.1-flash-tts-preview"
+    }
+
+@app.get("/api/models")
+def get_models(api_key: str = None, db: Session = Depends(get_db)):
+    key_to_use = api_key
+    if not key_to_use:
+        setting = db.query(models.Settings).filter(models.Settings.key == "api_key").first()
+        if setting:
+            key_to_use = setting.value
+    
+    if not key_to_use:
+        return {"models": []}
+        
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key_to_use}"
+        res = requests.get(url)
+        if res.status_code == 200:
+            data = res.json()
+            tts_models = [
+                m for m in data.get("models", []) 
+                if 'tts' in m.get("name", "").lower() or 'generateAudio' in m.get("supportedGenerationMethods", [])
+            ]
+            return {"models": tts_models}
+        return {"models": []}
+    except Exception as e:
+        return {"models": []}
 
 @app.get("/api/browse-folder")
 def browse_folder():

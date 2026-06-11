@@ -6,14 +6,15 @@ class TTSProvider:
     def __init__(self, api_key: str = None):
         self.api_key = api_key
 
-    def process_text_to_speech(self, text: str, output_path: str, voice: str):
+    def process_text_to_speech(self, text: str, output_path: str, voice: str, model_name: str = "gemini-3.1-flash-tts-preview"):
         if not self.api_key:
             print("No API Key provided")
             return False
 
         try:
-            print(f"Generating Gemini Audio for voice {voice}...")
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self.api_key}"
+            clean_model = model_name.replace("models/", "")
+            print(f"Generating Gemini Audio for voice {voice} using {clean_model}...")
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:generateContent?key={self.api_key}"
             
             payload = {
                 "contents": [{"parts": [{"text": text}]}],
@@ -34,8 +35,13 @@ class TTSProvider:
             
             # Log lỗi chi tiết nếu có
             if response.status_code != 200:
-                print(f"Gemini API Error: {response.text}")
-                return False
+                err_msg = "Unknown error"
+                try:
+                    err_msg = response.json().get('error', {}).get('message', response.text)
+                except:
+                    err_msg = response.text
+                print(f"Gemini API Error: {err_msg}")
+                raise Exception(f"Gemini API: {err_msg}")
                 
             data = response.json()
             

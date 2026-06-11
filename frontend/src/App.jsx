@@ -1,12 +1,50 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import Swal from 'sweetalert2'
 import './index.css'
 
+export const GEMINI_VOICES = [
+  {
+    id: 'Puck',
+    name: 'Puck',
+    gender: 'Male',
+    description: 'Giọng nam trầm ấm, rõ ràng.'
+  },
+  {
+    id: 'Charon',
+    name: 'Charon',
+    gender: 'Male',
+    description: 'Giọng nam trung, tự nhiên.'
+  },
+  {
+    id: 'Kore',
+    name: 'Kore',
+    gender: 'Female',
+    description: 'Giọng nữ nhẹ nhàng, truyền cảm.'
+  },
+  {
+    id: 'Fenrir',
+    name: 'Fenrir',
+    gender: 'Male',
+    description: 'Giọng nam mạnh mẽ, dứt khoát.'
+  },
+  {
+    id: 'Aoede',
+    name: 'Aoede',
+    gender: 'Female',
+    description: 'Giọng nữ ấm áp, linh hoạt.'
+  }
+];
+
 function App() {
+  const { t, i18n } = useTranslation()
   const [inputDir, setInputDir] = useState(() => localStorage.getItem('tts_input_dir') || 'D:\\Truyen\\input')
   const [outputDir, setOutputDir] = useState(() => localStorage.getItem('tts_output_dir') || 'D:\\Truyen\\output')
   const [voice, setVoice] = useState(() => localStorage.getItem('tts_voice') || 'Aoede')
   const [testText, setTestText] = useState(() => localStorage.getItem('tts_test_text') || 'Xin chào, đây là giọng đọc thử.')
   const [apiKey, setApiKey] = useState('')
+  const [modelName, setModelName] = useState(() => localStorage.getItem('tts_model_name') || 'gemini-3.1-flash-tts-preview')
+  const [models, setModels] = useState([])
   
   const [isScanning, setIsScanning] = useState(false)
   const [fileCount, setFileCount] = useState(0)
@@ -22,25 +60,39 @@ function App() {
     tasks: []
   })
 
-  // Load Settings from backend
+  const fetchModels = async (key) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/models?api_key=${key}`)
+      const data = await res.json()
+      if (data.models) {
+        setModels(data.models)
+      }
+    } catch (err) {}
+  }
+
   useEffect(() => {
     fetch('http://localhost:8000/api/settings')
       .then(res => res.json())
       .then(data => {
-        if (data.api_key) setApiKey(data.api_key)
+        if (data.api_key) {
+          setApiKey(data.api_key)
+          fetchModels(data.api_key)
+        }
+        if (data.model_name) {
+          setModelName(data.model_name)
+        }
       })
       .catch(err => console.error(err))
   }, [])
 
-  // Save to localStorage
   useEffect(() => {
     localStorage.setItem('tts_input_dir', inputDir)
     localStorage.setItem('tts_output_dir', outputDir)
     localStorage.setItem('tts_voice', voice)
     localStorage.setItem('tts_test_text', testText)
-  }, [inputDir, outputDir, voice, testText])
+    localStorage.setItem('tts_model_name', modelName)
+  }, [inputDir, outputDir, voice, testText, modelName])
 
-  // Polling for progress
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -50,7 +102,6 @@ function App() {
           setProgress(data)
         }
       } catch (err) {
-        // Ignore fetch errors during polling if server is down
       }
     }, 2000)
     return () => clearInterval(interval)
@@ -61,11 +112,14 @@ function App() {
       const res = await fetch('http://localhost:8000/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey })
+        body: JSON.stringify({ api_key: apiKey, model_name: modelName })
       })
-      if (res.ok) alert("Settings saved successfully!")
+      if (res.ok) {
+        alert(t("alerts.saved_success"))
+        fetchModels(apiKey)
+      }
     } catch (err) {
-      alert("Failed to save settings")
+      alert(t("alerts.save_failed"))
     }
   }
 
@@ -81,10 +135,10 @@ function App() {
       if (res.ok) {
         setFileCount(data.total)
       } else {
-        alert("Error scanning directory: " + (data.detail || "Unknown error"))
+        alert(t("alerts.scan_error") + (data.detail || "Unknown error"))
       }
     } catch (err) {
-      alert("Failed to connect to backend")
+      alert(t("alerts.conn_error"))
     }
     setIsScanning(false)
   }
@@ -99,7 +153,7 @@ function App() {
         console.error("Browse error:", data.error)
       }
     } catch (err) {
-      alert("Failed to connect to backend for browsing. Is the backend running?")
+      alert(t("alerts.browse_error"))
     }
   }
 
@@ -108,16 +162,16 @@ function App() {
       const res = await fetch('http://localhost:8000/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input_dir: inputDir, output_dir: outputDir, voice: voice })
+        body: JSON.stringify({ input_dir: inputDir, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey })
       })
       const data = await res.json()
       if (res.ok) {
-        alert(`Started job ${data.job_id} with ${data.total_files} files.`)
+        alert(t("alerts.start_job", { jobId: data.job_id, files: data.total_files }))
       } else {
-        alert("Error creating job: " + (data.detail || "Unknown error"))
+        alert(t("alerts.start_job_error") + (data.detail || "Unknown error"))
       }
     } catch (err) {
-      alert("Failed to connect to backend")
+      alert(t("alerts.conn_error"))
     }
   }
 
@@ -128,33 +182,67 @@ function App() {
       const res = await fetch('http://localhost:8000/api/test-voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: voice, text: testText, api_key: apiKey })
+        body: JSON.stringify({ voice: voice, text: testText, api_key: apiKey, model_name: modelName })
       })
       if (res.ok) {
         const blob = await res.blob()
         setAudioUrl(URL.createObjectURL(blob))
       } else {
-        alert("Failed to generate test voice audio")
+        const errData = await res.json()
+        Swal.fire({
+          icon: 'error',
+          title: 'Gemini API Error',
+          text: errData.detail || t("alerts.test_voice_error"),
+          background: '#1e293b',
+          color: '#fff',
+          confirmButtonColor: '#3b82f6'
+        })
       }
     } catch (err) {
-      alert("Failed to connect to backend")
+      Swal.fire({
+        icon: 'error',
+        title: 'Connection Error',
+        text: t("alerts.conn_error"),
+        background: '#1e293b',
+        color: '#fff',
+        confirmButtonColor: '#3b82f6'
+      })
     }
     setIsTestingVoice(false)
   }
 
+  const toggleLang = () => {
+    const newLang = i18n.language === 'vi' ? 'en' : 'vi'
+    i18n.changeLanguage(newLang)
+  }
+
   const percent = progress.total > 0 ? Math.round((progress.done + progress.error) / progress.total * 100) : 0;
+
+  // Deduplicate default model and fetched models
+  const allModels = models && models.length > 0 ? models : [{name: 'models/gemini-3.1-flash-tts-preview', displayName: 'Gemini 3.1 Flash TTS Preview'}];
 
   return (
     <div className="app-container">
+      <div style={{ position: 'absolute', top: '1rem', right: '1rem' }}>
+        <button 
+          className="btn" 
+          style={{ width: 'auto', background: 'rgba(255,255,255,0.1)', padding: '0.5rem 1rem' }} 
+          onClick={toggleLang}
+        >
+          {i18n.language === 'vi' ? '🇻🇳 VI' : '🇺🇸 EN'}
+        </button>
+      </div>
+
       <div className="header">
         <h1>Gemini TTS Batcher</h1>
-        <p>Mass Text-to-Speech Converter powered by Google Gemini 2.0 Flash</p>
+        <p>{t('title')}</p>
       </div>
 
       <div className="glass-panel" style={{ marginBottom: '2rem' }}>
-        <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>⚙️ Settings</h2>
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <label>Google Gemini API Key</label>
+        <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('settings')}</h2>
+        
+        <div className="form-group" style={{ marginBottom: '1rem' }}>
+          <label>{t('api_key')}</label>
           <div style={{ display: 'flex', gap: '10px' }}>
             <input 
               type="password" 
@@ -163,65 +251,85 @@ function App() {
               placeholder="AIzaSy..."
               style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white' }}
             />
-            <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={handleSaveSettings}>Save Key</button>
+            <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={handleSaveSettings}>{t('save_key')}</button>
+          </div>
+        </div>
+
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label>Google Gemini Model</label>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <select 
+              value={modelName} 
+              onChange={e => setModelName(e.target.value)}
+              style={{ flex: 1 }}
+            >
+              {!models.find(m => m.name === 'models/gemini-3.1-flash-tts-preview' || m.name === 'gemini-3.1-flash-tts-preview') && (
+                <option value="gemini-3.1-flash-tts-preview">gemini-3.1-flash-tts-preview</option>
+              )}
+              {allModels.map(m => {
+                const val = m.name.replace('models/', '');
+                return <option key={m.name} value={val}>{m.displayName || val}</option>
+              })}
+            </select>
+            <button className="btn" style={{ width: 'auto', background: '#3b82f6' }} onClick={() => fetchModels(apiKey)}>Refresh Models</button>
           </div>
         </div>
       </div>
 
       <div className="glass-panel">
-        <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>1. Batch Setup</h2>
+        <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('batch_setup')}</h2>
         <div className="form-group">
-          <label>Input Directory</label>
+          <label>{t('input_dir')}</label>
           <div style={{ display: 'flex', gap: '10px' }}>
             <input 
               type="text" 
               value={inputDir} 
               onChange={e => setInputDir(e.target.value)} 
-              placeholder="e.g. D:\Books\txt"
+              placeholder="D:\Books\txt"
               style={{ flex: 1 }}
             />
-            <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={() => handleBrowse(setInputDir)}>Browse</button>
+            <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={() => handleBrowse(setInputDir)}>{t('browse')}</button>
             <button className="btn" style={{ width: 'auto' }} onClick={handleScan} disabled={isScanning}>
-              {isScanning ? 'Scanning...' : 'Scan'}
+              {isScanning ? t('scanning') : t('scan')}
             </button>
           </div>
-          {fileCount > 0 && <small style={{ color: '#10b981' }}>Found {fileCount} .txt files</small>}
+          {fileCount > 0 && <small style={{ color: '#10b981' }}>{t('found_files', { count: fileCount })}</small>}
         </div>
 
         <div className="form-group">
-          <label>Output Directory</label>
+          <label>{t('output_dir')}</label>
           <div style={{ display: 'flex', gap: '10px' }}>
             <input 
               type="text" 
               value={outputDir} 
               onChange={e => setOutputDir(e.target.value)} 
-              placeholder="e.g. D:\Books\mp3"
+              placeholder="D:\Books\mp3"
               style={{ flex: 1 }}
             />
-            <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={() => handleBrowse(setOutputDir)}>Browse</button>
+            <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={() => handleBrowse(setOutputDir)}>{t('browse')}</button>
           </div>
         </div>
 
         <div className="form-group">
-          <label>Gemini Voice Selection</label>
+          <label>{t('voice_selection')}</label>
           <select value={voice} onChange={e => setVoice(e.target.value)}>
-            <option value="Aoede">Aoede</option>
-            <option value="Charon">Charon</option>
-            <option value="Fenrir">Fenrir</option>
-            <option value="Kore">Kore</option>
-            <option value="Puck">Puck</option>
+            {GEMINI_VOICES.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name} ({v.gender}) - {v.description}
+              </option>
+            ))}
           </select>
         </div>
 
         <button className="btn" onClick={handleStartJob} disabled={fileCount === 0 && progress.status !== 'Pending'} style={{ marginTop: '1rem' }}>
-          START BATCH CONVERSION
+          {t('start_batch')}
         </button>
       </div>
 
       <div className="glass-panel">
-        <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>2. Test Voice Preview</h2>
+        <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('test_voice_preview')}</h2>
         <div className="form-group">
-          <label>Test Text</label>
+          <label>{t('test_text')}</label>
           <textarea 
             rows="3"
             value={testText}
@@ -239,7 +347,7 @@ function App() {
           />
         </div>
         <button className="btn" style={{ background: '#475569' }} onClick={handleTestVoice} disabled={isTestingVoice || !apiKey}>
-          {isTestingVoice ? 'Testing...' : (apiKey ? `Test Voice (${voice})` : 'API Key Required')}
+          {isTestingVoice ? t('testing') : (apiKey ? t('test_voice', { voice: voice }) : t('api_key_required'))}
         </button>
         {audioUrl && (
           <audio src={audioUrl} controls autoPlay style={{ marginTop: '15px', width: '100%', borderRadius: '8px' }} />
@@ -247,11 +355,11 @@ function App() {
       </div>
 
       <div className="glass-panel">
-        <h2 style={{ marginTop: 0, marginBottom: '0.5rem', fontSize: '1.25rem' }}>Status Dashboard</h2>
+        <h2 style={{ marginTop: 0, marginBottom: '0.5rem', fontSize: '1.25rem' }}>{t('status_dashboard')}</h2>
         
         <div className="stats">
-          <span>State: <strong style={{ color: '#fff' }}>{progress.status}</strong></span>
-          <span>Total Tasks: <strong style={{ color: '#fff' }}>{progress.total}</strong></span>
+          <span>{t('state')} <strong style={{ color: '#fff' }}>{progress.status}</strong></span>
+          <span>{t('total_tasks')} <strong style={{ color: '#fff' }}>{progress.total}</strong></span>
         </div>
 
         <div className="progress-container">
@@ -259,9 +367,9 @@ function App() {
         </div>
         
         <div className="stats">
-          <span>Done: <strong style={{ color: '#10b981' }}>{progress.done}</strong></span>
-          <span>Error: <strong style={{ color: '#ef4444' }}>{progress.error}</strong></span>
-          <span>Processing: <strong style={{ color: '#3b82f6' }}>{progress.processing}</strong></span>
+          <span>{t('done')} <strong style={{ color: '#10b981' }}>{progress.done}</strong></span>
+          <span>{t('error')} <strong style={{ color: '#ef4444' }}>{progress.error}</strong></span>
+          <span>{t('processing')} <strong style={{ color: '#3b82f6' }}>{progress.processing}</strong></span>
         </div>
 
         <div className="task-list">
@@ -272,7 +380,7 @@ function App() {
             </div>
           ))}
           {(!progress.tasks || progress.tasks.length === 0) && (
-            <div style={{ textAlign: 'center', color: '#64748b', padding: '1rem' }}>No active tasks</div>
+            <div style={{ textAlign: 'center', color: '#64748b', padding: '1rem' }}>{t('no_active_tasks')}</div>
           )}
         </div>
       </div>
