@@ -1,0 +1,144 @@
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+import os
+
+from database import engine, Base, get_db
+import models
+from services.queue_manager import queue_manager
+from services.tts_provider import TTSProvider
+from fastapi.responses import FileResponse
+import tempfile
+import tkinter as tk
+from tkinter import filedialog
+
+# Tạo DB tables
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="Batch TTS Tool API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.on_event("startup")
+def startup_event():
+    queue_manager.start()
+
+@app.on_event("shutdown")
+def shutdown_event():
+    queue_manager.stop()
+
+class ScanRequest(BaseModel):
+    directory: str
+
+class JobRequest(BaseModel):
+    input_dir: str
+    output_dir: str
+    voice: str
+
+@app.post("/api/scan")
+def scan_directory(req: ScanRequest):
+    if not os.path.exists(req.directory) or not os.path.isdir(req.directory):
+        raise HTTPException(status_code=400, detail="Directory not found")
+    
+    files = [f for f in os.listdir(req.directory) if f.endswith('.txt')]
+    return {"total": len(files), "files": files}
+
+@app.post("/api/jobs")
+def create_job(req: JobRequest, db: Session = Depends(get_db)):
+    if not os.path.exists(req.input_dir):
+        raise HTTPException(status_code=400, detail="Input directory not found")
+        
+    if not os.path.exists(req.output_dir):
+        try:
+            os.makedirs(req.output_dir)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Cannot create output directory: {e}")
+
+    files = [f for f in os.listdir(req.input_dir) if f.endswith('.txt')]
+    if not files:
+        raise HTTPException(status_code=400, detail="No .txt files found in input directory")
+
+    job = models.BatchJob(input_dir=req.input_dir, output_dir=req.output_dir, voice=req.voice)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    for file_name in files:
+        file_path = os.path.join(req.input_dir, file_name)
+        task = models.FileTask(job_id=job.id, file_name=file_name, file_path=file_path)
+        db.add(task)
+    
+    db.commit()
+    return {"job_id": job.id, "total_files": len(files)}
+
+class TestVoiceRequest(BaseModel):
+    voice: str
+    text: str = "Xin chào, đây là giọng đọc thử."
+    api_key: str = ""
+
+@app.post("/api/test-voice")
+def test_voice(req: TestVoiceRequest):
+    provider = TTSProvider(api_key=req.api_key)
+    temp_file = os.path.join(tempfile.gettempdir(), "test_voice.mp3")
+    provider.process_text_to_speech(req.text, temp_file, req.voice)
+    return FileResponse(temp_file, media_type="audio/mpeg")
+
+class SettingsRequest(BaseModel):
+    api_key: str
+
+@app.post("/api/settings")
+def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
+    setting = db.query(models.Settings).filter(models.Settings.key == "api_key").first()
+    if not setting:
+        setting = models.Settings(key="api_key", value=req.api_key)
+        db.add(setting)
+    else:
+        setting.value = req.api_key
+    db.commit()
+    return {"status": "ok"}
+
+@app.get("/api/settings")
+def get_settings(db: Session = Depends(get_db)):
+    setting = db.query(models.Settings).filter(models.Settings.key == "api_key").first()
+    return {"api_key": setting.value if setting else ""}
+
+@app.get("/api/browse-folder")
+def browse_folder():
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)
+        folder_path = filedialog.askdirectory(parent=root, title="Select Directory")
+        root.destroy()
+        return {"path": folder_path}
+    except Exception as e:
+        return {"path": "", "error": str(e)}
+
+@app.get("/api/jobs/latest/progress")
+def get_latest_job_progress(db: Session = Depends(get_db)):
+    job = db.query(models.BatchJob).order_by(models.BatchJob.id.desc()).first()
+    if not job:
+        return {"status": "No jobs found"}
+        
+    tasks = db.query(models.FileTask).filter(models.FileTask.job_id == job.id).all()
+    total = len(tasks)
+    done = sum(1 for t in tasks if t.status == "Done")
+    error = sum(1 for t in tasks if t.status == "Error")
+    processing = sum(1 for t in tasks if t.status == "Processing")
+    
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "total": total,
+        "done": done,
+        "error": error,
+        "processing": processing,
+        "tasks": [{"file_name": t.file_name, "status": t.status} for t in tasks]
+    }
