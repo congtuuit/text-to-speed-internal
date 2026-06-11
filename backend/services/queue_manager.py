@@ -45,12 +45,12 @@ class QueueManager:
                         base_name = os.path.splitext(task.file_name)[0]
                         output_path = os.path.join(job.output_dir, f"{base_name}.mp3")
                         
-                        # Lấy API Key và Model Name từ setting
+                        # Lấy API Key từ setting
                         settings_api = db.query(Settings).filter(Settings.key == "api_key").first()
                         api_key = settings_api.value if settings_api else None
                         
-                        settings_model = db.query(Settings).filter(Settings.key == "model_name").first()
-                        model_name = settings_model.value if settings_model else "gemini-2.5-flash-preview-tts"
+                        # Lấy model_name từ job (cố định theo lúc tạo job)
+                        model_name = job.model_name if job.model_name else "gemini-2.5-flash-preview-tts"
                         
                         # Gọi TTS Provider
                         provider = TTSProvider(api_key=api_key)

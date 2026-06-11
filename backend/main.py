@@ -42,6 +42,7 @@ class JobRequest(BaseModel):
     input_dir: str
     output_dir: str
     voice: str
+    model_name: str = "gemini-2.5-flash-preview-tts"
 
 @app.post("/api/scan")
 def scan_directory(req: ScanRequest):
@@ -66,7 +67,7 @@ def create_job(req: JobRequest, db: Session = Depends(get_db)):
     if not files:
         raise HTTPException(status_code=400, detail="No .txt files found in input directory")
 
-    job = models.BatchJob(input_dir=req.input_dir, output_dir=req.output_dir, voice=req.voice)
+    job = models.BatchJob(input_dir=req.input_dir, output_dir=req.output_dir, voice=req.voice, model_name=req.model_name)
     db.add(job)
     db.commit()
     db.refresh(job)
