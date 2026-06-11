@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import Swal from 'sweetalert2'
 import './index.css'
+import { API_BASE_URL } from './config'
 
-export const GEMINI_VOICES = [
+const GEMINI_VOICES = [
   {
     id: 'Puck',
     name: 'Puck',
@@ -43,14 +44,18 @@ function App() {
   const [voice, setVoice] = useState(() => localStorage.getItem('tts_voice') || 'Aoede')
   const [testText, setTestText] = useState(() => localStorage.getItem('tts_test_text') || 'Xin chào, đây là giọng đọc thử.')
   const [apiKey, setApiKey] = useState('')
-  const [modelName, setModelName] = useState(() => localStorage.getItem('tts_model_name') || 'gemini-3.1-flash-tts-preview')
+  const [modelName, setModelName] = useState(() => localStorage.getItem('tts_model_name') || 'gemini-2.5-flash-preview-tts')
   const [models, setModels] = useState([])
-  
+
   const [isScanning, setIsScanning] = useState(false)
   const [fileCount, setFileCount] = useState(0)
   const [isTestingVoice, setIsTestingVoice] = useState(false)
   const [audioUrl, setAudioUrl] = useState(null)
-  
+
+  const [quickText, setQuickText] = useState(() => localStorage.getItem('tts_quick_text') || '')
+  const [isQuickConverting, setIsQuickConverting] = useState(false)
+  const [quickAudioUrl, setQuickAudioUrl] = useState(null)
+
   const [progress, setProgress] = useState({
     status: 'Idle',
     total: 0,
@@ -62,16 +67,16 @@ function App() {
 
   const fetchModels = async (key) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/models?api_key=${key}`)
+      const res = await fetch(`${API_BASE_URL}/api/models?api_key=${key}`)
       const data = await res.json()
       if (data.models) {
         setModels(data.models)
       }
-    } catch (err) {}
+    } catch (err) { }
   }
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/settings')
+    fetch(`${API_BASE_URL}/api/settings`)
       .then(res => res.json())
       .then(data => {
         if (data.api_key) {
@@ -96,7 +101,7 @@ function App() {
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/jobs/latest/progress')
+        const res = await fetch(`${API_BASE_URL}/api/jobs/latest/progress`)
         const data = await res.json()
         if (data && data.status) {
           setProgress(data)
@@ -109,7 +114,7 @@ function App() {
 
   const handleSaveSettings = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/settings', {
+      const res = await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ api_key: apiKey, model_name: modelName })
@@ -123,10 +128,22 @@ function App() {
     }
   }
 
+  const handleModelChange = async (e) => {
+    const newModel = e.target.value;
+    setModelName(newModel);
+    try {
+      await fetch(`${API_BASE_URL}/api/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: apiKey, model_name: newModel })
+      });
+    } catch (err) {}
+  }
+
   const handleScan = async () => {
     setIsScanning(true)
     try {
-      const res = await fetch('http://localhost:8000/api/scan', {
+      const res = await fetch(`${API_BASE_URL}/api/scan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ directory: inputDir })
@@ -145,7 +162,7 @@ function App() {
 
   const handleBrowse = async (setter) => {
     try {
-      const res = await fetch('http://localhost:8000/api/browse-folder')
+      const res = await fetch(`${API_BASE_URL}/api/browse-folder`)
       const data = await res.json()
       if (data.path) {
         setter(data.path)
@@ -159,7 +176,7 @@ function App() {
 
   const handleStartJob = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/jobs', {
+      const res = await fetch(`${API_BASE_URL}/api/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input_dir: inputDir, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey })
@@ -179,7 +196,7 @@ function App() {
     setIsTestingVoice(true)
     setAudioUrl(null)
     try {
-      const res = await fetch('http://localhost:8000/api/test-voice', {
+      const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ voice: voice, text: testText, api_key: apiKey, model_name: modelName })
@@ -216,17 +233,58 @@ function App() {
     i18n.changeLanguage(newLang)
   }
 
+  const handleQuickConvert = async () => {
+    if (!quickText.trim()) return;
+    setIsQuickConverting(true)
+    setQuickAudioUrl(null)
+    localStorage.setItem('tts_quick_text', quickText)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice: voice, text: quickText, api_key: apiKey, model_name: modelName })
+      })
+      if (res.ok) {
+        const blob = await res.blob()
+        setQuickAudioUrl(URL.createObjectURL(blob))
+      } else {
+        const errData = await res.json()
+        Swal.fire({
+          icon: 'error',
+          title: 'Gemini API Error',
+          text: errData.detail || t("alerts.test_voice_error"),
+          background: '#1e293b',
+          color: '#fff',
+          confirmButtonColor: '#3b82f6'
+        })
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Connection Error',
+        text: t("alerts.conn_error"),
+        background: '#1e293b',
+        color: '#fff',
+        confirmButtonColor: '#3b82f6'
+      })
+    }
+    setIsQuickConverting(false)
+  }
+
   const percent = progress.total > 0 ? Math.round((progress.done + progress.error) / progress.total * 100) : 0;
 
   // Deduplicate default model and fetched models
-  const allModels = models && models.length > 0 ? models : [{name: 'models/gemini-3.1-flash-tts-preview', displayName: 'Gemini 3.1 Flash TTS Preview'}];
+  const fallbackModels = [
+    { name: 'models/gemini-2.5-flash-preview-tts', displayName: 'Gemini 2.5 Flash Preview TTS' }
+  ];
+  const allModels = models && models.length > 0 ? models : fallbackModels;
 
   return (
     <div className="app-container">
       <div style={{ position: 'absolute', top: '1rem', right: '1rem' }}>
-        <button 
-          className="btn" 
-          style={{ width: 'auto', background: 'rgba(255,255,255,0.1)', padding: '0.5rem 1rem' }} 
+        <button
+          className="btn"
+          style={{ width: 'auto', background: 'rgba(255,255,255,0.1)', padding: '0.5rem 1rem' }}
           onClick={toggleLang}
         >
           {i18n.language === 'vi' ? '🇻🇳 VI' : '🇺🇸 EN'}
@@ -243,14 +301,14 @@ function App() {
         <div className="sidebar">
           <div className="glass-panel">
             <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('settings')}</h2>
-            
+
             <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label>{t('api_key')}</label>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <input 
-                  type="password" 
-                  value={apiKey} 
-                  onChange={e => setApiKey(e.target.value)} 
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={e => setApiKey(e.target.value)}
                   placeholder="AIzaSy..."
                   style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white' }}
                 />
@@ -261,14 +319,18 @@ function App() {
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label>Google Gemini Model</label>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <select 
-                  value={modelName} 
-                  onChange={e => setModelName(e.target.value)}
+                <select
+                  value={modelName}
+                  onChange={handleModelChange}
                   style={{ flex: 1 }}
                 >
-                  {!models.find(m => m.name === 'models/gemini-3.1-flash-tts-preview' || m.name === 'gemini-3.1-flash-tts-preview') && (
-                    <option value="gemini-3.1-flash-tts-preview">gemini-3.1-flash-tts-preview</option>
-                  )}
+                  {fallbackModels.map(fallback => {
+                    const val = fallback.name.replace('models/', '');
+                    if (models && models.length > 0 && !models.find(m => m.name === fallback.name || m.name === val)) {
+                      return <option key={'fb_' + val} value={val}>{val}</option>;
+                    }
+                    return null;
+                  })}
                   {allModels.map(m => {
                     const val = m.name.replace('models/', '');
                     return <option key={m.name} value={val}>{m.displayName || val}</option>
@@ -293,7 +355,7 @@ function App() {
             </div>
             <div className="form-group">
               <label>{t('test_text')}</label>
-              <textarea 
+              <textarea
                 rows="3"
                 value={testText}
                 onChange={e => setTestText(e.target.value)}
@@ -320,15 +382,60 @@ function App() {
 
         {/* MAIN CONTENT */}
         <div className="main-content">
+          {/* QUICK TTS PANEL */}
+          <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
+            <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('quick_tts')}</h2>
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <textarea
+                rows="6"
+                value={quickText}
+                onChange={e => setQuickText(e.target.value)}
+                placeholder={t('quick_placeholder')}
+                style={{
+                  width: '100%',
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  color: 'white',
+                  fontSize: '1rem',
+                  resize: 'vertical',
+                  fontFamily: 'inherit',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            <button 
+              className="btn btn-giant" 
+              style={{ width: 'auto', padding: '0.75rem 2.5rem', fontSize: '1.1rem' }}
+              onClick={handleQuickConvert} 
+              disabled={isQuickConverting || !apiKey || !quickText.trim()}
+            >
+              {isQuickConverting ? t('testing') : t('quick_convert')}
+            </button>
+            {quickAudioUrl && (
+              <div style={{ marginTop: '1rem', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <audio src={quickAudioUrl} controls autoPlay style={{ flex: 1, borderRadius: '8px' }} />
+                <a 
+                  href={quickAudioUrl} 
+                  download={`tts_audio_${new Date().toISOString().replace(/[:T]/g, '-').split('.')[0]}.wav`} 
+                  className="btn" 
+                  style={{ background: '#10b981', width: 'auto', padding: '0.75rem 1.5rem', textDecoration: 'none', display: 'inline-block', textAlign: 'center' }}
+                >
+                  ⬇ Tải về
+                </a>
+              </div>
+            )}
+          </div>
           <div className="glass-panel">
             <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('batch_setup')}</h2>
             <div className="form-group">
               <label>{t('input_dir')}</label>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <input 
-                  type="text" 
-                  value={inputDir} 
-                  onChange={e => setInputDir(e.target.value)} 
+                <input
+                  type="text"
+                  value={inputDir}
+                  onChange={e => setInputDir(e.target.value)}
                   placeholder="D:\Books\txt"
                   style={{ flex: 1 }}
                 />
@@ -343,10 +450,10 @@ function App() {
             <div className="form-group">
               <label>{t('output_dir')}</label>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <input 
-                  type="text" 
-                  value={outputDir} 
-                  onChange={e => setOutputDir(e.target.value)} 
+                <input
+                  type="text"
+                  value={outputDir}
+                  onChange={e => setOutputDir(e.target.value)}
                   placeholder="D:\Books\mp3"
                   style={{ flex: 1 }}
                 />
@@ -361,7 +468,7 @@ function App() {
 
           <div className="glass-panel">
             <h2 style={{ marginTop: 0, marginBottom: '0.5rem', fontSize: '1.25rem' }}>{t('status_dashboard')}</h2>
-            
+
             <div className="stats">
               <span>{t('state')} <strong style={{ color: '#fff' }}>{progress.status}</strong></span>
               <span>{t('total_tasks')} <strong style={{ color: '#fff' }}>{progress.total}</strong></span>
@@ -370,7 +477,7 @@ function App() {
             <div className="progress-container">
               <div className="progress-bar" style={{ width: `${percent}%` }}></div>
             </div>
-            
+
             <div className="stats">
               <span>{t('done')} <strong style={{ color: '#10b981' }}>{progress.done}</strong></span>
               <span>{t('error')} <strong style={{ color: '#ef4444' }}>{progress.error}</strong></span>

@@ -83,33 +83,39 @@ class TestVoiceRequest(BaseModel):
     voice: str
     text: str = "Xin chào, đây là giọng đọc thử."
     api_key: str = ""
-    model_name: str = "gemini-3.1-flash-tts-preview"
+    model_name: str = "gemini-2.5-flash-preview-tts"
 
 @app.post("/api/test-voice")
-def test_voice(req: TestVoiceRequest):
+def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
     provider = TTSProvider(api_key=req.api_key)
-    temp_file = os.path.join(tempfile.gettempdir(), "test_voice.mp3")
     
-    # Xoá file cũ nếu có để tránh cache
-    if os.path.exists(temp_file):
+    # Tạo file tạm thời duy nhất để tránh xung đột khi gọi liên tục
+    fd, temp_file = tempfile.mkstemp(suffix=".wav", prefix="tts_")
+    os.close(fd)
+    
+    def cleanup():
         try:
-            os.remove(temp_file)
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
         except:
             pass
             
     try:
         success = provider.process_text_to_speech(req.text, temp_file, req.voice, req.model_name)
     except Exception as e:
+        cleanup()
         raise HTTPException(status_code=500, detail=str(e))
     
     if not success or not os.path.exists(temp_file):
+        cleanup()
         raise HTTPException(status_code=500, detail="Failed to generate Gemini TTS audio. Check backend logs.")
         
-    return FileResponse(temp_file, media_type="audio/mpeg")
+    background_tasks.add_task(cleanup)
+    return FileResponse(temp_file, media_type="audio/wav")
 
 class SettingsRequest(BaseModel):
     api_key: str
-    model_name: str = "gemini-3.1-flash-tts-preview"
+    model_name: str = "gemini-2.5-flash-preview-tts"
 
 @app.post("/api/settings")
 def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
@@ -129,7 +135,7 @@ def get_settings(db: Session = Depends(get_db)):
     model_name = db.query(models.Settings).filter(models.Settings.key == "model_name").first()
     return {
         "api_key": api_key.value if api_key else "",
-        "model_name": model_name.value if model_name else "gemini-3.1-flash-tts-preview"
+        "model_name": model_name.value if model_name else "gemini-2.5-flash-preview-tts"
     }
 
 @app.get("/api/models")

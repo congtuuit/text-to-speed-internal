@@ -6,7 +6,7 @@ class TTSProvider:
     def __init__(self, api_key: str = None):
         self.api_key = api_key
 
-    def process_text_to_speech(self, text: str, output_path: str, voice: str, model_name: str = "gemini-3.1-flash-tts-preview"):
+    def process_text_to_speech(self, text: str, output_path: str, voice: str, model_name: str = "gemini-2.5-flash-preview-tts"):
         if not self.api_key:
             print("No API Key provided")
             return False
@@ -51,12 +51,35 @@ class TTSProvider:
                 parts = candidates[0].get('content', {}).get('parts', [])
                 for part in parts:
                     inline_data = part.get('inlineData', {})
-                    if inline_data.get('mimeType', '').startswith('audio/'):
+                    mime_type = inline_data.get('mimeType', '')
+                    if mime_type.lower().startswith('audio/'):
                         audio_base64 = inline_data.get('data', '')
                         if audio_base64:
                             audio_bytes = base64.b64decode(audio_base64)
-                            with open(output_path, 'wb') as f:
-                                f.write(audio_bytes)
+                            
+                            if 'audio/l16' in mime_type.lower():
+                                import wave
+                                import re
+                                rate = 24000
+                                channels = 1
+                                
+                                rate_match = re.search(r'rate=(\d+)', mime_type)
+                                if rate_match:
+                                    rate = int(rate_match.group(1))
+                                    
+                                chan_match = re.search(r'channels=(\d+)', mime_type)
+                                if chan_match:
+                                    channels = int(chan_match.group(1))
+                                    
+                                with wave.open(output_path, 'wb') as wav_file:
+                                    wav_file.setnchannels(channels)
+                                    wav_file.setsampwidth(2) # 16-bit
+                                    wav_file.setframerate(rate)
+                                    wav_file.writeframes(audio_bytes)
+                            else:
+                                with open(output_path, 'wb') as f:
+                                    f.write(audio_bytes)
+                                    
                             print(f"Saved Gemini audio to {output_path}")
                             return True
                             

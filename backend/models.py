@@ -10,6 +10,7 @@ class BatchJob(Base):
     input_dir = Column(String, index=True)
     output_dir = Column(String)
     voice = Column(String)
+    model_name = Column(String, default="gemini-2.5-flash-preview-tts")
     status = Column(String, default="Pending") # Pending, Processing, Completed, Error
     created_at = Column(DateTime, default=datetime.utcnow)
 

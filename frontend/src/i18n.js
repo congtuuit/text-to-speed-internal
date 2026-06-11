@@ -8,7 +8,10 @@ const resources = {
       "settings": "⚙️ Cài đặt",
       "api_key": "Mã Google Gemini API Key",
       "save_key": "Lưu Mã",
-      "batch_setup": "1. Cài đặt hàng loạt",
+      "quick_tts": "Chuyển đổi văn bản (Single TTS)",
+      "quick_convert": "Chuyển Đổi Sang Audio",
+      "quick_placeholder": "Nhập văn bản cần chuyển đổi vào đây...",
+      "batch_setup": "Chuyển đổi hàng loạt",
       "input_dir": "Thư mục đầu vào",
       "browse": "Duyệt",
       "scan": "Quét",
@@ -29,7 +32,7 @@ const resources = {
       "error": "Lỗi:",
       "processing": "Đang xử lý:",
       "no_active_tasks": "Không có tiến trình nào đang chạy",
-      
+
       "alerts": {
         "saved_success": "Đã lưu cài đặt thành công!",
         "save_failed": "Lỗi khi lưu cài đặt",
@@ -48,7 +51,10 @@ const resources = {
       "settings": "⚙️ Settings",
       "api_key": "Google Gemini API Key",
       "save_key": "Save Key",
-      "batch_setup": "1. Batch Setup",
+      "quick_tts": "Quick Text-to-Speech",
+      "quick_convert": "Convert to Audio",
+      "quick_placeholder": "Enter text to convert here...",
+      "batch_setup": "Batch Setup",
       "input_dir": "Input Directory",
       "browse": "Browse",
       "scan": "Scan",
@@ -69,7 +75,7 @@ const resources = {
       "error": "Error:",
       "processing": "Processing:",
       "no_active_tasks": "No active tasks",
-      
+
       "alerts": {
         "saved_success": "Settings saved successfully!",
         "save_failed": "Failed to save settings",
