@@ -238,150 +238,157 @@ function App() {
         <p>{t('title')}</p>
       </div>
 
-      <div className="glass-panel" style={{ marginBottom: '2rem' }}>
-        <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('settings')}</h2>
-        
-        <div className="form-group" style={{ marginBottom: '1rem' }}>
-          <label>{t('api_key')}</label>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <input 
-              type="password" 
-              value={apiKey} 
-              onChange={e => setApiKey(e.target.value)} 
-              placeholder="AIzaSy..."
-              style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white' }}
-            />
-            <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={handleSaveSettings}>{t('save_key')}</button>
+      <div className="dashboard-layout">
+        {/* SIDEBAR */}
+        <div className="sidebar">
+          <div className="glass-panel">
+            <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('settings')}</h2>
+            
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label>{t('api_key')}</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input 
+                  type="password" 
+                  value={apiKey} 
+                  onChange={e => setApiKey(e.target.value)} 
+                  placeholder="AIzaSy..."
+                  style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white' }}
+                />
+                <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={handleSaveSettings}>{t('save_key')}</button>
+              </div>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Google Gemini Model</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <select 
+                  value={modelName} 
+                  onChange={e => setModelName(e.target.value)}
+                  style={{ flex: 1 }}
+                >
+                  {!models.find(m => m.name === 'models/gemini-3.1-flash-tts-preview' || m.name === 'gemini-3.1-flash-tts-preview') && (
+                    <option value="gemini-3.1-flash-tts-preview">gemini-3.1-flash-tts-preview</option>
+                  )}
+                  {allModels.map(m => {
+                    const val = m.name.replace('models/', '');
+                    return <option key={m.name} value={val}>{m.displayName || val}</option>
+                  })}
+                </select>
+                <button className="btn" style={{ width: 'auto', background: '#3b82f6' }} onClick={() => fetchModels(apiKey)}>Refresh</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-panel">
+            <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('test_voice_preview')}</h2>
+            <div className="form-group">
+              <label>{t('voice_selection')}</label>
+              <select value={voice} onChange={e => setVoice(e.target.value)}>
+                {GEMINI_VOICES.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} ({v.gender}) - {v.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>{t('test_text')}</label>
+              <textarea 
+                rows="3"
+                value={testText}
+                onChange={e => setTestText(e.target.value)}
+                style={{
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  padding: '0.75rem 1rem',
+                  color: 'white',
+                  fontSize: '1rem',
+                  resize: 'vertical',
+                  fontFamily: 'inherit'
+                }}
+              />
+            </div>
+            <button className="btn" style={{ background: '#475569' }} onClick={handleTestVoice} disabled={isTestingVoice || !apiKey}>
+              {isTestingVoice ? t('testing') : (apiKey ? t('test_voice', { voice: voice }) : t('api_key_required'))}
+            </button>
+            {audioUrl && (
+              <audio src={audioUrl} controls autoPlay style={{ marginTop: '15px', width: '100%', borderRadius: '8px' }} />
+            )}
           </div>
         </div>
 
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <label>Google Gemini Model</label>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <select 
-              value={modelName} 
-              onChange={e => setModelName(e.target.value)}
-              style={{ flex: 1 }}
-            >
-              {!models.find(m => m.name === 'models/gemini-3.1-flash-tts-preview' || m.name === 'gemini-3.1-flash-tts-preview') && (
-                <option value="gemini-3.1-flash-tts-preview">gemini-3.1-flash-tts-preview</option>
-              )}
-              {allModels.map(m => {
-                const val = m.name.replace('models/', '');
-                return <option key={m.name} value={val}>{m.displayName || val}</option>
-              })}
-            </select>
-            <button className="btn" style={{ width: 'auto', background: '#3b82f6' }} onClick={() => fetchModels(apiKey)}>Refresh Models</button>
-          </div>
-        </div>
-      </div>
+        {/* MAIN CONTENT */}
+        <div className="main-content">
+          <div className="glass-panel">
+            <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('batch_setup')}</h2>
+            <div className="form-group">
+              <label>{t('input_dir')}</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input 
+                  type="text" 
+                  value={inputDir} 
+                  onChange={e => setInputDir(e.target.value)} 
+                  placeholder="D:\Books\txt"
+                  style={{ flex: 1 }}
+                />
+                <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={() => handleBrowse(setInputDir)}>{t('browse')}</button>
+                <button className="btn" style={{ width: 'auto' }} onClick={handleScan} disabled={isScanning}>
+                  {isScanning ? t('scanning') : t('scan')}
+                </button>
+              </div>
+              {fileCount > 0 && <small style={{ color: '#10b981' }}>{t('found_files', { count: fileCount })}</small>}
+            </div>
 
-      <div className="glass-panel">
-        <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('batch_setup')}</h2>
-        <div className="form-group">
-          <label>{t('input_dir')}</label>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <input 
-              type="text" 
-              value={inputDir} 
-              onChange={e => setInputDir(e.target.value)} 
-              placeholder="D:\Books\txt"
-              style={{ flex: 1 }}
-            />
-            <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={() => handleBrowse(setInputDir)}>{t('browse')}</button>
-            <button className="btn" style={{ width: 'auto' }} onClick={handleScan} disabled={isScanning}>
-              {isScanning ? t('scanning') : t('scan')}
+            <div className="form-group">
+              <label>{t('output_dir')}</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input 
+                  type="text" 
+                  value={outputDir} 
+                  onChange={e => setOutputDir(e.target.value)} 
+                  placeholder="D:\Books\mp3"
+                  style={{ flex: 1 }}
+                />
+                <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={() => handleBrowse(setOutputDir)}>{t('browse')}</button>
+              </div>
+            </div>
+
+            <button className="btn btn-giant" onClick={handleStartJob} disabled={fileCount === 0 && progress.status !== 'Pending'}>
+              {t('start_batch')}
             </button>
           </div>
-          {fileCount > 0 && <small style={{ color: '#10b981' }}>{t('found_files', { count: fileCount })}</small>}
-        </div>
 
-        <div className="form-group">
-          <label>{t('output_dir')}</label>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <input 
-              type="text" 
-              value={outputDir} 
-              onChange={e => setOutputDir(e.target.value)} 
-              placeholder="D:\Books\mp3"
-              style={{ flex: 1 }}
-            />
-            <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={() => handleBrowse(setOutputDir)}>{t('browse')}</button>
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label>{t('voice_selection')}</label>
-          <select value={voice} onChange={e => setVoice(e.target.value)}>
-            {GEMINI_VOICES.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name} ({v.gender}) - {v.description}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <button className="btn" onClick={handleStartJob} disabled={fileCount === 0 && progress.status !== 'Pending'} style={{ marginTop: '1rem' }}>
-          {t('start_batch')}
-        </button>
-      </div>
-
-      <div className="glass-panel">
-        <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('test_voice_preview')}</h2>
-        <div className="form-group">
-          <label>{t('test_text')}</label>
-          <textarea 
-            rows="3"
-            value={testText}
-            onChange={e => setTestText(e.target.value)}
-            style={{
-              background: 'rgba(0, 0, 0, 0.2)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '8px',
-              padding: '0.75rem 1rem',
-              color: 'white',
-              fontSize: '1rem',
-              resize: 'vertical',
-              fontFamily: 'inherit'
-            }}
-          />
-        </div>
-        <button className="btn" style={{ background: '#475569' }} onClick={handleTestVoice} disabled={isTestingVoice || !apiKey}>
-          {isTestingVoice ? t('testing') : (apiKey ? t('test_voice', { voice: voice }) : t('api_key_required'))}
-        </button>
-        {audioUrl && (
-          <audio src={audioUrl} controls autoPlay style={{ marginTop: '15px', width: '100%', borderRadius: '8px' }} />
-        )}
-      </div>
-
-      <div className="glass-panel">
-        <h2 style={{ marginTop: 0, marginBottom: '0.5rem', fontSize: '1.25rem' }}>{t('status_dashboard')}</h2>
-        
-        <div className="stats">
-          <span>{t('state')} <strong style={{ color: '#fff' }}>{progress.status}</strong></span>
-          <span>{t('total_tasks')} <strong style={{ color: '#fff' }}>{progress.total}</strong></span>
-        </div>
-
-        <div className="progress-container">
-          <div className="progress-bar" style={{ width: `${percent}%` }}></div>
-        </div>
-        
-        <div className="stats">
-          <span>{t('done')} <strong style={{ color: '#10b981' }}>{progress.done}</strong></span>
-          <span>{t('error')} <strong style={{ color: '#ef4444' }}>{progress.error}</strong></span>
-          <span>{t('processing')} <strong style={{ color: '#3b82f6' }}>{progress.processing}</strong></span>
-        </div>
-
-        <div className="task-list">
-          {progress.tasks && progress.tasks.map((task, idx) => (
-            <div className="task-item" key={idx}>
-              <span>{task.file_name}</span>
-              <span className={`status-badge ${task.status.toLowerCase()}`}>{task.status}</span>
+          <div className="glass-panel">
+            <h2 style={{ marginTop: 0, marginBottom: '0.5rem', fontSize: '1.25rem' }}>{t('status_dashboard')}</h2>
+            
+            <div className="stats">
+              <span>{t('state')} <strong style={{ color: '#fff' }}>{progress.status}</strong></span>
+              <span>{t('total_tasks')} <strong style={{ color: '#fff' }}>{progress.total}</strong></span>
             </div>
-          ))}
-          {(!progress.tasks || progress.tasks.length === 0) && (
-            <div style={{ textAlign: 'center', color: '#64748b', padding: '1rem' }}>{t('no_active_tasks')}</div>
-          )}
+
+            <div className="progress-container">
+              <div className="progress-bar" style={{ width: `${percent}%` }}></div>
+            </div>
+            
+            <div className="stats">
+              <span>{t('done')} <strong style={{ color: '#10b981' }}>{progress.done}</strong></span>
+              <span>{t('error')} <strong style={{ color: '#ef4444' }}>{progress.error}</strong></span>
+              <span>{t('processing')} <strong style={{ color: '#3b82f6' }}>{progress.processing}</strong></span>
+            </div>
+
+            <div className="task-list">
+              {progress.tasks && progress.tasks.map((task, idx) => (
+                <div className="task-item" key={idx}>
+                  <span>{task.file_name}</span>
+                  <span className={`status-badge ${task.status.toLowerCase()}`}>{task.status}</span>
+                </div>
+              ))}
+              {(!progress.tasks || progress.tasks.length === 0) && (
+                <div style={{ textAlign: 'center', color: '#64748b', padding: '1rem' }}>{t('no_active_tasks')}</div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

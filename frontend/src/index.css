@@ -34,10 +34,37 @@ body {
 }
 
 .app-container {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 2rem;
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
+  width: 100%;
+}
+
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 35% minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .header {
@@ -174,13 +201,18 @@ select option {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  max-height: 200px;
+  max-height: 400px;
   overflow-y: auto;
   padding-right: 0.5rem;
 }
 
 .task-list::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
+}
+
+.task-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
 }
 
 .task-list::-webkit-scrollbar-thumb {
@@ -210,3 +242,28 @@ select option {
 .status-badge.processing { background: #3b82f6; color: white; }
 .status-badge.done { background: #10b981; color: white; }
 .status-badge.error { background: #ef4444; color: white; }
+
+/* Giant Start Button */
+.btn-giant {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  font-size: 1.25rem;
+  font-weight: bold;
+  padding: 1.25rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+  transition: all 0.3s ease;
+  margin-top: 1rem;
+}
+
+.btn-giant:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+}
+
+.btn-giant:disabled {
+  background: #475569;
+  box-shadow: none;
+  opacity: 0.7;
+}
