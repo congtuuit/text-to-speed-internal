@@ -44,6 +44,14 @@ class JobRequest(BaseModel):
     voice: str
     model_name: str = "gemini-2.5-flash-preview-tts"
 
+class DocxJobRequest(BaseModel):
+    docx_path: str
+    output_dir: str
+    voice: str
+    model_name: str = "gemini-2.5-flash-preview-tts"
+
+from services.docx_helper import split_docx_to_txt
+
 @app.post("/api/scan")
 def scan_directory(req: ScanRequest):
     if not os.path.exists(req.directory) or not os.path.isdir(req.directory):
@@ -189,6 +197,52 @@ def browse_folder():
         return {"path": folder_path}
     except Exception as e:
         return {"path": "", "error": str(e)}
+
+@app.get("/api/browse-docx")
+def browse_docx():
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)
+        file_path = filedialog.askopenfilename(parent=root, title="Select Docx File", filetypes=[("Word Documents", "*.docx")])
+        root.destroy()
+        return {"path": file_path}
+    except Exception as e:
+        return {"path": "", "error": str(e)}
+
+@app.post("/api/jobs/docx")
+def create_docx_job(req: DocxJobRequest, db: Session = Depends(get_db)):
+    if not os.path.exists(req.docx_path) or not req.docx_path.endswith('.docx'):
+        raise HTTPException(status_code=400, detail="Invalid DOCX file")
+        
+    if not os.path.exists(req.output_dir):
+        os.makedirs(req.output_dir)
+        
+    base_name = os.path.splitext(os.path.basename(req.docx_path))[0]
+    chunks_dir = os.path.join(req.output_dir, f"{base_name}_chunks")
+    final_audio_path = os.path.join(req.output_dir, f"{base_name}.wav")
+    
+    files = split_docx_to_txt(req.docx_path, chunks_dir)
+    
+    job = models.BatchJob(
+        input_dir=chunks_dir, 
+        output_dir=chunks_dir, 
+        voice=req.voice, 
+        model_name=req.model_name,
+        is_docx_job=1,
+        final_output_path=final_audio_path
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    for file_name in files:
+        file_path = os.path.join(chunks_dir, file_name)
+        task = models.FileTask(job_id=job.id, file_name=file_name, file_path=file_path)
+        db.add(task)
+    
+    db.commit()
+    return {"job_id": job.id, "total_files": len(files)}
 
 @app.get("/api/jobs/latest/progress")
 def get_latest_job_progress(db: Session = Depends(get_db)):

@@ -104,6 +104,34 @@ class QueueManager:
                         job.status = "Completed"
                         db.commit()
                         
+                        if job.is_docx_job == 1 and job.final_output_path:
+                            import wave
+                            import shutil
+                            # Nối audio
+                            all_tasks = db.query(FileTask).filter(FileTask.job_id == job.id).order_by(FileTask.file_name).all()
+                            valid_audios = [t.output_path for t in all_tasks if t.output_path and os.path.exists(t.output_path)]
+                            
+                            if valid_audios:
+                                try:
+                                    data = []
+                                    params = None
+                                    for audio_file in valid_audios:
+                                        with wave.open(audio_file, 'rb') as w:
+                                            if not params:
+                                                params = w.getparams()
+                                            data.append(w.readframes(w.getnframes()))
+                                            
+                                    with wave.open(job.final_output_path, 'wb') as output_wav:
+                                        output_wav.setparams(params)
+                                        for d in data:
+                                            output_wav.writeframes(d)
+                                    print(f"Joined DOCX audio to: {job.final_output_path}")
+                                    
+                                    # Dọn dẹp folder chunks
+                                    shutil.rmtree(job.output_dir, ignore_errors=True)
+                                except Exception as e:
+                                    print(f"Error joining audio: {e}")
+                        
                 else:
                     # Không có task nào, ngủ 1 chút
                     time.sleep(2)

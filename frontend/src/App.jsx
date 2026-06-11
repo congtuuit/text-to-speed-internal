@@ -174,6 +174,28 @@ function App() {
     }
   }
 
+  const handleBrowseDocx = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/browse-docx`)
+      const data = await res.json()
+      if (data.path) {
+        const startRes = await fetch(`${API_BASE_URL}/api/jobs/docx`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ docx_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey })
+        })
+        const startData = await startRes.json()
+        if (startRes.ok) {
+          alert(`Đã tạo DOCX Job ID: ${startData.job_id}. Tách thành ${startData.total_files} file nhỏ.`)
+        } else {
+          alert(`Lỗi: ${startData.detail || "Unknown error"}`)
+        }
+      }
+    } catch (err) {
+      alert("Lỗi mạng khi chọn DOCX")
+    }
+  }
+
   const handleStartJob = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/jobs`, {
@@ -452,6 +474,7 @@ function App() {
                   style={{ flex: 1 }}
                 />
                 <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={() => handleBrowse(setInputDir)}>{t('browse')}</button>
+                <button className="btn" style={{ width: 'auto', background: '#3b82f6' }} onClick={handleBrowseDocx}>Chọn .docx</button>
                 <button className="btn" style={{ width: 'auto' }} onClick={handleScan} disabled={isScanning}>
                   {isScanning ? t('scanning') : t('scan')}
                 </button>
