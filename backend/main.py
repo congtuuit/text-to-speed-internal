@@ -1,3 +1,10 @@
+import sys
+# Fix Windows encoding: force stdout/stderr sang UTF-8 để log Unicode không bị lỗi
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 from fastapi import FastAPI, Depends, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -5,9 +12,10 @@ from pydantic import BaseModel
 import os
 import requests
 
+
 from database import engine, Base, get_db
 import models
-from services.queue_manager import queue_manager
+from services.queue_manager import queue_manager, fpt_key_rotator
 from services.tts_provider import TTSProvider
 from fastapi.responses import FileResponse
 import tempfile
@@ -52,6 +60,18 @@ class JobRequest(BaseModel):
 
 class DocxJobRequest(BaseModel):
     docx_path: str
+    output_dir: str
+    voice: str
+    model_name: str = "gemini-2.5-flash-preview-tts"
+    provider: str = "fpt"
+    vieneu_mode: str = "remote"
+    fpt_api_keys: str = ""
+    fpt_speed: float = 0.8
+    vieneu_url: str = "http://localhost:23333/v1"
+    max_workers: int = 3
+
+class BatchDocxRequest(BaseModel):
+    folder_path: str
     output_dir: str
     voice: str
     model_name: str = "gemini-2.5-flash-preview-tts"
@@ -195,10 +215,19 @@ def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
             setting.value = v
     db.commit()
     queue_manager.set_workers(req.max_workers)
-    
+
+    # Reload FPT key rotator khi settings thay đổi
+    if req.fpt_api_keys:
+        keys = [
+            k.split('|')[1].strip() if '|' in k else k.strip()
+            for k in req.fpt_api_keys.split('\n')
+            if k.strip()
+        ]
+        fpt_key_rotator.load(keys)
+
     # Resume queue in case it was paused due to quota/api key error
     queue_manager.resume()
-    
+
     return {"status": "ok"}
 
 @app.get("/api/settings")
@@ -325,6 +354,75 @@ def split_docx_endpoint(req: DocxJobRequest, db: Session = Depends(get_db)):
     
     return {"chunks_dir": chunks_dir, "total_files": len(files)}
 
+@app.post("/api/docx/batch-submit")
+def batch_submit_docx(req: BatchDocxRequest, db: Session = Depends(get_db)):
+    if not os.path.exists(req.folder_path) or not os.path.isdir(req.folder_path):
+        raise HTTPException(status_code=400, detail="Directory not found")
+        
+    if not os.path.exists(req.output_dir):
+        os.makedirs(req.output_dir)
+        
+    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers))]:
+        if not v:
+            continue
+        setting = db.query(models.Settings).filter(models.Settings.key == k).first()
+        if not setting:
+            setting = models.Settings(key=k, value=v)
+            db.add(setting)
+        else:
+            setting.value = v
+    db.commit()
+
+    docx_files = [f for f in os.listdir(req.folder_path) if f.endswith('.docx') or f.endswith('.doc')]
+    if not docx_files:
+        raise HTTPException(status_code=400, detail="No DOCX files found in directory")
+        
+    max_length = 200 if req.provider == 'fpt' else 2800
+    created_jobs = []
+    total_files_across_all = 0
+    
+    for docx_file in docx_files:
+        docx_path = os.path.join(req.folder_path, docx_file)
+        base_name = os.path.splitext(docx_file)[0]
+        chunks_dir = os.path.join(req.output_dir, f"{base_name}_chunks")
+        
+        # Split DOCX to TXT chunks
+        txt_files = split_docx_to_txt(docx_path, chunks_dir, max_chars=max_length)
+        if not txt_files:
+            continue
+            
+        final_output_path = os.path.join(req.output_dir, f"{base_name}.wav")
+        
+        # Create BatchJob
+        job = models.BatchJob(
+            input_dir=chunks_dir, 
+            output_dir=chunks_dir, 
+            voice=req.voice, 
+            model_name=req.model_name, 
+            provider=req.provider,
+            is_docx_job=1,
+            final_output_path=final_output_path
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+        created_jobs.append(job.id)
+        
+        # Create FileTasks
+        for file_name in txt_files:
+            file_path = os.path.join(chunks_dir, file_name)
+            task = models.FileTask(job_id=job.id, file_name=file_name, file_path=file_path)
+            db.add(task)
+            total_files_across_all += 1
+            
+    db.commit()
+    
+    return {
+        "job_ids": created_jobs,
+        "total_jobs": len(created_jobs),
+        "total_files": total_files_across_all
+    }
+
 @app.get("/api/jobs/latest/progress")
 def get_latest_job_progress(db: Session = Depends(get_db)):
     job = db.query(models.BatchJob).filter(models.BatchJob.status != "Cancelled").order_by(models.BatchJob.id.desc()).first()
@@ -348,6 +446,59 @@ def get_latest_job_progress(db: Session = Depends(get_db)):
         "tasks": [{"id": t.id, "file_name": t.file_name, "status": t.status} for t in tasks]
     }
 
+@app.get("/api/jobs/active/progress")
+def get_active_jobs_progress(db: Session = Depends(get_db)):
+    jobs = db.query(models.BatchJob).order_by(models.BatchJob.id.desc()).all()
+    if not jobs:
+        return {"jobs": []}
+        
+    result = []
+    for job in jobs:
+        tasks = db.query(models.FileTask).filter(models.FileTask.job_id == job.id).all()
+        total = len(tasks)
+        done = sum(1 for t in tasks if t.status == "Done")
+        error = sum(1 for t in tasks if t.status == "Error")
+        processing = sum(1 for t in tasks if t.status == "Processing")
+        
+        # Lấy tên file gốc từ input_dir (nếu là docx, input_dir sẽ có tên dạng filename_chunks)
+        job_name = os.path.basename(job.input_dir)
+        if job.is_docx_job == 1 and job_name.endswith("_chunks"):
+            job_name = job_name.replace("_chunks", ".docx")
+            
+        result.append({
+            "job_id": job.id,
+            "job_name": job_name,
+            "status": job.status,
+            "is_docx_job": job.is_docx_job,
+            "total": total,
+            "done": done,
+            "error": error,
+            "processing": processing,
+            "is_paused": queue_manager.is_paused
+        })
+        
+    return {"jobs": result}
+
+@app.get("/api/jobs/{job_id}/tasks")
+def get_job_tasks(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(models.BatchJob).filter(models.BatchJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    tasks = db.query(models.FileTask).filter(models.FileTask.job_id == job_id).order_by(models.FileTask.file_name).all()
+    return {
+        "job_id": job_id,
+        "tasks": [
+            {
+                "id": t.id,
+                "file_name": t.file_name,
+                "status": t.status,
+                "error_message": t.error_message,
+                "output_path": t.output_path
+            }
+            for t in tasks
+        ]
+    }
+
 @app.post("/api/tasks/{task_id}/retry")
 def retry_task(task_id: int, db: Session = Depends(get_db)):
     task = db.query(models.FileTask).filter(models.FileTask.id == task_id).first()
@@ -367,8 +518,58 @@ def retry_task(task_id: int, db: Session = Depends(get_db)):
 
 @app.delete("/api/jobs/{job_id}")
 def delete_job(job_id: int, db: Session = Depends(get_db)):
-    # Xoá toàn bộ lịch sử thực sự trong DB theo yêu cầu của user
-    db.query(models.FileTask).delete()
-    db.query(models.BatchJob).delete()
+    db.query(models.FileTask).filter(models.FileTask.job_id == job_id).delete()
+    db.query(models.BatchJob).filter(models.BatchJob.id == job_id).delete()
     db.commit()
     return {"status": "ok"}
+
+@app.post("/api/jobs/reset-stuck")
+def reset_stuck_tasks(db: Session = Depends(get_db)):
+    """Reset task kẹt ở 'Processing' về 'Pending' và đảm bảo workers đang chạy."""
+    stuck = db.query(models.FileTask).filter(models.FileTask.status == "Processing").all()
+    count = len(stuck)
+    for t in stuck:
+        t.status = "Pending"
+
+    if stuck:
+        job_ids = set(t.job_id for t in stuck)
+        for job_id in job_ids:
+            job = db.query(models.BatchJob).filter(models.BatchJob.id == job_id).first()
+            if job and job.status in ["Completed"]:
+                job.status = "Processing"
+
+    db.commit()
+
+    # Giải phóng tất cả FPT key đang bị giữ (worker đang poll giữa chừng sẽ bỏ kết quả do ownership check)
+    fpt_key_rotator.clear_in_use()
+
+    queue_manager.resume()
+    restarted = queue_manager.ensure_workers()  # Restart worker nếu thread đã chết
+    return {"status": "ok", "reset_count": count, "workers_restarted": restarted}
+
+@app.get("/api/debug/queue")
+def debug_queue(db: Session = Depends(get_db)):
+    """Debug: trạng thái chi tiết của QueueManager và số task theo status."""
+    qs = queue_manager.status()
+
+    # Đếm tasks theo status (tất cả jobs)
+    from sqlalchemy import func
+    task_counts = db.query(models.FileTask.status, func.count(models.FileTask.id))\
+        .group_by(models.FileTask.status).all()
+    tasks_by_status = {s: c for s, c in task_counts}
+
+    # Đếm jobs theo status
+    job_counts = db.query(models.BatchJob.status, func.count(models.BatchJob.id))\
+        .group_by(models.BatchJob.status).all()
+    jobs_by_status = {s: c for s, c in job_counts}
+
+    # FPT key rotator info
+    fpt_keys = fpt_key_rotator.all_keys()
+
+    return {
+        "queue_manager": qs,
+        "fpt_keys_loaded": len(fpt_keys),
+        "fpt_keys_in_use": fpt_key_rotator.in_use_count(),
+        "tasks": tasks_by_status,
+        "jobs": jobs_by_status
+    }

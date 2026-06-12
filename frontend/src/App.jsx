@@ -37,14 +37,9 @@ function App() {
   const [isQuickConverting, setIsQuickConverting] = useState(false)
   const [quickAudioUrl, setQuickAudioUrl] = useState(null)
 
-  const [progress, setProgress] = useState({
-    status: 'Idle',
-    total: 0,
-    done: 0,
-    error: 0,
-    processing: 0,
-    tasks: []
-  })
+  const [progressJobs, setProgressJobs] = useState([])
+  const [expandedJobs, setExpandedJobs] = useState({})   // job_id -> bool
+  const [jobTasks, setJobTasks] = useState({})            // job_id -> []
 
   const fetchModels = async (key) => {
     try {
@@ -108,19 +103,41 @@ function App() {
     localStorage.setItem('tts_max_workers', maxWorkers)
   }, [inputDir, outputDir, voice, testText, modelName, provider, vieneuMode, vieneuUrl, fptApiKeys, fptSpeed, maxWorkers])
 
+  const fetchJobTasks = async (jobId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/jobs/${jobId}/tasks`)
+      const data = await res.json()
+      if (data && data.tasks) {
+        setJobTasks(prev => ({ ...prev, [jobId]: data.tasks }))
+      }
+    } catch (err) { }
+  }
+
+  const toggleJobExpand = (jobId) => {
+    const next = !expandedJobs[jobId]
+    setExpandedJobs(prev => ({ ...prev, [jobId]: next }))
+    if (next) fetchJobTasks(jobId)
+  }
+
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/jobs/latest/progress`)
+        const res = await fetch(`${API_BASE_URL}/api/jobs/active/progress`)
         const data = await res.json()
-        if (data && data.status) {
-          setProgress(data)
+        if (data && data.jobs) {
+          setProgressJobs(data.jobs)
+          // Cập nhật task list cho các job đang mở
+          for (const job of data.jobs) {
+            if (expandedJobs[job.job_id]) {
+              fetchJobTasks(job.job_id)
+            }
+          }
         }
       } catch (err) {
       }
     }, 5000)
     return () => clearInterval(interval)
-  }, [])
+  }, [expandedJobs])
 
   const handleSaveSettings = async () => {
     try {
@@ -232,6 +249,45 @@ function App() {
     }
   }
 
+  const handleBrowseBatchDocx = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/browse-folder`)
+      const data = await res.json()
+      if (data.path) {
+        Swal.fire({
+          title: 'Đang xử lý...',
+          text: 'Vui lòng chờ hệ thống cắt nhỏ các file DOCX...',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading()
+          },
+          background: '#1e293b',
+          color: '#fff'
+        })
+        const submitRes = await fetch(`${API_BASE_URL}/api/docx/batch-submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folder_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers) })
+        })
+        const submitData = await submitRes.json()
+        if (submitRes.ok) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Thành công',
+            text: `Đã tạo ${submitData.total_jobs} tiến trình xử lý cho tổng cộng ${submitData.total_files} file văn bản nhỏ. Bạn có thể theo dõi tiến độ ở khung bên dưới.`,
+            background: '#1e293b',
+            color: '#fff',
+            confirmButtonColor: '#3b82f6'
+          })
+        } else {
+          Swal.fire({ icon: 'error', title: 'Lỗi', text: submitData.detail || "Unknown error", background: '#1e293b', color: '#fff' })
+        }
+      }
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Lỗi', text: "Lỗi mạng khi chọn Folder DOCX", background: '#1e293b', color: '#fff' })
+    }
+  }
+
   const handleStartJob = async () => {
     try {
       const targetInputDir = docxChunksDir || inputDir;
@@ -251,15 +307,15 @@ function App() {
     }
   }
 
-  const handleDeleteJob = async () => {
+  const handleDeleteJob = async (jobId) => {
     const result = await Swal.fire({
       title: 'Xác nhận xóa?',
-      text: "Bạn có chắc muốn xoá TOÀN BỘ lịch sử các Job không?",
+      text: "Bạn có chắc muốn xoá tiến trình này không?",
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#ef4444',
       cancelButtonColor: '#334155',
-      confirmButtonText: 'Có, Xóa hết!',
+      confirmButtonText: 'Có, Xóa!',
       cancelButtonText: 'Huỷ',
       background: '#1e293b',
       color: '#fff'
@@ -268,9 +324,9 @@ function App() {
     if (!result.isConfirmed) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/jobs/${progress.job_id}`, { method: 'DELETE' })
+      const res = await fetch(`${API_BASE_URL}/api/jobs/${jobId}`, { method: 'DELETE' })
       if (res.ok) {
-        setProgress({ status: 'Idle', total: 0, done: 0, error: 0, processing: 0, tasks: [] })
+        setProgressJobs(prev => prev.filter(j => j.job_id !== jobId))
       }
     } catch (err) {
       console.error(err)
@@ -285,6 +341,26 @@ function App() {
       }
     } catch (err) {
       console.error("Retry failed", err)
+    }
+  }
+
+  const handleResetStuck = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/jobs/reset-stuck`, { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Reset thành công',
+          text: `Đã reset ${data.reset_count} task bị kẹt về Pending. Workers đã tiếp tục xử lý.`,
+          background: '#1e293b',
+          color: '#fff',
+          timer: 2500,
+          showConfirmButton: false
+        })
+      }
+    } catch (err) {
+      console.error('Reset stuck failed', err)
     }
   }
 
@@ -367,7 +443,7 @@ function App() {
     setIsQuickConverting(false)
   }
 
-  const percent = progress.total > 0 ? Math.round((progress.done + progress.error) / progress.total * 100) : 0;
+
 
   // Deduplicate default model and fetched models
   const fallbackModels = [
@@ -592,7 +668,7 @@ Account2 | 0987654321..."
             <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('batch_setup')}</h2>
             <div className="form-group">
               <label>{t('input_dir')}</label>
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
                 <input
                   type="text"
                   value={inputDir}
@@ -604,8 +680,10 @@ Account2 | 0987654321..."
                 <button className="btn" style={{ width: 'auto' }} onClick={handleScan} disabled={isScanning}>
                   {isScanning ? t('scanning') : t('scan')}
                 </button>
-                <br />
-                <button className="btn" style={{ width: 'auto', background: '#3b82f6' }} onClick={handleBrowseDocx}>Chọn .docx</button>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button className="btn" style={{ width: 'auto', background: '#3b82f6' }} onClick={handleBrowseDocx}>Chọn 1 file .docx</button>
+                <button className="btn" style={{ width: 'auto', background: '#8b5cf6' }} onClick={handleBrowseBatchDocx}>Chọn Folder DOCX</button>
               </div>
               {fileCount > 0 && <small style={{ color: '#10b981' }}>{t('found_files', { count: fileCount })}</small>}
             </div>
@@ -624,68 +702,149 @@ Account2 | 0987654321..."
               </div>
             </div>
 
-            <button className="btn btn-giant" onClick={handleStartJob} disabled={fileCount === 0 && progress.status !== 'Pending'}>
+            <button className="btn btn-giant" onClick={handleStartJob} disabled={fileCount === 0}>
               {t('start_batch')}
             </button>
           </div>
 
-          <div className="glass-panel">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <div className="glass-panel" style={{ maxHeight: '800px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{t('status_dashboard')}</h2>
-              {['Pending', 'Processing', 'Paused', 'Completed', 'Error', 'Cancelled'].includes(progress.status) && (
-                <button
-                  className="btn"
-                  style={{ width: 'auto', padding: '0.4rem 1rem', background: '#ef4444', fontSize: '0.9rem' }}
-                  onClick={handleDeleteJob}
-                >
-                  {['Pending', 'Processing', 'Paused'].includes(progress.status) ? 'Dừng & Xoá Job' : 'Xóa Lịch Sử'}
-                </button>
-              )}
+              <button
+                className="btn"
+                title="Reset các task đang bị kẹt (Processing) về Pending để tiếp tục xử lý"
+                style={{ width: 'auto', padding: '0.25rem 0.9rem', background: '#f59e0b', color: '#000', fontSize: '0.8rem', fontWeight: '600' }}
+                onClick={handleResetStuck}
+              >
+                ⚡ Reset Stuck
+              </button>
             </div>
 
-            <div className="stats">
-              <span>{t('state')} <strong style={{ color: progress.is_paused ? '#ef4444' : '#fff' }}>{progress.is_paused ? 'PAUSED (QUOTA/KEY ERROR)' : progress.status}</strong></span>
-              <span>{t('total_tasks')} <strong style={{ color: '#fff' }}>{progress.total}</strong></span>
-            </div>
+            {progressJobs.length === 0 && (
+              <div style={{ textAlign: 'center', color: '#64748b', padding: '1rem' }}>Không có tiến trình nào đang chạy</div>
+            )}
 
-            <div className="progress-container">
-              <div className="progress-bar" style={{ width: `${percent}%` }}></div>
-            </div>
-
-            <div className="stats">
-              <span>{t('done')} <strong style={{ color: '#10b981' }}>{progress.done}</strong></span>
-              <span>{t('error')} <strong style={{ color: '#ef4444' }}>{progress.error}</strong></span>
-              <span>{t('processing')} <strong style={{ color: '#3b82f6' }}>{progress.processing}</strong></span>
-            </div>
-
-            <div className="task-list">
-              {progress.tasks && progress.tasks.map((task, idx) => (
-                <div className="task-item" key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>{task.file_name}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {task.status === 'Error' && (
-                      <button 
-                        onClick={() => handleRetryTask(task.id)}
-                        style={{ 
-                          background: 'rgba(59, 130, 246, 0.2)', 
-                          color: '#60a5fa', 
-                          border: '1px solid #3b82f6', 
-                          borderRadius: '4px', 
-                          padding: '0.1rem 0.4rem', 
-                          fontSize: '0.8rem', 
-                          cursor: 'pointer' 
-                        }}>
-                        Chạy lại
-                      </button>
-                    )}
-                    <span className={`status-badge ${task.status.toLowerCase()}`}>{task.status}</span>
+            {progressJobs.map(job => {
+              const p = job.total > 0 ? Math.round((job.done + job.error) / job.total * 100) : 0;
+              const isExpanded = !!expandedJobs[job.job_id]
+              const tasks = jobTasks[job.job_id] || []
+              return (
+                <div key={job.job_id} style={{ marginBottom: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0 }}>
+                      {/* Chỉ DOCX job mới có nút expand */}
+                      {job.is_docx_job ? (
+                        <button
+                          onClick={() => toggleJobExpand(job.job_id)}
+                          title={isExpanded ? 'Thu gọn' : 'Mở rộng danh sách file'}
+                          style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            color: '#38bdf8', fontSize: '1rem', padding: '0 0.3rem',
+                            transition: 'transform 0.2s',
+                            transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'
+                          }}
+                        >
+                          ▶
+                        </button>
+                      ) : (
+                        <span style={{ width: '1.5rem' }} />
+                      )}
+                      <strong
+                        style={{ fontSize: '1.1rem', color: '#38bdf8', cursor: job.is_docx_job ? 'pointer' : 'default', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        onClick={() => job.is_docx_job && toggleJobExpand(job.job_id)}
+                      >
+                        {job.job_name || `Job #${job.job_id}`}
+                      </strong>
+                    </div>
+                    <button
+                      className="btn"
+                      style={{ width: 'auto', padding: '0.2rem 0.8rem', background: '#ef4444', fontSize: '0.8rem', flexShrink: 0 }}
+                      onClick={() => handleDeleteJob(job.job_id)}
+                    >
+                      {['Pending', 'Processing', 'Paused'].includes(job.status) ? 'Dừng & Xoá' : 'Xóa Lịch Sử'}
+                    </button>
                   </div>
+
+                  <div className="stats">
+                    <span>{t('state')} <strong style={{ color: job.is_paused ? '#ef4444' : '#fff' }}>{job.is_paused ? 'PAUSED' : job.status}</strong></span>
+                    <span>{t('total_tasks')} <strong style={{ color: '#fff' }}>{job.total}</strong></span>
+                  </div>
+
+                  <div className="progress-container">
+                    <div className="progress-bar" style={{ width: `${p}%` }}></div>
+                  </div>
+
+                  <div className="stats" style={{ marginBottom: '0' }}>
+                    <span>{t('done')} <strong style={{ color: '#10b981' }}>{job.done}</strong></span>
+                    <span>{t('error')} <strong style={{ color: '#ef4444' }}>{job.error}</strong></span>
+                    <span>{t('processing')} <strong style={{ color: '#3b82f6' }}>{job.processing}</strong></span>
+                    <span style={{marginLeft:'auto'}}><strong>{p}%</strong></span>
+                  </div>
+
+                  {/* Danh sách file txt khi expand */}
+                  {isExpanded && (
+                    <div style={{
+                      marginTop: '0.75rem',
+                      background: 'rgba(0,0,0,0.25)',
+                      borderRadius: '8px',
+                      padding: '0.5rem 0.75rem',
+                      maxHeight: '260px',
+                      overflowY: 'auto'
+                    }}>
+                      {tasks.length === 0 && (
+                        <div style={{ color: '#64748b', fontSize: '0.85rem', textAlign: 'center', padding: '0.5rem' }}>Không có file nào.</div>
+                      )}
+                      {tasks.map(task => {
+                        const statusColor = {
+                          Done: '#10b981',
+                          Processing: '#3b82f6',
+                          Error: '#ef4444',
+                          Pending: '#94a3b8'
+                        }[task.status] || '#94a3b8'
+
+                        const statusIcon = {
+                          Done: '✔',
+                          Processing: '⧗',
+                          Error: '✘',
+                          Pending: '○'
+                        }[task.status] || '○'
+
+                        return (
+                          <div key={task.id} style={{
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            padding: '0.25rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                            fontSize: '0.82rem'
+                          }}>
+                            <span style={{ color: statusColor, fontSize: '0.9rem', flexShrink: 0 }}>{statusIcon}</span>
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: statusColor }}>
+                              {task.file_name}
+                            </span>
+                            <span style={{ color: statusColor, flexShrink: 0, fontWeight: '600', minWidth: '70px', textAlign: 'right' }}>{task.status}</span>
+                            {task.status === 'Error' && (
+                              <>
+                                {task.error_message && (
+                                  <span title={task.error_message} style={{ cursor: 'help', color: '#fbbf24', fontSize: '0.9rem' }}>⚠️</span>
+                                )}
+                                <button
+                                  style={{
+                                    background: '#f59e0b', border: 'none', color: '#000', cursor: 'pointer',
+                                    borderRadius: '4px', padding: '0.1rem 0.5rem', fontSize: '0.75rem', fontWeight: '600'
+                                  }}
+                                  onClick={() => handleRetryTask(task.id)}
+                                >
+                                  Retry
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
-              ))}
-              {(!progress.tasks || progress.tasks.length === 0) && (
-                <div style={{ textAlign: 'center', color: '#64748b', padding: '1rem' }}>{t('no_active_tasks')}</div>
-              )}
-            </div>
+              );
+            })}
+
           </div>
         </div>
       </div>

@@ -2,88 +2,276 @@ import os
 import re
 from docx import Document
 
-def split_docx_to_txt(docx_path: str, output_dir: str, max_chars: int = 2800):
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        
-    doc = Document(docx_path)
-    paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
-    
-    current_chunk = ""
-    chunk_index = 1
-    files_created = []
-    
-    def save_chunk(text):
-        nonlocal chunk_index
-        text = text.strip()
-        if not text: return
-        file_name = f"{chunk_index:03d}.txt"
-        file_path = os.path.join(output_dir, file_name)
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(text)
-        files_created.append(file_name)
-        chunk_index += 1
 
-    for para in paragraphs:
-        if len(current_chunk) + len(para) + 1 <= max_chars:
-            if current_chunk:
-                current_chunk += "\n" + para
-            else:
-                current_chunk = para
+def normalize_text(text: str) -> str:
+    text = text.replace("\r", " ")
+    text = text.replace("\n", " ")
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def split_long_sentence(sentence: str, max_chars: int):
+    """
+    Câu quá dài:
+    ưu tiên ; : ,
+    cuối cùng mới cắt theo từ.
+    """
+
+    sentence = sentence.strip()
+
+    if len(sentence) <= max_chars:
+        return [sentence]
+
+    result = []
+
+    parts = re.split(
+        r'(?<=[;:,])\s+',
+        sentence
+    )
+
+    current = ""
+
+    for part in parts:
+
+        part = part.strip()
+
+        if not part:
+            continue
+
+        if len(current) + len(part) + 1 <= max_chars:
+
+            current = (
+                f"{current} {part}"
+            ).strip()
+
         else:
-            if current_chunk:
-                save_chunk(current_chunk)
-                current_chunk = ""
-            
-            if len(para) > max_chars:
-                sentences = re.split(r'(?<=[.?!])\s+', para)
-                temp_chunk = ""
-                for sent in sentences:
-                    sent = sent.strip()
-                    if not sent: continue
-                    if len(temp_chunk) + len(sent) + 1 <= max_chars:
-                        if temp_chunk:
-                            temp_chunk += " " + sent
-                        else:
-                            temp_chunk = sent
-                    else:
-                        if temp_chunk:
-                            save_chunk(temp_chunk)
-                        
-                        if len(sent) > max_chars:
-                            # Tách theo dấu phẩy nếu câu vẫn quá dài
-                            sub_parts = re.split(r'(?<=[,;])\s+', sent)
-                            sub_chunk = ""
-                            for sub in sub_parts:
-                                sub = sub.strip()
-                                if not sub: continue
-                                if len(sub_chunk) + len(sub) + 1 <= max_chars:
-                                    if sub_chunk: sub_chunk += " " + sub
-                                    else: sub_chunk = sub
-                                else:
-                                    if sub_chunk: save_chunk(sub_chunk)
-                                    if len(sub) > max_chars:
-                                        # Cuối cùng cắt theo khoảng trắng
-                                        words = sub.split()
-                                        w_chunk = ""
-                                        for w in words:
-                                            if len(w_chunk) + len(w) + 1 <= max_chars:
-                                                if w_chunk: w_chunk += " " + w
-                                                else: w_chunk = w
-                                            else:
-                                                if w_chunk: save_chunk(w_chunk)
-                                                w_chunk = w
-                                        sub_chunk = w_chunk
-                                    else:
-                                        sub_chunk = sub
-                            temp_chunk = sub_chunk
-                        else:
-                            temp_chunk = sent
-                current_chunk = temp_chunk
+
+            if current:
+                result.append(current)
+
+            if len(part) <= max_chars:
+
+                current = part
+
             else:
-                current_chunk = para
-                
-    if current_chunk:
-        save_chunk(current_chunk)
-        
-    return files_created
+
+                words = part.split()
+
+                temp = ""
+
+                for word in words:
+
+                    if len(temp) + len(word) + 1 <= max_chars:
+
+                        temp = (
+                            f"{temp} {word}"
+                        ).strip()
+
+                    else:
+
+                        if temp:
+                            result.append(temp)
+
+                        temp = word
+
+                current = temp
+
+    if current:
+        result.append(current)
+
+    return result
+
+
+def split_sentences(text: str):
+    """
+    Tách câu tiếng Việt.
+    """
+
+    text = normalize_text(text)
+
+    if not text:
+        return []
+
+    pattern = r'''
+        .*?
+        (?:
+            [.!?]["”']?
+            (?=\s|$)
+            |
+            $
+        )
+    '''
+
+    matches = re.findall(
+        pattern,
+        text,
+        flags=re.VERBOSE | re.UNICODE
+    )
+
+    return [
+        m.strip()
+        for m in matches
+        if m.strip()
+    ]
+
+
+def inject_book_markers(text: str):
+    """
+    Tách heading kiểu:
+
+    Chương 01
+    1.
+    2.
+    3.
+    """
+
+    text = re.sub(
+        r'(Chương\s+\d+)',
+        r'\n\1\n',
+        text,
+        flags=re.IGNORECASE
+    )
+
+    text = re.sub(
+        r'(\s)(\d+\.\s+[A-ZÀ-Ỹ])',
+        r'\n\2',
+        text
+    )
+
+    return text
+
+
+def save_chunk(
+    text,
+    output_dir,
+    index
+):
+    filename = f"{index:03d}.txt"
+
+    path = os.path.join(
+        output_dir,
+        filename
+    )
+
+    with open(
+        path,
+        "w",
+        encoding="utf-8"
+    ) as f:
+        f.write(text)
+
+    return filename
+
+
+def split_docx_to_txt(
+    docx_path,
+    output_dir,
+    max_chars=200
+):
+
+    os.makedirs(
+        output_dir,
+        exist_ok=True
+    )
+
+    doc = Document(docx_path)
+
+    full_text = "\n".join(
+        p.text
+        for p in doc.paragraphs
+        if p.text.strip()
+    )
+
+    full_text = inject_book_markers(
+        full_text
+    )
+
+    sections = []
+
+    for block in full_text.split("\n"):
+
+        block = normalize_text(block)
+
+        if not block:
+            continue
+
+        sections.append(block)
+
+    chunks = []
+
+    current = ""
+
+    for section in sections:
+
+        sentences = split_sentences(
+            section
+        )
+
+        if not sentences:
+            sentences = [section]
+
+        expanded = []
+
+        for sentence in sentences:
+
+            if len(sentence) > max_chars:
+
+                expanded.extend(
+                    split_long_sentence(
+                        sentence,
+                        max_chars
+                    )
+                )
+
+            else:
+
+                expanded.append(
+                    sentence
+                )
+
+        for sentence in expanded:
+
+            if not current:
+
+                current = sentence
+                continue
+
+            if (
+                len(current)
+                + len(sentence)
+                + 1
+                <= max_chars
+            ):
+
+                current += " " + sentence
+
+            else:
+
+                chunks.append(
+                    current.strip()
+                )
+
+                current = sentence
+
+    if current:
+        chunks.append(
+            current.strip()
+        )
+
+    files = []
+
+    for idx, chunk in enumerate(
+        chunks,
+        start=1
+    ):
+
+        files.append(
+            save_chunk(
+                chunk,
+                output_dir,
+                idx
+            )
+        )
+
+    return files
+
