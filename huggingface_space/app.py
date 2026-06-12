@@ -201,8 +201,7 @@ demo = gr.Interface(
         gr.File(label="Tải file WAV")
     ],
     title="VieNeu-TTS Vietnamese Text To Speech",
-    description="Chuyển văn bản tiếng Việt thành giọng nói bằng VieNeu-TTS (Giới hạn tối đa 5000 ký tự)",
-    allow_flagging="never"
+    description="Chuyển văn bản tiếng Việt thành giọng nói bằng VieNeu-TTS (Giới hạn tối đa 5000 ký tự)"
 )
 
 # Mount Gradio app to FastAPI at root path "/"
