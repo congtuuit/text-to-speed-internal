@@ -208,7 +208,9 @@ demo = gr.Interface(
 app = gr.mount_gradio_app(app, demo, path="/")
 
 if __name__ == "__main__":
-    # Hugging Face Spaces dynamically assigns a PORT env variable
-    port = int(os.environ.get("PORT", 7860))
-    print(f"Starting server on port {port}...")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # In Hugging Face Spaces, the environment already handles starting the server.
+    # We only manually start uvicorn if we are running locally.
+    if not os.environ.get("SPACE_ID"):
+        port = int(os.environ.get("PORT", 7860))
+        print(f"Starting server on port {port}...")
+        uvicorn.run(app, host="0.0.0.0", port=port)
