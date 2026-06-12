@@ -131,7 +131,9 @@ def process_fpt_tts(text: str, output_path: str, voice: str, speed: float, keys:
                 res = requests.post(
                     "https://api.fpt.ai/hmi/tts/v5",
                     headers={
+                        "accept": "application/json, text/plain, */*",
                         "api-key": key,
+                        "content-type": "application/x-www-form-urlencoded",
                         "speed": str(speed),
                         "voice": voice
                     },
@@ -236,7 +238,9 @@ def _process_fpt_tts_with_rotator(
                     res = requests.post(
                         "https://api.fpt.ai/hmi/tts/v5",
                         headers={
+                            "accept": "application/json, text/plain, */*",
                             "api-key": key,
+                            "content-type": "application/x-www-form-urlencoded",
                             "speed": str(speed),
                             "voice": voice
                         },
