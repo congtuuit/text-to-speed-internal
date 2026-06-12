@@ -1,0 +1,443 @@
+{
+  "version": "1",
+  "pip_version": "26.0.1",
+  "install": [
+    {
+      "download_info": {
+        "url": "https://files.pythonhosted.org/packages/d7/55/58fa13c6ec2235d7ee11d3c4cff5dc0db3443d1fb0498729c6001a163c7a/vieneu-3.0.5-py3-none-any.whl",
+        "archive_info": {
+          "hash": "sha256=b2d7c0351fa0f1234584b65f508dd0f5ab73188dc3d32303bd1ffe67ad3a2088",
+          "hashes": {
+            "sha256": "b2d7c0351fa0f1234584b65f508dd0f5ab73188dc3d32303bd1ffe67ad3a2088"
+          }
+        }
+      },
+      "is_direct": false,
+      "is_yanked": false,
+      "requested": true,
+      "metadata": {
+        "metadata_version": "2.4",
+        "name": "vieneu",
+        "version": "3.0.5",
+        "dynamic": [
+          "license-file"
+        ],
+        "summary": "Advanced on-device Vietnamese TTS with instant voice cloning",
+        "description": "# 🦜 VieNeu-TTS\n\n**VieNeu-TTS** is an advanced on-device Vietnamese Text-to-Speech (TTS) with **instant voice cloning** and **English–Vietnamese bilingual** support. The SDK **defaults to VieNeu-TTS v3 Turbo (48 kHz)** and the minimal install is **torch-free** — on CPU it runs entirely on ONNX Runtime.\n\n[![Hugging Face v3 Turbo](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-v3%20Turbo-red)](https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Turbo)\n[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)\n\n## ✨ Key Features\n- **v3 Turbo, 48 kHz** — high-fidelity, natural Vietnamese speech (default).\n- **Torch-free on CPU** — minimal install runs on ONNX Runtime; PyTorch is never imported.\n- **Built-in default voices** — call them by name, no reference clip needed.\n- **Instant voice cloning** — clone any voice from 3–5s of audio.\n- **Emotion cues** *(experimental)* — drop `[cười]`, `[thở dài]`, `[hắng giọng]` into the text.\n- **Bilingual (En–Vi) code-switching**, fully offline.\n\n---\n\n## 📦 Install\n\n```bash\n# Minimal, TORCH-FREE — runs v3 Turbo on CPU via ONNX Runtime\npip install vieneu\n\n# Optional: GPU + older backends (v1/v2 PyTorch & GGUF, v3 Turbo on GPU)\npip install \"vieneu[gpu]\"\n```\n\n---\n\n## 🚀 Quick Start (Python SDK)\n\n```python\nfrom vieneu import Vieneu\n\n# Default = v3 Turbo. CPU → ONNX (torch-free); GPU → PyTorch (auto-detected).\ntts = Vieneu()\n\n# 1. Default voice (Ngọc Lan) — 48 kHz, no reference needed\naudio = tts.infer(\"Xin chào, đây là VieNeu-TTS phiên bản ba Turbo.\")\ntts.save(audio, \"output.wav\")\n\n# 2. Built-in voices by name\nfor label, voice_id in tts.list_preset_voices():\n    print(label, voice_id)\naudio = tts.infer(\"Mình là Xuân Vĩnh nè!\", voice=\"Xuân Vĩnh\")\n\n# 3. Emotion / non-verbal cues — EXPERIMENTAL: [cười] [thở dài] [hắng giọng]\naudio = tts.infer(\"Nghe hay quá đi [cười]. Để mình nói tiếp [hắng giọng].\", voice=\"Ngọc Linh\")\n```\n\n### 🦜 Zero-shot Voice Cloning\n\n```python\nfrom vieneu import Vieneu\ntts = Vieneu()\n\n# Clone straight from a 3–5s clip — no reference transcript needed.\naudio = tts.infer(text=\"Chào bạn, đây là giọng của tôi.\", ref_audio=\"path/to/voice.wav\")\ntts.save(audio, \"cloned.wav\")\n```\n\n### Older models (v1 / v2 — requires `pip install \"vieneu[gpu]\"`)\n```python\ntts = Vieneu(mode=\"standard\")   # v2 GGUF, bilingual, podcast\ntts = Vieneu(mode=\"turbo\")      # v2 Turbo, fastest\n```\n\n---\n\n## 🔬 Model Overview\n\n| Model | Engine | Device | Sample Rate | Features |\n|---|---|---|---|---|\n| **VieNeu-TTS v3 Turbo** *(default)* | ONNX (CPU) / PyTorch (GPU) | CPU/GPU | 48 kHz | Default voices, cloning, emotion cues |\n| VieNeu-TTS v2 | PyTorch / GGUF | GPU/CPU | 24 kHz | Bilingual, podcast (`[gpu]`) |\n| VieNeu-TTS v1 | PyTorch | GPU/CPU | 24 kHz | Stable, Vietnamese (`[gpu]`) |\n\n---\n\n## 🤝 Support & Links\n- **GitHub:** [pnnbao97/VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS)\n- **Discord:** [Join our community](https://discord.gg/yJt8kzjzWZ)\n\n**Made with ❤️ for the Vietnamese TTS community**\n",
+        "description_content_type": "text/markdown",
+        "keywords": [
+          "text-to-speech",
+          "tts",
+          "vietnamese",
+          "voice-cloning",
+          "speech-synthesis",
+          "real-time",
+          "on-device"
+        ],
+        "author_email": "Phạm Nguyễn Ngọc Bảo <pnnbao@gmail.com>",
+        "license": "Apache License\n                           Version 2.0, January 2004\n                        http://www.apache.org/licenses/\n\n   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\n\n   1. Definitions.\n\n      \"License\" shall mean the terms and conditions for use, reproduction,\n      and distribution as defined by Sections 1 through 9 of this document.\n\n      \"Licensor\" shall mean the copyright owner or entity authorized by\n      the copyright owner that is granting the License.\n\n      \"Legal Entity\" shall mean the union of the acting entity and all\n      other entities that control, are controlled by, or are under common\n      control with that entity. For the purposes of this definition,\n      \"control\" means (i) the power, direct or indirect, to cause the\n      direction or management of such entity, whether by contract or\n      otherwise, or (ii) ownership of fifty percent (50%) or more of the\n      outstanding shares, or (iii) beneficial ownership of such entity.\n\n      \"You\" (or \"Your\") shall mean an individual or Legal Entity\n      exercising permissions granted by this License.\n\n      \"Source\" form shall mean the preferred form for making modifications,\n      including but not limited to software source code, documentation\n      source, and configuration files.\n\n      \"Object\" form shall mean any form resulting from mechanical\n      transformation or translation of a Source form, including but\n      not limited to compiled object code, generated documentation,\n      and conversions to other media types.\n\n      \"Work\" shall mean the work of authorship, whether in Source or\n      Object form, made available under the License, as indicated by a\n      copyright notice that is included in or attached to the work\n      (an example is provided in the Appendix below).\n\n      \"Derivative Works\" shall mean any work, whether in Source or Object\n      form, that is based on (or derived from) the Work and for which the\n      editorial revisions, annotations, elaborations, or other modifications\n      represent, as a whole, an original work of authorship. For the purposes\n      of this License, Derivative Works shall not include works that remain\n      separable from, or merely link (or bind by name) to the interfaces of,\n      the Work and Derivative Works thereof.\n\n      \"Contribution\" shall mean any work of authorship, including\n      the original version of the Work and any modifications or additions\n      to that Work or Derivative Works thereof, that is intentionally\n      submitted to Licensor for inclusion in the Work by the copyright owner\n      or by an individual or Legal Entity authorized to submit on behalf of\n      the copyright owner. For the purposes of this definition, \"submitted\"\n      means any form of electronic, verbal, or written communication sent\n      to the Licensor or its representatives, including but not limited to\n      communication on electronic mailing lists, source code control systems,\n      and issue tracking systems that are managed by, or on behalf of, the\n      Licensor for the purpose of discussing and improving the Work, but\n      excluding communication that is conspicuously marked or otherwise\n      designated in writing by the copyright owner as \"Not a Contribution.\"\n\n      \"Contributor\" shall mean Licensor and any individual or Legal Entity\n      on behalf of whom a Contribution has been received by Licensor and\n      subsequently incorporated within the Work.\n\n   2. Grant of Copyright License. Subject to the terms and conditions of\n      this License, each Contributor hereby grants to You a perpetual,\n      worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n      copyright license to reproduce, prepare Derivative Works of,\n      publicly display, publicly perform, sublicense, and distribute the\n      Work and such Derivative Works in Source or Object form.\n\n   3. Grant of Patent License. Subject to the terms and conditions of\n      this License, each Contributor hereby grants to You a perpetual,\n      worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n      (except as stated in this section) patent license to make, have made,\n      use, offer to sell, sell, import, and otherwise transfer the Work,\n      where such license applies only to those patent claims licensable\n      by such Contributor that are necessarily infringed by their\n      Contribution(s) alone or by combination of their Contribution(s)\n      with the Work to which such Contribution(s) was submitted. If You\n      institute patent litigation against any entity (including a\n      cross-claim or counterclaim in a lawsuit) alleging that the Work\n      or a Contribution incorporated within the Work constitutes direct\n      or contributory patent infringement, then any patent licenses\n      granted to You under this License for that Work shall terminate\n      as of the date such litigation is filed.\n\n   4. Redistribution. You may reproduce and distribute copies of the\n      Work or Derivative Works thereof in any medium, with or without\n      modifications, and in Source or Object form, provided that You\n      meet the following conditions:\n\n      (a) You must give any other recipients of the Work or\n          Derivative Works a copy of this License; and\n\n      (b) You must cause any modified files to carry prominent notices\n          stating that You changed the files; and\n\n      (c) You must retain, in the Source form of any Derivative Works\n          that You distribute, all copyright, patent, trademark, and\n          attribution notices from the Source form of the Work,\n          excluding those notices that do not pertain to any part of\n          the Derivative Works; and\n\n      (d) If the Work includes a \"NOTICE\" text file as part of its\n          distribution, then any Derivative Works that You distribute must\n          include a readable copy of the attribution notices contained\n          within such NOTICE file, excluding those notices that do not\n          pertain to any part of the Derivative Works, in at least one\n          of the following places: within a NOTICE text file distributed\n          as part of the Derivative Works; within the Source form or\n          documentation, if provided along with the Derivative Works; or,\n          within a display generated by the Derivative Works, if and\n          wherever such third-party notices normally appear. The contents\n          of the NOTICE file are for informational purposes only and\n          do not modify the License. You may add Your own attribution\n          notices within Derivative Works that You distribute, alongside\n          or as an addendum to the NOTICE text from the Work, provided\n          that such additional attribution notices cannot be construed\n          as modifying the License.\n\n      You may add Your own copyright statement to Your modifications and\n      may provide additional or different license terms and conditions\n      for use, reproduction, or distribution of Your modifications, or\n      for any such Derivative Works as a whole, provided Your use,\n      reproduction, and distribution of the Work otherwise complies with\n      the conditions stated in this License.\n\n   5. Submission of Contributions. Unless You explicitly state otherwise,\n      any Contribution intentionally submitted for inclusion in the Work\n      by You to the Licensor shall be under the terms and conditions of\n      this License, without any additional terms or conditions.\n      Notwithstanding the above, nothing herein shall supersede or modify\n      the terms of any separate license agreement you may have executed\n      with Licensor regarding such Contributions.\n\n   6. Trademarks. This License does not grant permission to use the trade\n      names, trademarks, service marks, or product names of the Licensor,\n      except as required for reasonable and customary use in describing the\n      origin of the Work and reproducing the content of the NOTICE file.\n\n   7. Disclaimer of Warranty. Unless required by applicable law or\n      agreed to in writing, Licensor provides the Work (and each\n      Contributor provides its Contributions) on an \"AS IS\" BASIS,\n      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or\n      implied, including, without limitation, any warranties or conditions\n      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A\n      PARTICULAR PURPOSE. You are solely responsible for determining the\n      appropriateness of using or redistributing the Work and assume any\n      risks associated with Your exercise of permissions under this License.\n\n   8. Limitation of Liability. In no event and under no legal theory,\n      whether in tort (including negligence), contract, or otherwise,\n      unless required by applicable law (such as deliberate and grossly\n      negligent acts) or agreed to in writing, shall any Contributor be\n      liable to You for damages, including any direct, indirect, special,\n      incidental, or consequential damages of any character arising as a\n      result of this License or out of the use or inability to use the\n      Work (including but not limited to damages for loss of goodwill,\n      work stoppage, computer failure or malfunction, or any and all\n      other commercial damages or losses), even if such Contributor\n      has been advised of the possibility of such damages.\n\n   9. Accepting Warranty or Additional Liability. While redistributing\n      the Work or Derivative Works thereof, You may choose to offer,\n      and charge a fee for, acceptance of support, warranty, indemnity,\n      or other liability obligations and/or rights consistent with this\n      License. However, in accepting such obligations, You may act only\n      on Your own behalf and on Your sole responsibility, not on behalf\n      of any other Contributor, and only if You agree to indemnify,\n      defend, and hold each Contributor harmless for any liability\n      incurred by, or claims asserted against, such Contributor by reason\n      of your accepting any such warranty or additional liability.\n\n   END OF TERMS AND CONDITIONS\n\n   APPENDIX: How to apply the Apache License to your work.\n\n      To apply the Apache License to your work, attach the following\n      boilerplate notice, with the fields enclosed by brackets \"[]\"\n      replaced with your own identifying information. (Don't include\n      the brackets!)  The text should be enclosed in the appropriate\n      comment syntax for the file format. We also recommend that a\n      file or class name and description of purpose be included on the\n      same \"printed page\" as the copyright notice for easier\n      identification within third-party archives.\n\n   Copyright [yyyy] [name of copyright owner]\n\n   Licensed under the Apache License, Version 2.0 (the \"License\");\n   you may not use this file except in compliance with the License.\n   You may obtain a copy of the License at\n\n       http://www.apache.org/licenses/LICENSE-2.0\n\n   Unless required by applicable law or agreed to in writing, software\n   distributed under the License is distributed on an \"AS IS\" BASIS,\n   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n   See the License for the specific language governing permissions and\n   limitations under the License.\n",
+        "license_file": [
+          "LICENSE"
+        ],
+        "classifier": [
+          "Development Status :: 4 - Beta",
+          "Intended Audience :: Developers",
+          "Intended Audience :: Science/Research",
+          "License :: OSI Approved :: Apache Software License",
+          "Programming Language :: Python :: 3.10",
+          "Programming Language :: Python :: 3.11",
+          "Programming Language :: Python :: 3.12",
+          "Programming Language :: Python :: 3.13",
+          "Topic :: Multimedia :: Sound/Audio :: Speech",
+          "Topic :: Scientific/Engineering :: Artificial Intelligence",
+          "Operating System :: OS Independent"
+        ],
+        "requires_dist": [
+          "sea-g2p>=0.7.6",
+          "onnxruntime>=1.20.0",
+          "numpy",
+          "soundfile",
+          "soxr",
+          "tokenizers>=0.20",
+          "huggingface_hub",
+          "PyYAML",
+          "gradio>=5.49.1",
+          "perth>=0.2.0",
+          "torch; extra == \"gpu\"",
+          "torchaudio; extra == \"gpu\"",
+          "transformers; extra == \"gpu\"",
+          "librosa>=0.11.0; extra == \"gpu\"",
+          "neucodec>=0.0.4; extra == \"gpu\"",
+          "lmdeploy; sys_platform != \"darwin\" and extra == \"gpu\"",
+          "triton-windows; sys_platform == \"win32\" and extra == \"gpu\"",
+          "triton; sys_platform == \"linux\" and extra == \"gpu\"",
+          "accelerate; sys_platform == \"darwin\" and extra == \"gpu\"",
+          "llama-cpp-python==0.3.16; extra == \"gpu\""
+        ],
+        "requires_python": ">=3.10",
+        "project_url": [
+          "Homepage, https://github.com/pnnbao97/VieNeu-TTS",
+          "Repository, https://github.com/pnnbao97/VieNeu-TTS",
+          "Bug Tracker, https://github.com/pnnbao97/VieNeu-TTS/issues",
+          "Documentation, https://github.com/pnnbao97/VieNeu-TTS/blob/main/README.md",
+          "Source Code, https://github.com/pnnbao97/VieNeu-TTS",
+          "Changelog, https://github.com/pnnbao97/VieNeu-TTS/releases"
+        ],
+        "provides_extra": [
+          "gpu"
+        ]
+      }
+    },
+    {
+      "download_info": {
+        "url": "https://files.pythonhosted.org/packages/43/6a/5743b194da7625697b428ee363208f6daf4eef3909ecf0e86165ac2919be/gradio-6.18.0-py3-none-any.whl",
+        "archive_info": {
+          "hash": "sha256=696915cbcba1a4d8987185c23b977eb97eb9cf06f074e6b033aaa908bb132fd4",
+          "hashes": {
+            "sha256": "696915cbcba1a4d8987185c23b977eb97eb9cf06f074e6b033aaa908bb132fd4"
+          }
+        }
+      },
+      "is_direct": false,
+      "is_yanked": false,
+      "requested": false,
+      "metadata": {
+        "metadata_version": "2.4",
+        "name": "gradio",
+        "version": "6.18.0",
+        "summary": "Python library for easily interacting with trained machine learning models",
+        "description": "<!-- DO NOT EDIT THIS FILE DIRECTLY. INSTEAD EDIT THE `readme_template.md` OR `guides/01_getting-started/01_quickstart.md` TEMPLATES AND THEN RUN `render_readme.py` SCRIPT. -->\n\n<div align=\"center\">\n<a href=\"https://gradio.app\">\n<img src=\"https://raw.githubusercontent.com/gradio-app/gradio/main/readme_files/gradio.svg\" alt=\"gradio\" width=350>\n</a>\n</div>\n\n<div align=\"center\">\n<span>\n<a href=\"https://www.producthunt.com/posts/gradio-5-0?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-gradio&#0045;5&#0045;0\" target=\"_blank\"><img src=\"https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=501906&theme=light\" alt=\"Gradio&#0032;5&#0046;0 - the&#0032;easiest&#0032;way&#0032;to&#0032;build&#0032;AI&#0032;web&#0032;apps | Product Hunt\" style=\"width: 150px; height: 54px;\" width=\"150\" height=\"54\" /></a>\n<a href=\"https://trendshift.io/repositories/2145\" target=\"_blank\"><img src=\"https://trendshift.io/api/badge/repositories/2145\" alt=\"gradio-app%2Fgradio | Trendshift\" style=\"width: 150px; height: 55px;\" width=\"150\" height=\"55\"/></a>\n</span>\n\n[![gradio-backend](https://github.com/gradio-app/gradio/actions/workflows/test-python.yml/badge.svg)](https://github.com/gradio-app/gradio/actions/workflows/test-python.yml)\n[![gradio-ui](https://github.com/gradio-app/gradio/actions/workflows/tests-js.yml/badge.svg)](https://github.com/gradio-app/gradio/actions/workflows/tests-js.yml) \n[![PyPI](https://img.shields.io/pypi/v/gradio)](https://pypi.org/project/gradio/)\n[![PyPI downloads](https://img.shields.io/pypi/dm/gradio)](https://pypi.org/project/gradio/)\n![Python version](https://img.shields.io/badge/python-3.10+-important)\n[![Twitter follow](https://img.shields.io/twitter/follow/gradio?style=social&label=follow)](https://twitter.com/gradio)\n\n[Website](https://gradio.app)\n| [Documentation](https://gradio.app/docs/)\n| [Guides](https://gradio.app/guides/)\n| [Getting Started](https://gradio.app/getting_started/)\n| [Examples](demo/)\n\n</div>\n\n<div align=\"center\">\n\nEnglish | [中文](https://raw.githubusercontent.com/gradio-app/gradio/main/readme_files/zh-cn#readme)\n\n</div>\n\n# Gradio: Build Machine Learning Web Apps — in Python\n\n\n\nGradio is an open-source Python package that allows you to quickly **build** a demo or web application for your machine learning model, API, or any arbitrary Python function. You can then **share** a link to your demo or web application in just a few seconds using Gradio's built-in sharing features. *No JavaScript, CSS, or web hosting experience needed!*\n\n<img src=\"https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/gradio-guides/gif-version.gif\" style=\"padding-bottom: 10px\">\n\nIt just takes a few lines of Python to create your own demo, so let's get started 💫\n\n\n### Installation\n\n**Prerequisite**: Gradio requires [Python 3.10 or higher](https://www.python.org/downloads/).\n\n\nWe recommend installing Gradio using `pip`, which is included by default in Python. Run this in your terminal or command prompt:\n\n```bash\npip install --upgrade gradio\n```\n\n\n> [!TIP]\n > It is best to install Gradio in a virtual environment. Detailed installation instructions for all common operating systems <a href=\"https://www.gradio.app/main/guides/installing-gradio-in-a-virtual-environment\">are provided here</a>. \n\n### Building Your First Demo\n\nYou can run Gradio in your favorite code editor, Jupyter notebook, Google Colab, or anywhere else you write Python. Let's write your first Gradio app:\n\n\n```python\nimport gradio as gr\n\ndef greet(name, intensity):\n    return \"Hello, \" + name + \"!\" * int(intensity)\n\ndemo = gr.Interface(\n    fn=greet,\n    inputs=[\"text\", \"slider\"],\n    outputs=[\"text\"],\n    api_name=\"predict\"\n)\n\ndemo.launch()\n```\n\n\n\n> [!TIP]\n > We shorten the imported name from <code>gradio</code> to <code>gr</code>. This is a widely adopted convention for better readability of code. \n\nNow, run your code. If you've written the Python code in a file named `app.py`, then you would run `python app.py` from the terminal.\n\nThe demo below will open in a browser on [http://localhost:7860](http://localhost:7860) if running from a file. If you are running within a notebook, the demo will appear embedded within the notebook.\n\n![`hello_world_4` demo](https://raw.githubusercontent.com/gradio-app/gradio/main/demo/hello_world_4/screenshot.gif)\n\nType your name in the textbox on the left, drag the slider, and then press the Submit button. You should see a friendly greeting on the right.\n\n> [!TIP]\n > When developing locally, you can run your Gradio app in <strong>hot reload mode</strong>, which automatically reloads the Gradio app whenever you make changes to the file. To do this, simply type in <code>gradio</code> before the name of the file instead of <code>python</code>. In the example above, you would type: `gradio app.py` in your terminal. You can also enable <strong>vibe mode</strong> by using the <code>--vibe</code> flag, e.g. <code>gradio --vibe app.py</code>, which provides an in-browser chat that can be used to write or edit your Gradio app using natural language. Learn more in the <a href=\"https://www.gradio.app/guides/developing-faster-with-reload-mode\">Hot Reloading Guide</a>.\n\n\n**Understanding the `Interface` Class**\n\nYou'll notice that in order to make your first demo, you created an instance of the `gr.Interface` class. The `Interface` class is designed to create demos for machine learning models which accept one or more inputs, and return one or more outputs. \n\nThe `Interface` class has three core arguments:\n\n- `fn`: the function to wrap a user interface (UI) around\n- `inputs`: the Gradio component(s) to use for the input. The number of components should match the number of arguments in your function.\n- `outputs`: the Gradio component(s) to use for the output. The number of components should match the number of return values from your function.\n\nThe `fn` argument is very flexible -- you can pass *any* Python function that you want to wrap with a UI. In the example above, we saw a relatively simple function, but the function could be anything from a music generator to a tax calculator to the prediction function of a pretrained machine learning model.\n\nThe `inputs` and `outputs` arguments take one or more Gradio components. As we'll see, Gradio includes more than [30 built-in components](https://www.gradio.app/docs/gradio/introduction) (such as the `gr.Textbox()`, `gr.Image()`, and `gr.HTML()` components) that are designed for machine learning applications. \n\n> [!TIP]\n > For the `inputs` and `outputs` arguments, you can pass in the name of these components as a string (`\"textbox\"`) or an instance of the class (`gr.Textbox()`).\n\nIf your function accepts more than one argument, as is the case above, pass a list of input components to `inputs`, with each input component corresponding to one of the arguments of the function, in order. The same holds true if your function returns more than one value: simply pass in a list of components to `outputs`. This flexibility makes the `Interface` class a very powerful way to create demos.\n\nWe'll dive deeper into the `gr.Interface` on our series on [building Interfaces](https://www.gradio.app/main/guides/the-interface-class).\n\n### Sharing Your Demo\n\nWhat good is a beautiful demo if you can't share it? Gradio lets you easily share a machine learning demo without having to worry about the hassle of hosting on a web server. Simply set `share=True` in `launch()`, and a publicly accessible URL will be created for your demo. Let's revisit our example demo,  but change the last line as follows:\n\n```python\nimport gradio as gr\n\ndef greet(name):\n    return \"Hello \" + name + \"!\"\n\ndemo = gr.Interface(fn=greet, inputs=\"textbox\", outputs=\"textbox\")\n    \ndemo.launch(share=True)  # Share your demo with just 1 extra parameter 🚀\n```\n\nWhen you run this code, a public URL will be generated for your demo in a matter of seconds, something like:\n\n👉 &nbsp; `https://a23dsf231adb.gradio.live`\n\nNow, anyone around the world can try your Gradio demo from their browser, while the machine learning model and all computation continues to run locally on your computer.\n\nTo learn more about sharing your demo, read our dedicated guide on [sharing your Gradio application](https://www.gradio.app/guides/sharing-your-app).\n\n\n### An Overview of Gradio\n\nSo far, we've been discussing the `Interface` class, which is a high-level class that lets you build demos quickly with Gradio. But what else does Gradio include?\n\n#### Custom Demos with `gr.Blocks`\n\nGradio offers a low-level approach for designing web apps with more customizable layouts and data flows with the `gr.Blocks` class. Blocks supports things like controlling where components appear on the page, handling multiple data flows and more complex interactions (e.g. outputs can serve as inputs to other functions), and updating properties/visibility of components based on user interaction — still all in Python. \n\nYou can build very custom and complex applications using `gr.Blocks()`. For example, the popular image generation [Automatic1111 Web UI](https://github.com/AUTOMATIC1111/stable-diffusion-webui) is built using Gradio Blocks. We dive deeper into the `gr.Blocks` on our series on [building with Blocks](https://www.gradio.app/guides/blocks-and-event-listeners).\n\n#### Chatbots with `gr.ChatInterface`\n\nGradio includes another high-level class, `gr.ChatInterface`, which is specifically designed to create Chatbot UIs. Similar to `Interface`, you supply a function and Gradio creates a fully working Chatbot UI. If you're interested in creating a chatbot, you can jump straight to [our dedicated guide on `gr.ChatInterface`](https://www.gradio.app/guides/creating-a-chatbot-fast).\n\n#### The Gradio Python & JavaScript Ecosystem\n\nThat's the gist of the core `gradio` Python library, but Gradio is actually so much more! It's an entire ecosystem of Python and JavaScript libraries that let you build machine learning applications, or query them programmatically, in Python or JavaScript. Here are other related parts of the Gradio ecosystem:\n\n* [Gradio Python Client](https://www.gradio.app/guides/getting-started-with-the-python-client) (`gradio_client`): query any Gradio app programmatically in Python.\n* [Gradio JavaScript Client](https://www.gradio.app/guides/getting-started-with-the-js-client) (`@gradio/client`): query any Gradio app programmatically in JavaScript.\n* [Hugging Face Spaces](https://huggingface.co/spaces): the most popular place to host Gradio applications — for free!\n* [Server mode](https://www.gradio.app/guides/server-mode) (`gradio.Server`): build a custom frontend with Gradio's backend — queue, streaming, MCP, ZeroGPU, and Spaces hosting included.\n\n### What's Next?\n\nKeep learning about Gradio sequentially using the Gradio Guides, which include explanations as well as example code and embedded interactive demos. Next up: [let's dive deeper into the Interface class](https://www.gradio.app/guides/the-interface-class).\n\nOr, if you already know the basics and are looking for something specific, you can search the more [technical API documentation](https://www.gradio.app/docs/).\n\n\n### AI Coding Skills\n\nGradio provides a \"skill\" that enriches AI coding assistants (like Cursor, Claude Code, Codex, etc.) with Gradio-specific knowledge, so that they can build Gradio apps more effectively. This is especially useful when creating custom Gradio components or styling. Install the Gradio skill for your coding assistant with a single command:\n\n```bash\ngradio skills add --cursor   # or --claude, --codex, --opencode\n```\n\nUse `--global` to install at the user level (applies to all projects). Your skill will be automatically available for the particular coding agent.\n\nYou can also install a skill for a **specific Gradio Space**, which generates API usage docs (Python, JS, cURL) on the fly:\n\n```bash\ngradio skills add abidlabs/en2fr --cursor\n```\n\n## Questions?\n\nIf you'd like to report a bug or have a feature request, please create an [issue on GitHub](https://github.com/gradio-app/gradio/issues/new/choose). For general questions about usage, we are available on [our Discord server](https://discord.com/invite/feTf9x3ZSB) and happy to help.\n\nIf you like Gradio, please leave us a ⭐ on GitHub!\n\n## Open Source Stack\n\nGradio is built on top of many wonderful open-source libraries!\n\n[<img src=\"https://raw.githubusercontent.com/gradio-app/gradio/main/readme_files/huggingface_mini.svg\" alt=\"huggingface\" height=40>](https://huggingface.co)\n[<img src=\"https://raw.githubusercontent.com/gradio-app/gradio/main/readme_files/python.svg\" alt=\"python\" height=40>](https://www.python.org)\n[<img src=\"https://raw.githubusercontent.com/gradio-app/gradio/main/readme_files/fastapi.svg\" alt=\"fastapi\" height=40>](https://fastapi.tiangolo.com)\n[<img src=\"https://raw.githubusercontent.com/gradio-app/gradio/main/readme_files/encode.svg\" alt=\"encode\" height=40>](https://www.encode.io)\n[<img src=\"https://raw.githubusercontent.com/gradio-app/gradio/main/readme_files/svelte.svg\" alt=\"svelte\" height=40>](https://svelte.dev)\n[<img src=\"https://raw.githubusercontent.com/gradio-app/gradio/main/readme_files/vite.svg\" alt=\"vite\" height=40>](https://vitejs.dev)\n[<img src=\"https://raw.githubusercontent.com/gradio-app/gradio/main/readme_files/pnpm.svg\" alt=\"pnpm\" height=40>](https://pnpm.io)\n[<img src=\"https://raw.githubusercontent.com/gradio-app/gradio/main/readme_files/tailwind.svg\" alt=\"tailwind\" height=40>](https://tailwindcss.com)\n[<img src=\"https://raw.githubusercontent.com/gradio-app/gradio/main/readme_files/storybook.svg\" alt=\"storybook\" height=40>](https://storybook.js.org/)\n[<img src=\"https://raw.githubusercontent.com/gradio-app/gradio/main/readme_files/chromatic.svg\" alt=\"chromatic\" height=40>](https://www.chromatic.com/)\n\n## License\n\nGradio is licensed under the Apache License 2.0 found in the [LICENSE](LICENSE) file in the root directory of this repository.\n\n## Citation\n\nAlso check out the paper _[Gradio: Hassle-Free Sharing and Testing of ML Models in the Wild](https://arxiv.org/abs/1906.02569), ICML HILL 2019_, and please cite it if you use Gradio in your work.\n\n```\n@article{abid2019gradio,\n  title = {Gradio: Hassle-Free Sharing and Testing of ML Models in the Wild},\n  author = {Abid, Abubakar and Abdalla, Ali and Abid, Ali and Khan, Dawood and Alfozan, Abdulrahman and Zou, James},\n  journal = {arXiv preprint arXiv:1906.02569},\n  year = {2019},\n}\n```\n",
+        "description_content_type": "text/markdown",
+        "keywords": [
+          "machine learning",
+          "reproducibility",
+          "visualization"
+        ],
+        "author_email": "Abubakar Abid <gradio-team@huggingface.co>, Ali Abid <gradio-team@huggingface.co>, Ali Abdalla <gradio-team@huggingface.co>, Dawood Khan <gradio-team@huggingface.co>, Ahsen Khaliq <gradio-team@huggingface.co>, Pete Allen <gradio-team@huggingface.co>, Ömer Faruk Özdemir <gradio-team@huggingface.co>, Freddy A Boulton <gradio-team@huggingface.co>, Hannah Blair <gradio-team@huggingface.co>",
+        "license_expression": "Apache-2.0",
+        "license_file": [
+          "LICENSE"
+        ],
+        "classifier": [
+          "Development Status :: 5 - Production/Stable",
+          "Operating System :: OS Independent",
+          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3 :: Only",
+          "Programming Language :: Python :: 3.10",
+          "Programming Language :: Python :: 3.11",
+          "Programming Language :: Python :: 3.12",
+          "Programming Language :: Python :: 3.13",
+          "Topic :: Scientific/Engineering",
+          "Topic :: Scientific/Engineering :: Artificial Intelligence",
+          "Topic :: Scientific/Engineering :: Visualization"
+        ],
+        "requires_dist": [
+          "anyio<5.0,>=3.0",
+          "audioop-lts<=0.2.2; python_version >= '3.13'",
+          "brotli>=1.1.0",
+          "fastapi<1.0,>=0.115.2",
+          "gradio-client==2.5.0",
+          "groovy~=0.1",
+          "hf-gradio<1.0,>=0.4.1",
+          "httpx<1.0,>=0.24.1",
+          "huggingface-hub<2.0,>=1.2.0",
+          "jinja2<4.0",
+          "markupsafe<4.0,>=2.0",
+          "numpy<3.0,>=1.0",
+          "orjson~=3.0",
+          "packaging",
+          "pandas<4.0,>=1.0",
+          "pillow<13.0,>=8.0",
+          "pydantic<=3.0,>=2.0",
+          "pydub<1.0",
+          "python-multipart<1.0,>=0.0.18",
+          "pytz>=2017.2",
+          "pyyaml<7.0,>=5.0",
+          "safehttpx<0.2.0,>=0.1.7",
+          "semantic-version~=2.0",
+          "starlette<2.0,>=1.0.1",
+          "tomlkit<0.15.0,>=0.12.0",
+          "typer<1.0,>=0.12",
+          "typing-extensions~=4.0",
+          "uvicorn>=0.14.0",
+          "mcp<2.0.0,>=1.21.0; extra == 'mcp'",
+          "pydantic<=2.12.5,>=2.11.10; extra == 'mcp'",
+          "authlib; extra == 'oauth'",
+          "itsdangerous; extra == 'oauth'"
+        ],
+        "requires_python": ">=3.10",
+        "project_url": [
+          "Homepage, https://github.com/gradio-app/gradio"
+        ],
+        "provides_extra": [
+          "mcp",
+          "oauth"
+        ]
+      }
+    },
+    {
+      "download_info": {
+        "url": "https://files.pythonhosted.org/packages/78/81/0a861b8e1ff42960139c6cd4c7dd591292fa09ea1ae2d87677441cba4c00/gradio_client-2.5.0-py3-none-any.whl",
+        "archive_info": {
+          "hash": "sha256=d43e2179c29076292a76485ad7ed2e6eaa19d14ac58283bd7f5beabfe4ca958c",
+          "hashes": {
+            "sha256": "d43e2179c29076292a76485ad7ed2e6eaa19d14ac58283bd7f5beabfe4ca958c"
+          }
+        }
+      },
+      "is_direct": false,
+      "is_yanked": false,
+      "requested": false,
+      "metadata": {
+        "metadata_version": "2.4",
+        "name": "gradio_client",
+        "version": "2.5.0",
+        "summary": "Python library for easily interacting with trained machine learning models",
+        "description": "# `gradio_client`: Use a Gradio app as an API -- in 3 lines of Python\n\nThis directory contains the source code for `gradio_client`, a lightweight Python library that makes it very easy to use any Gradio app as an API.\n\nAs an example, consider this [Hugging Face Space that transcribes audio files](https://huggingface.co/spaces/abidlabs/whisper) that are recorded from the microphone.\n\n![](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/gradio-guides/whisper-screenshot.jpg)\n\nUsing the `gradio_client` library, we can easily use the Gradio as an API to transcribe audio files programmatically.\n\nHere's the entire code to do it:\n\n```python\nfrom gradio_client import Client\n\nclient = Client(\"abidlabs/whisper\")\nclient.predict(\"audio_sample.wav\")\n\n>> \"This is a test of the whisper speech recognition model.\"\n```\n\nThe Gradio client works with any Gradio Space, whether it be an image generator, a stateful chatbot, or a tax calculator.\n\n## Installation\n\nIf you already have a recent version of `gradio`, then the `gradio_client` is included as a dependency.\n\nOtherwise, the lightweight `gradio_client` package can be installed from pip (or pip3) and works with Python versions 3.10 or higher:\n\n```bash\n$ pip install gradio_client\n```\n\n## Basic Usage\n\n### Connecting to a Space or a Gradio app\n\nStart by connecting instantiating a `Client` object and connecting it to a Gradio app that is running on Spaces (or anywhere else)!\n\n**Connecting to a Space**\n\n```python\nfrom gradio_client import Client\n\nclient = Client(\"abidlabs/en2fr\")  # a Space that translates from English to French\n```\n\nYou can also connect to private Spaces by passing in your HF token with the `hf_token` parameter. You can get your HF token here: https://huggingface.co/settings/tokens\n\n```python\nfrom gradio_client import Client\n\nclient = Client(\"abidlabs/my-private-space\", hf_token=\"...\")\n```\n\n**Duplicating a Space for private use**\n\nWhile you can use any public Space as an API, you may get rate limited by Hugging Face if you make too many requests. For unlimited usage of a Space, simply duplicate the Space to create a private Space,\nand then use it to make as many requests as you'd like!\n\nThe `gradio_client` includes a class method: `Client.duplicate()` to make this process simple:\n\n```python\nfrom gradio_client import Client\n\nclient = Client.duplicate(\"abidlabs/whisper\")\nclient.predict(\"audio_sample.wav\")\n\n>> \"This is a test of the whisper speech recognition model.\"\n```\n\nIf you have previously duplicated a Space, re-running `duplicate()` will _not_ create a new Space. Instead, the Client will attach to the previously-created Space. So it is safe to re-run the `Client.duplicate()` method multiple times.\n\n**Note:** if the original Space uses GPUs, your private Space will as well, and your Hugging Face account will get billed based on the price of the GPU. To minimize charges, your Space will automatically go to sleep after 1 hour of inactivity. You can also set the hardware using the `hardware` parameter of `duplicate()`.\n\n**Connecting a general Gradio app**\n\nIf your app is running somewhere else, just provide the full URL instead, including the \"http://\" or \"https://\". Here's an example of making predictions to a Gradio app that is running on a share URL:\n\n```python\nfrom gradio_client import Client\n\nclient = Client(\"https://bec81a83-5b5c-471e.gradio.live\")\n```\n\n### Inspecting the API endpoints\n\nOnce you have connected to a Gradio app, you can view the APIs that are available to you by calling the `.view_api()` method. For the Whisper Space, we see the following:\n\n```\nClient.predict() Usage Info\n---------------------------\nNamed API endpoints: 1\n\n - predict(input_audio, api_name=\"/predict\") -> value_0\n    Parameters:\n     - [Audio] input_audio: str (filepath or URL)\n    Returns:\n     - [Textbox] value_0: str (value)\n```\n\nThis shows us that we have 1 API endpoint in this space, and shows us how to use the API endpoint to make a prediction: we should call the `.predict()` method, providing a parameter `input_audio` of type `str`, which is a `filepath or URL`.\n\nWe should also provide the `api_name='/predict'` argument. Although this isn't necessary if a Gradio app has a single named endpoint, it does allow us to call different endpoints in a single app if they are available. If an app has unnamed API endpoints, these can also be displayed by running `.view_api(all_endpoints=True)`.\n\n### Making a prediction\n\nThe simplest way to make a prediction is simply to call the `.predict()` function with the appropriate arguments:\n\n```python\nfrom gradio_client import Client\n\nclient = Client(\"abidlabs/en2fr\")\nclient.predict(\"Hello\")\n\n>> Bonjour\n```\n\nIf there are multiple parameters, then you should pass them as separate arguments to `.predict()`, like this:\n\n```python\nfrom gradio_client import Client\n\nclient = Client(\"gradio/calculator\")\nclient.predict(4, \"add\", 5)\n\n>> 9.0\n```\n\nFor certain inputs, such as images, you should pass in the filepath or URL to the file. Likewise, for the corresponding output types, you will get a filepath or URL returned.\n\n```python\nfrom gradio_client import Client\n\nclient = Client(\"abidlabs/whisper\")\nclient.predict(\"https://audio-samples.github.io/samples/mp3/blizzard_unconditional/sample-0.mp3\")\n\n>> \"My thought I have nobody by a beauty and will as you poured. Mr. Rochester is serve in that so don't find simpus, and devoted abode, to at might in a r—\"\n```\n\n## Advanced Usage\n\nFor more ways to use the Gradio Python Client, check out our dedicated Guide on the Python client, available here: https://www.gradio.app/guides/getting-started-with-the-python-client\n",
+        "description_content_type": "text/markdown",
+        "keywords": [
+          "API",
+          "client",
+          "machine learning"
+        ],
+        "author_email": "Abubakar Abid <gradio-team@huggingface.co>, Ali Abid <gradio-team@huggingface.co>, Ali Abdalla <gradio-team@huggingface.co>, Dawood Khan <gradio-team@huggingface.co>, Ahsen Khaliq <gradio-team@huggingface.co>, Pete Allen <gradio-team@huggingface.co>, Freddy Boulton <gradio-team@huggingface.co>",
+        "license_expression": "Apache-2.0",
+        "classifier": [
+          "Development Status :: 4 - Beta",
+          "License :: OSI Approved :: Apache Software License",
+          "Operating System :: OS Independent",
+          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3 :: Only",
+          "Programming Language :: Python :: 3.8",
+          "Programming Language :: Python :: 3.9",
+          "Programming Language :: Python :: 3.10",
+          "Programming Language :: Python :: 3.11",
+          "Topic :: Scientific/Engineering",
+          "Topic :: Scientific/Engineering :: Artificial Intelligence",
+          "Topic :: Software Development :: User Interfaces"
+        ],
+        "requires_dist": [
+          "fsspec",
+          "httpx>=0.24.1",
+          "huggingface-hub<2.0,>=0.19.3",
+          "packaging",
+          "typing-extensions~=4.0"
+        ],
+        "requires_python": ">=3.10",
+        "project_url": [
+          "Homepage, https://github.com/gradio-app/gradio"
+        ]
+      }
+    },
+    {
+      "download_info": {
+        "url": "https://files.pythonhosted.org/packages/b2/a5/558da89f66464d8d0229ff497e8b8666977de2d8cf48c28a2862ecf1250f/huggingface_hub-1.19.0-py3-none-any.whl",
+        "archive_info": {
+          "hash": "sha256=1dc72e1f6b4d6df6b30eb72e57d00514ef453d660f04af2b87f0e67267f31ee0",
+          "hashes": {
+            "sha256": "1dc72e1f6b4d6df6b30eb72e57d00514ef453d660f04af2b87f0e67267f31ee0"
+          }
+        }
+      },
+      "is_direct": false,
+      "is_yanked": false,
+      "requested": false,
+      "metadata": {
+        "metadata_version": "2.4",
+        "name": "huggingface_hub",
+        "version": "1.19.0",
+        "dynamic": [
+          "author",
+          "author-email",
+          "classifier",
+          "description",
+          "description-content-type",
+          "home-page",
+          "keywords",
+          "license",
+          "license-file",
+          "provides-extra",
+          "requires-dist",
+          "requires-python",
+          "summary"
+        ],
+        "summary": "Client library to download and publish models, datasets and other repos on the huggingface.co hub",
+        "description": "<p align=\"center\">\n  <picture>\n    <source media=\"(prefers-color-scheme: dark)\" srcset=\"https://huggingface.co/datasets/huggingface/documentation-images/raw/main/huggingface_hub-dark.svg\">\n    <source media=\"(prefers-color-scheme: light)\" srcset=\"https://huggingface.co/datasets/huggingface/documentation-images/raw/main/huggingface_hub.svg\">\n    <img alt=\"huggingface_hub library logo\" src=\"https://huggingface.co/datasets/huggingface/documentation-images/raw/main/huggingface_hub.svg\" width=\"352\" height=\"59\" style=\"max-width: 100%\">\n  </picture>\n  <br/>\n  <br/>\n</p> \n\n<p align=\"center\">\n    <i>The official Python client for the Huggingface Hub.</i>\n</p>\n\n<p align=\"center\">\n    <a href=\"https://huggingface.co/docs/huggingface_hub/en/index\"><img alt=\"Documentation\" src=\"https://img.shields.io/website/http/huggingface.co/docs/huggingface_hub/index.svg?down_color=red&down_message=offline&up_message=online&label=doc\"></a>\n    <a href=\"https://github.com/huggingface/huggingface_hub/releases\"><img alt=\"GitHub release\" src=\"https://img.shields.io/github/release/huggingface/huggingface_hub.svg\"></a>\n    <a href=\"https://github.com/huggingface/huggingface_hub\"><img alt=\"PyPi version\" src=\"https://img.shields.io/pypi/pyversions/huggingface_hub.svg\"></a>\n    <a href=\"https://pypi.org/project/huggingface-hub\"><img alt=\"PyPI - Downloads\" src=\"https://img.shields.io/pypi/dm/huggingface_hub\"></a>\n    <a href=\"https://codecov.io/gh/huggingface/huggingface_hub\"><img alt=\"Code coverage\" src=\"https://codecov.io/gh/huggingface/huggingface_hub/branch/main/graph/badge.svg?token=RXP95LE2XL\"></a>\n</p>\n\n<h4 align=\"center\">\n    <p>\n        <b>English</b> |\n        <a href=\"https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_de.md\">Deutsch</a> |\n        <a href=\"https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_fr.md\">Français</a> |\n        <a href=\"https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_hi.md\">हिंदी</a> |\n        <a href=\"https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_ko.md\">한국어</a> |\n        <a href=\"https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_cn.md\">中文 (简体)</a>\n    <p>\n</h4>\n\n---\n\n**Documentation**: <a href=\"https://hf.co/docs/huggingface_hub\" target=\"_blank\">https://hf.co/docs/huggingface_hub</a>\n\n**Source Code**: <a href=\"https://github.com/huggingface/huggingface_hub\" target=\"_blank\">https://github.com/huggingface/huggingface_hub</a>\n\n---\n\n## Welcome to the huggingface_hub library\n\nThe `huggingface_hub` library allows you to interact with the [Hugging Face Hub](https://huggingface.co/), a platform democratizing open-source Machine Learning for creators and collaborators. Discover pre-trained models and datasets for your projects or play with the thousands of machine learning apps hosted on the Hub. You can also create and share your own models, datasets and demos with the community. The `huggingface_hub` library provides a simple way to do all these things with Python.\n\n## Key features\n\n- [Download files](https://huggingface.co/docs/huggingface_hub/en/guides/download) from the Hub.\n- [Upload files](https://huggingface.co/docs/huggingface_hub/en/guides/upload) to the Hub.\n- [Manage your repositories](https://huggingface.co/docs/huggingface_hub/en/guides/repository).\n- [Run Inference](https://huggingface.co/docs/huggingface_hub/en/guides/inference) on deployed models.\n- [Search](https://huggingface.co/docs/huggingface_hub/en/guides/search) for models, datasets and Spaces.\n- [Share Model Cards](https://huggingface.co/docs/huggingface_hub/en/guides/model-cards) to document your models.\n- [Engage with the community](https://huggingface.co/docs/huggingface_hub/en/guides/community) through PRs and comments.\n\n## Installation\n\nInstall the `huggingface_hub` package with [pip](https://pypi.org/project/huggingface-hub/):\n\n```bash\npip install huggingface_hub\n```\n\nWe recommend using [`uv`](https://docs.astral.sh/uv/) for a fast and reliable install:\n\n```bash\nuv pip install huggingface_hub\n```\n\nIn order to keep the package minimal by default, `huggingface_hub` comes with optional dependencies useful for some use cases. For example, if you want to use the MCP module, run:\n\n```bash\npip install \"huggingface_hub[mcp]\"\n```\n\nTo learn more about installation and optional dependencies, check out the [installation guide](https://huggingface.co/docs/huggingface_hub/en/installation).\n\n## Quick start\n\n### Download files\n\nDownload a single file\n\n```py\nfrom huggingface_hub import hf_hub_download\n\nhf_hub_download(repo_id=\"tiiuae/falcon-7b-instruct\", filename=\"config.json\")\n```\n\nOr an entire repository\n\n```py\nfrom huggingface_hub import snapshot_download\n\nsnapshot_download(\"stabilityai/stable-diffusion-2-1\")\n```\n\nFiles will be downloaded in a local cache folder. More details in [this guide](https://huggingface.co/docs/huggingface_hub/en/guides/manage-cache).\n\n### Login\n\nThe Hugging Face Hub uses tokens to authenticate applications (see [docs](https://huggingface.co/docs/hub/security-tokens)). To log in your machine, run the following CLI:\n\n```bash\nhf auth login\n# or using an environment variable\nhf auth login --token $HUGGINGFACE_TOKEN\n```\n\n### Create a repository\n\n```py\nfrom huggingface_hub import create_repo\n\ncreate_repo(repo_id=\"super-cool-model\")\n```\n\n### Upload files\n\nUpload a single file\n\n```py\nfrom huggingface_hub import upload_file\n\nupload_file(\n    path_or_fileobj=\"/home/lysandre/dummy-test/README.md\",\n    path_in_repo=\"README.md\",\n    repo_id=\"lysandre/test-model\",\n)\n```\n\nOr an entire folder\n\n```py\nfrom huggingface_hub import upload_folder\n\nupload_folder(\n    folder_path=\"/path/to/local/space\",\n    repo_id=\"username/my-cool-space\",\n    repo_type=\"space\",\n)\n```\n\nFor details in the [upload guide](https://huggingface.co/docs/huggingface_hub/en/guides/upload).\n\n## Integrating to the Hub.\n\nWe're partnering with cool open source ML libraries to provide free model hosting and versioning. You can find the existing integrations [here](https://huggingface.co/docs/hub/libraries).\n\nThe advantages are:\n\n- Free model or dataset hosting for libraries and their users.\n- Built-in file versioning, even with very large files, thanks to a git-based approach.\n- In-browser widgets to play with the uploaded models.\n- Anyone can upload a new model for your library, they just need to add the corresponding tag for the model to be discoverable.\n- Fast downloads! We use Cloudfront (a CDN) to geo-replicate downloads so they're blazing fast from anywhere on the globe.\n- Usage stats and more features to come.\n\nIf you would like to integrate your library, feel free to open an issue to begin the discussion. We wrote a [step-by-step guide](https://huggingface.co/docs/hub/adding-a-library) with ❤️ showing how to do this integration.\n\n## Contributions (feature requests, bugs, etc.) are super welcome 💙💚💛💜🧡❤️\n\nEveryone is welcome to contribute, and we value everybody's contribution. Code is not the only way to help the community.\nAnswering questions, helping others, reaching out and improving the documentations are immensely valuable to the community.\nWe wrote a [contribution guide](https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md) to summarize\nhow to get started to contribute to this repository.\n",
+        "description_content_type": "text/markdown",
+        "keywords": [
+          "model-hub",
+          "machine-learning",
+          "models",
+          "natural-language-processing",
+          "deep-learning",
+          "pytorch",
+          "pretrained-models"
+        ],
+        "home_page": "https://github.com/huggingface/huggingface_hub",
+        "author": "Hugging Face, Inc.",
+        "author_email": "julien@huggingface.co",
+        "license": "Apache-2.0",
+        "license_file": [
+          "LICENSE"
+        ],
+        "classifier": [
+          "Intended Audience :: Developers",
+          "Intended Audience :: Education",
+          "Intended Audience :: Science/Research",
+          "License :: OSI Approved :: Apache Software License",
+          "Operating System :: OS Independent",
+          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3 :: Only",
+          "Programming Language :: Python :: 3.10",
+          "Programming Language :: Python :: 3.11",
+          "Programming Language :: Python :: 3.12",
+          "Programming Language :: Python :: 3.13",
+          "Programming Language :: Python :: 3.14",
+          "Topic :: Scientific/Engineering :: Artificial Intelligence"
+        ],
+        "requires_dist": [
+          "click>=8.4.0",
+          "filelock>=3.10.0",
+          "fsspec>=2023.5.0",
+          "hf-xet<2.0.0,>=1.5.1; platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"arm64\" or platform_machine == \"aarch64\"",
+          "httpx<1,>=0.23.0",
+          "packaging>=20.9",
+          "pyyaml>=5.1",
+          "tqdm>=4.42.1",
+          "typer<0.26.0,>=0.20.0",
+          "typing-extensions>=4.1.0",
+          "authlib>=1.3.2; extra == \"oauth\"",
+          "fastapi; extra == \"oauth\"",
+          "httpx; extra == \"oauth\"",
+          "itsdangerous; extra == \"oauth\"",
+          "torch; extra == \"torch\"",
+          "safetensors[torch]; extra == \"torch\"",
+          "toml; extra == \"fastai\"",
+          "fastai>=2.4; extra == \"fastai\"",
+          "fastcore>=1.3.27; extra == \"fastai\"",
+          "hf-xet<2.0.0,>=1.5.1; extra == \"hf-xet\"",
+          "mcp>=1.8.0; extra == \"mcp\"",
+          "authlib>=1.3.2; extra == \"testing\"",
+          "fastapi; extra == \"testing\"",
+          "httpx; extra == \"testing\"",
+          "itsdangerous; extra == \"testing\"",
+          "jedi; extra == \"testing\"",
+          "Jinja2; extra == \"testing\"",
+          "pytest>=8.4.2; extra == \"testing\"",
+          "pytest-cov; extra == \"testing\"",
+          "pytest-env; extra == \"testing\"",
+          "pytest-xdist; extra == \"testing\"",
+          "pytest-vcr; extra == \"testing\"",
+          "pytest-asyncio; extra == \"testing\"",
+          "pytest-rerunfailures<16.0; extra == \"testing\"",
+          "pytest-mock; extra == \"testing\"",
+          "urllib3<2.0; extra == \"testing\"",
+          "soundfile; extra == \"testing\"",
+          "Pillow; extra == \"testing\"",
+          "numpy; extra == \"testing\"",
+          "duckdb; extra == \"testing\"",
+          "fastapi; extra == \"testing\"",
+          "gradio>=5.0.0; extra == \"gradio\"",
+          "requests; extra == \"gradio\"",
+          "typing-extensions>=4.8.0; extra == \"typing\"",
+          "types-PyYAML; extra == \"typing\"",
+          "types-simplejson; extra == \"typing\"",
+          "types-toml; extra == \"typing\"",
+          "types-tqdm; extra == \"typing\"",
+          "types-urllib3; extra == \"typing\"",
+          "ruff>=0.9.0; extra == \"quality\"",
+          "mypy==1.15.0; extra == \"quality\"",
+          "libcst>=1.4.0; extra == \"quality\"",
+          "ty; extra == \"quality\"",
+          "authlib>=1.3.2; extra == \"all\"",
+          "fastapi; extra == \"all\"",
+          "httpx; extra == \"all\"",
+          "itsdangerous; extra == \"all\"",
+          "jedi; extra == \"all\"",
+          "Jinja2; extra == \"all\"",
+          "pytest>=8.4.2; extra == \"all\"",
+          "pytest-cov; extra == \"all\"",
+          "pytest-env; extra == \"all\"",
+          "pytest-xdist; extra == \"all\"",
+          "pytest-vcr; extra == \"all\"",
+          "pytest-asyncio; extra == \"all\"",
+          "pytest-rerunfailures<16.0; extra == \"all\"",
+          "pytest-mock; extra == \"all\"",
+          "urllib3<2.0; extra == \"all\"",
+          "soundfile; extra == \"all\"",
+          "Pillow; extra == \"all\"",
+          "numpy; extra == \"all\"",
+          "duckdb; extra == \"all\"",
+          "fastapi; extra == \"all\"",
+          "ruff>=0.9.0; extra == \"all\"",
+          "mypy==1.15.0; extra == \"all\"",
+          "libcst>=1.4.0; extra == \"all\"",
+          "ty; extra == \"all\"",
+          "typing-extensions>=4.8.0; extra == \"all\"",
+          "types-PyYAML; extra == \"all\"",
+          "types-simplejson; extra == \"all\"",
+          "types-toml; extra == \"all\"",
+          "types-tqdm; extra == \"all\"",
+          "types-urllib3; extra == \"all\"",
+          "authlib>=1.3.2; extra == \"dev\"",
+          "fastapi; extra == \"dev\"",
+          "httpx; extra == \"dev\"",
+          "itsdangerous; extra == \"dev\"",
+          "jedi; extra == \"dev\"",
+          "Jinja2; extra == \"dev\"",
+          "pytest>=8.4.2; extra == \"dev\"",
+          "pytest-cov; extra == \"dev\"",
+          "pytest-env; extra == \"dev\"",
+          "pytest-xdist; extra == \"dev\"",
+          "pytest-vcr; extra == \"dev\"",
+          "pytest-asyncio; extra == \"dev\"",
+          "pytest-rerunfailures<16.0; extra == \"dev\"",
+          "pytest-mock; extra == \"dev\"",
+          "urllib3<2.0; extra == \"dev\"",
+          "soundfile; extra == \"dev\"",
+          "Pillow; extra == \"dev\"",
+          "numpy; extra == \"dev\"",
+          "duckdb; extra == \"dev\"",
+          "fastapi; extra == \"dev\"",
+          "ruff>=0.9.0; extra == \"dev\"",
+          "mypy==1.15.0; extra == \"dev\"",
+          "libcst>=1.4.0; extra == \"dev\"",
+          "ty; extra == \"dev\"",
+          "typing-extensions>=4.8.0; extra == \"dev\"",
+          "types-PyYAML; extra == \"dev\"",
+          "types-simplejson; extra == \"dev\"",
+          "types-toml; extra == \"dev\"",
+          "types-tqdm; extra == \"dev\"",
+          "types-urllib3; extra == \"dev\""
+        ],
+        "requires_python": ">=3.10.0",
+        "provides_extra": [
+          "oauth",
+          "torch",
+          "fastai",
+          "hf-xet",
+          "mcp",
+          "testing",
+          "gradio",
+          "typing",
+          "quality",
+          "all",
+          "dev"
+        ]
+      }
+    }
+  ],
+  "environment": {
+    "implementation_name": "cpython",
+    "implementation_version": "3.13.13",
+    "os_name": "nt",
+    "platform_machine": "AMD64",
+    "platform_release": "11",
+    "platform_system": "Windows",
+    "platform_version": "10.0.26200",
+    "python_full_version": "3.13.13",
+    "platform_python_implementation": "CPython",
+    "python_version": "3.13",
+    "sys_platform": "win32"
+  }
+}

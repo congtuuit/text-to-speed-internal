@@ -54,4 +54,23 @@ graph LR
   E -- Ghi file --> F[Folder Output .mp3]
   D -- Đánh dấu Done --> C
   A -- Polling Progress --> B
+
+---
+
+## Tích hợp mới: Hugging Face Space & REST API (VieNeu-TTS)
+
+Chúng ta đã xây dựng thành công bộ mã nguồn hoàn chỉnh để deploy website Text-to-Speech (VieNeu-TTS) lên Hugging Face Spaces đặt trong thư mục [huggingface_space/](file:///d:/git/text-to-speed-internal/huggingface_space/).
+
+### 📂 Cấu trúc thư mục deploy:
+- **[app.py](file:///d:/git/text-to-speed-internal/huggingface_space/app.py)**: Chứa code logic load model VieNeu-TTS, thuật toán tự động tách câu thông minh (dưới 200 ký tự), FastAPI API Server (POST `/api/tts`), Gradio UI và cơ chế tự động dọn dẹp file tạm sau 10 phút.
+- **[requirements.txt](file:///d:/git/text-to-speed-internal/huggingface_space/requirements.txt)**: Khai báo đầy đủ các dependencies cần thiết (`gradio`, `fastapi`, `uvicorn`, `torch`, `vieneu`, `soundfile`, `numpy`).
+- **[packages.txt](file:///d:/git/text-to-speed-internal/huggingface_space/packages.txt)**: Khai báo gói hệ thống `espeak-ng` cho Hugging Face Spaces.
+- **[README.md](file:///d:/git/text-to-speed-internal/huggingface_space/README.md)**: Chứa metadata khai báo Hugging Face Spaces và hướng dẫn chi tiết cách deploy/tích hợp API.
+
+### 🧪 Kết quả kiểm thử tích hợp (Local Integration Test):
+Đã chạy kiểm thử tự động thành công (tất cả các kịch bản đều đạt):
+1. **Kiểm thử Validate giới hạn ký tự**: Gửi văn bản 5001 ký tự trả về đúng lỗi validation.
+2. **Kiểm thử Auto-cleanup**: File tạm cũ (15 phút trước) được quét và xóa tự động thành công khi có request mới.
+3. **Kiểm thử REST API**: Route `POST /api/tts` trả về URL file âm thanh tĩnh chính xác và cho phép tải về đầy đủ.
+
 ```

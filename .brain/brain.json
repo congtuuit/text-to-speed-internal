@@ -1,0 +1,29 @@
+{
+  "meta": { "schema_version": "1.1.0", "awf_version": "3.3.0" },
+  "project": { "name": "text-to-speed-internal", "type": "backend/frontend", "status": "development" },
+  "tech_stack": { "frontend": {"framework": "React"}, "backend": {"framework": "FastAPI", "database": "SQLite/SQLAlchemy"} },
+  "database_schema": {
+    "tables": ["FileTask", "BatchJob", "Settings"],
+    "relationships_explained": "A BatchJob represents a full request (e.g., a DOCX file). It contains multiple FileTasks (e.g., text chunks) which are processed individually."
+  },
+  "api_endpoints": [
+    { "path": "/api/jobs/reset-stuck", "explained": "Resets tasks stuck in Processing to Pending, and clears FPT key locks." },
+    { "path": "/api/debug/queue", "explained": "Returns debug info about worker threads, tasks, and API key usage." }
+  ],
+  "business_rules": [
+    "FPT Provider only allows one request per key at a time.",
+    "FPT API returns async URL, polling is required until audio is ready.",
+    "Dead worker threads must be pruned dynamically to avoid exceeding max_workers.",
+    "Workers lock DB for assignment only, processing API is unlocked."
+  ],
+  "features": [
+    "TTS Processing Queue with robust failure recovery",
+    "DOCX parsing and audio stitching",
+    "Thread-safe round-robin Key rotation for FPT provider"
+  ],
+  "knowledge_items": {
+    "patterns": ["Round-robin queueing", "Thread-safe DB locks", "Polling async API with early abort on HTTP 404"],
+    "gotchas": ["Windows stdout unicode encoding errors", "Stuck thread accumulation due to zombie workers", "Lazy loading session expire issues requiring fresh DB queries"],
+    "conventions": []
+  }
+}

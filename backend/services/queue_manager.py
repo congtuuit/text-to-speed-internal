@@ -258,6 +258,10 @@ def _process_fpt_tts_with_rotator(
                                 content_type = audio_res.headers.get('content-type', '')
                                 print(f"[{worker_name}] FPT {chunk_label}: poll #{poll_attempt+1} → HTTP {audio_res.status_code}, content-type={content_type[:40]}")
 
+                                if audio_res.status_code == 404:
+                                    print(f"[{worker_name}] FPT {chunk_label}: ✗ HTTP 404 (Job expired/lost). Retrying with next key...")
+                                    break
+
                                 if audio_res.status_code == 200 and 'json' not in content_type.lower():
                                     fd, temp_file = tempfile.mkstemp(suffix=".mp3")
                                     os.close(fd)
