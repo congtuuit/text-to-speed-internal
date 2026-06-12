@@ -204,13 +204,8 @@ demo = gr.Interface(
     description="Chuyển văn bản tiếng Việt thành giọng nói bằng VieNeu-TTS (Giới hạn tối đa 5000 ký tự)"
 )
 
-# Mount Gradio app to FastAPI at a subpath "/gui" to avoid root conflicts
-app = gr.mount_gradio_app(app, demo, path="/gui")
-
-@app.get("/")
-def redirect_to_gui():
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/gui")
+# Mount Gradio app to FastAPI at root path "/"
+app = gr.mount_gradio_app(app, demo, path="/")
 
 if __name__ == "__main__":
     # In Hugging Face Spaces, the environment already handles starting the server.
