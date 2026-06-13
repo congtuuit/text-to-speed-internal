@@ -28,7 +28,7 @@ echo "=============================================="
 cd backend
 
 if [ ! -d "venv" ]; then
-    echo "Creating Python virtual environment (venv)..."
+    echo "Creating Python virtual environment venv..."
     python3 -m venv venv
 fi
 
