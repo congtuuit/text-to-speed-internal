@@ -25,8 +25,9 @@ def split_long_sentence(sentence: str, max_chars: int):
     result = []
 
     parts = re.split(
-        r'(?<=[;:,])\s+',
-        sentence
+        r'(?<=[;:,\-–—"“”（）()\[\]])\s+|\s+(?=(?:và|nhưng|hoặc|mà|thì|là|để|nên|vì|tuy)\s)',
+        sentence,
+        flags=re.IGNORECASE
     )
 
     current = ""

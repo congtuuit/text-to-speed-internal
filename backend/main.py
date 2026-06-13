@@ -156,6 +156,8 @@ class TestVoiceRequest(BaseModel):
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
     self_hosted_url: str = "http://localhost:7860"
+    seed: str = ""
+    keep_voice: str = "false"
 
 @app.post("/api/test-voice")
 def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
@@ -176,8 +178,24 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
             keys = [k.split('|')[1].strip() if '|' in k else k.strip() for k in req.fpt_api_keys.split('\n') if k.strip()]
             success = process_fpt_tts(req.text, temp_file, req.voice, req.fpt_speed, keys)
         elif req.provider == "self_hosted":
+            cleaned_voice = req.voice
+            presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
+            if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
+                cleaned_voice = "female"
             url = f"{req.self_hosted_url.rstrip('/')}/api/tts"
-            payload = {"text": req.text, "voice": req.voice}
+            
+            # Parse seed and keep_voice parameters
+            seed_val = int(req.seed) if (req.seed and req.seed.strip()) else None
+            keep_voice_val = (req.keep_voice == "true")
+            
+            payload = {
+                "text": req.text,
+                "voice": cleaned_voice
+            }
+            if seed_val is not None:
+                payload["seed"] = seed_val
+            if keep_voice_val:
+                payload["keep_voice"] = keep_voice_val
             res = requests.post(url, json=payload, timeout=60)
             if res.status_code == 200:
                 with open(temp_file, "wb") as f:
@@ -206,6 +224,9 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
     background_tasks.add_task(cleanup)
     return FileResponse(temp_file, media_type="audio/wav")
 
+class CheckConnectionRequest(BaseModel):
+    self_hosted_url: str
+
 class SettingsRequest(BaseModel):
     api_key: str = ""
     model_name: str = ""
@@ -214,10 +235,24 @@ class SettingsRequest(BaseModel):
     fpt_speed: float = 0.8
     max_workers: int = 3
     self_hosted_url: str = "http://localhost:7860"
+    self_hosted_voice: str = "female"
+    self_hosted_seed: str = ""
+    self_hosted_keep_voice: str = "false"
 
 @app.post("/api/settings")
 def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
-    for k, v in [("api_key", req.api_key), ("model_name", req.model_name), ("provider", req.provider), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers)), ("self_hosted_url", req.self_hosted_url)]:
+    for k, v in [
+        ("api_key", req.api_key),
+        ("model_name", req.model_name),
+        ("provider", req.provider),
+        ("fpt_api_keys", req.fpt_api_keys),
+        ("fpt_speed", str(req.fpt_speed)),
+        ("max_workers", str(req.max_workers)),
+        ("self_hosted_url", req.self_hosted_url),
+        ("self_hosted_voice", req.self_hosted_voice),
+        ("self_hosted_seed", req.self_hosted_seed),
+        ("self_hosted_keep_voice", req.self_hosted_keep_voice)
+    ]:
         setting = db.query(models.Settings).filter(models.Settings.key == k).first()
         if not setting:
             setting = models.Settings(key=k, value=v)
@@ -250,6 +285,10 @@ def get_settings(db: Session = Depends(get_db)):
     fpt_speed_setting = db.query(models.Settings).filter(models.Settings.key == "fpt_speed").first()
     max_workers_setting = db.query(models.Settings).filter(models.Settings.key == "max_workers").first()
     self_hosted_url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
+    self_hosted_voice_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_voice").first()
+    self_hosted_seed_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_seed").first()
+    self_hosted_keep_voice_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_keep_voice").first()
+    
     provider_val = provider_setting.value if provider_setting else "self_hosted"
     if provider_val == "vieneu":
         provider_val = "self_hosted"
@@ -261,8 +300,36 @@ def get_settings(db: Session = Depends(get_db)):
         "fpt_api_keys": fpt_api_keys_setting.value if fpt_api_keys_setting else "",
         "fpt_speed": float(fpt_speed_setting.value) if fpt_speed_setting else 0.8,
         "max_workers": int(max_workers_setting.value) if max_workers_setting else 3,
-        "self_hosted_url": self_hosted_url_setting.value if self_hosted_url_setting else "http://localhost:7860"
+        "self_hosted_url": self_hosted_url_setting.value if self_hosted_url_setting else "http://localhost:7860",
+        "self_hosted_voice": self_hosted_voice_setting.value if self_hosted_voice_setting else "female",
+        "self_hosted_seed": self_hosted_seed_setting.value if self_hosted_seed_setting else "",
+        "self_hosted_keep_voice": self_hosted_keep_voice_setting.value if self_hosted_keep_voice_setting else "false"
     }
+
+@app.get("/api/self-hosted/config")
+def get_self_hosted_config(db: Session = Depends(get_db)):
+    url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
+    voice_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_voice").first()
+    seed_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_seed").first()
+    keep_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_keep_voice").first()
+
+    return {
+        "url": url_setting.value if url_setting else "http://localhost:7860",
+        "voice": voice_setting.value if voice_setting else "female",
+        "seed": seed_setting.value if seed_setting else "",
+        "keep_voice": keep_setting.value if keep_setting else "false"
+    }
+
+@app.post("/api/self-hosted/check-connection")
+def check_self_hosted_connection(req: CheckConnectionRequest):
+    url = f"{req.self_hosted_url.rstrip('/')}/api/health"
+    try:
+        res = requests.get(url, timeout=5)
+        if res.status_code == 200:
+            return {"success": True, "data": res.json()}
+        return {"success": False, "detail": f"HTTP {res.status_code}: {res.text}"}
+    except Exception as e:
+        return {"success": False, "detail": str(e)}
 
 @app.get("/api/models")
 def get_models(api_key: str = None, db: Session = Depends(get_db)):
@@ -305,22 +372,7 @@ def get_voices(provider: str = "fpt", self_hosted_url: str = None, db: Session =
         ]
 
     if provider == "self_hosted":
-        url_to_use = self_hosted_url
-        if not url_to_use:
-            setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
-            url_to_use = setting.value if setting else "http://localhost:7860"
-        
-        try:
-            res = requests.get(f"{url_to_use.rstrip('/')}/api/voices", timeout=3)
-            if res.status_code == 200:
-                data = res.json()
-                voices = data.get("voices", [])
-                return [{"id": v.get("id", ""), "name": v.get("label", v.get("id", ""))} for v in voices]
-        except Exception as e:
-            print(f"Failed to fetch voices from Self-hosted URL {url_to_use}: {e}")
-            
         return [
-            {"id": "", "name": "Tự động chọn (Auto)"},
             {"id": "female", "name": "Nữ, giọng mặc định"},
             {"id": "male", "name": "Nam, giọng mặc định"},
             {"id": "female, low pitch", "name": "Nữ, giọng trầm"},
@@ -383,7 +435,12 @@ def split_docx_endpoint(req: DocxJobRequest, db: Session = Depends(get_db)):
     base_name = os.path.splitext(os.path.basename(req.docx_path))[0]
     chunks_dir = os.path.join(req.output_dir, f"{base_name}_chunks")
     
-    max_length = 200 if req.provider == 'fpt' else 2800
+    if req.provider == 'fpt':
+        max_length = 200
+    elif req.provider == 'self_hosted':
+        max_length = 200
+    else:
+        max_length = 2800
     files = split_docx_to_txt(req.docx_path, chunks_dir, max_chars=max_length)
     
     return {"chunks_dir": chunks_dir, "total_files": len(files)}
@@ -411,7 +468,12 @@ def batch_submit_docx(req: BatchDocxRequest, db: Session = Depends(get_db)):
     if not docx_files:
         raise HTTPException(status_code=400, detail="No DOCX files found in directory")
         
-    max_length = 200 if req.provider == 'fpt' else 2800
+    if req.provider == 'fpt':
+        max_length = 200
+    elif req.provider == 'self_hosted':
+        max_length = 150
+    else:
+        max_length = 2800
     created_jobs = []
     total_files_across_all = 0
     

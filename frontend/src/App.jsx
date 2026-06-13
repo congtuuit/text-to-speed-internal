@@ -3,13 +3,23 @@ import { useTranslation } from 'react-i18next'
 import Swal from 'sweetalert2'
 import './index.css'
 import { API_BASE_URL } from './config'
-
-
+const VIETNAMESE_SAMPLE_TEXTS = [
+  "Hôm nay thời tiết thật là đẹp, tôi muốn đi dạo quanh hồ.",
+  "Chúc bạn một ngày mới tràn đầy năng lượng và niềm vui.",
+  "Cuốn sách này rất hay, nó mang lại nhiều bài học ý nghĩa.",
+  "Trí tuệ nhân tạo đang thay đổi cuộc sống của chúng ta.",
+  "Công nghệ ngày càng phát triển vượt bậc qua từng ngày.",
+  "Chúng tôi cam kết mang lại sản phẩm tốt nhất cho bạn.",
+  "Hãy kiên trì theo đuổi ước mơ của mình đến cùng nhé.",
+  "Âm thanh tiếng Việt nghe thật truyền cảm và ấm áp.",
+  "Học hỏi là một hành trình trọn đời không bao giờ kết thúc.",
+  "Mỗi ngày trôi qua đều là một cơ hội để học điều mới."
+];
 
 function App() {
   const { t, i18n } = useTranslation()
-  const [inputDir, setInputDir] = useState(() => localStorage.getItem('tts_input_dir') || 'D:\\Truyen\\input')
-  const [outputDir, setOutputDir] = useState(() => localStorage.getItem('tts_output_dir') || 'D:\\Truyen\\output')
+  const [inputDir, setInputDir] = useState(() => localStorage.getItem('tts_input_dir') || '')
+  const [outputDir, setOutputDir] = useState(() => localStorage.getItem('tts_output_dir') || '')
   const [voice, setVoice] = useState(() => localStorage.getItem('tts_voice') || 'Aoede')
   const [testText, setTestText] = useState(() => localStorage.getItem('tts_test_text') || 'Xin chào, đây là giọng đọc thử.')
   const [apiKey, setApiKey] = useState('')
@@ -25,6 +35,10 @@ function App() {
   const [selfHostedUrl, setSelfHostedUrl] = useState(() => localStorage.getItem('tts_self_hosted_url') || 'http://localhost:7860')
   const [maxWorkers, setMaxWorkers] = useState(() => parseInt(localStorage.getItem('tts_max_workers')) || 3)
   const [voices, setVoices] = useState([])
+  const [seed, setSeed] = useState(() => localStorage.getItem('tts_self_hosted_seed') || '')
+  
+  const [savedDbSeed, setSavedDbSeed] = useState('')
+  const [savedDbVoice, setSavedDbVoice] = useState('')
 
   const [isScanning, setIsScanning] = useState(false)
   const [fileCount, setFileCount] = useState(0)
@@ -60,6 +74,15 @@ function App() {
       const res = await fetch(url)
       const data = await res.json()
       setVoices(data || [])
+      
+      if (data && data.length > 0) {
+        const currentVoice = localStorage.getItem('tts_voice') || voice;
+        const exist = data.find(v => v.id === currentVoice);
+        if (!exist) {
+          setVoice(data[0].id);
+        }
+      }
+      
       return data || []
     } catch (err) {
       return []
@@ -83,6 +106,13 @@ function App() {
           if (data.fpt_speed !== undefined) setFptSpeed(data.fpt_speed)
           if (data.max_workers !== undefined) setMaxWorkers(data.max_workers)
           setSelfHostedUrl(data.self_hosted_url || 'http://localhost:7860')
+          if (data.self_hosted_seed !== undefined) {
+            setSeed(data.self_hosted_seed)
+            setSavedDbSeed(data.self_hosted_seed)
+          }
+          if (data.self_hosted_voice !== undefined) {
+            setSavedDbVoice(data.self_hosted_voice)
+          }
 
           fetchVoices(data.provider || 'self_hosted', data.self_hosted_url || 'http://localhost:7860')
         } else {
@@ -103,7 +133,8 @@ function App() {
     localStorage.setItem('tts_fpt_speed', fptSpeed)
     localStorage.setItem('tts_max_workers', maxWorkers)
     localStorage.setItem('tts_self_hosted_url', selfHostedUrl)
-  }, [inputDir, outputDir, voice, testText, modelName, provider, fptApiKeys, fptSpeed, maxWorkers, selfHostedUrl])
+    localStorage.setItem('tts_self_hosted_seed', seed)
+  }, [inputDir, outputDir, voice, testText, modelName, provider, fptApiKeys, fptSpeed, maxWorkers, selfHostedUrl, seed])
 
   const fetchJobTasks = async (jobId) => {
     try {
@@ -366,14 +397,104 @@ function App() {
     }
   }
 
+  const handleCheckConnection = async () => {
+    if (!selfHostedUrl.trim()) {
+      Swal.fire({ icon: 'warning', title: 'Thiếu thông tin', text: 'Vui lòng nhập URL trước khi kiểm tra!', background: '#1e293b', color: '#fff' });
+      return;
+    }
+    Swal.fire({
+      title: 'Đang kiểm tra...',
+      text: 'Đang kết nối tới server model...',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading()
+      },
+      background: '#1e293b',
+      color: '#fff'
+    });
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/self-hosted/check-connection`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ self_hosted_url: selfHostedUrl })
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        const data = result.data;
+        let details = `Model: ${data.model || 'OmniVoice'} (Trạng thái: ${data.status || 'ok'})\n`;
+        if (data.ram_used_gb !== undefined) {
+          details += `RAM: ${data.ram_used_gb}GB / ${data.ram_total_gb}GB (${data.ram_percent}%)\n`;
+        }
+        if (data.cpu_percent !== undefined) {
+          details += `CPU: ${data.cpu_percent}%`;
+        }
+        Swal.fire({
+          icon: 'success',
+          title: 'Kết nối thành công!',
+          html: `<pre style="text-align: left; background: rgba(0,0,0,0.25); padding: 10px; border-radius: 6px; color: #10b981; font-family: monospace;">${details}</pre>`,
+          background: '#1e293b',
+          color: '#fff',
+          confirmButtonColor: '#3b82f6'
+        });
+        fetchVoices('self_hosted', selfHostedUrl);
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Kết nối thất bại',
+          text: result.detail || 'Không thể kết nối tới server.',
+          background: '#1e293b',
+          color: '#fff',
+          confirmButtonColor: '#3b82f6'
+        });
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Lỗi kết nối',
+        text: 'Không thể gửi yêu cầu kiểm tra kết nối tới backend.',
+        background: '#1e293b',
+        color: '#fff',
+        confirmButtonColor: '#3b82f6'
+      });
+    }
+  };
+
+  const handleRandomizeTestText = () => {
+    let randomText = VIETNAMESE_SAMPLE_TEXTS[Math.floor(Math.random() * VIETNAMESE_SAMPLE_TEXTS.length)];
+    while (randomText === testText && VIETNAMESE_SAMPLE_TEXTS.length > 1) {
+      randomText = VIETNAMESE_SAMPLE_TEXTS[Math.floor(Math.random() * VIETNAMESE_SAMPLE_TEXTS.length)];
+    }
+    setTestText(randomText);
+  };
+
   const handleTestVoice = async () => {
     setIsTestingVoice(true)
     setAudioUrl(null)
+    
+    let currentSeed = seed;
+    if (!currentSeed || currentSeed.trim() === '') {
+      currentSeed = Math.floor(Math.random() * 1000000000).toString();
+      setSeed(currentSeed);
+    }
+
+    const keepVoiceVal = (currentSeed === savedDbSeed && voice === savedDbVoice) ? "true" : "false";
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: voice, text: testText, api_key: apiKey, model_name: modelName, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), self_hosted_url: selfHostedUrl })
+        body: JSON.stringify({ 
+          voice: voice, 
+          text: testText, 
+          api_key: apiKey, 
+          model_name: modelName, 
+          provider: provider, 
+          fpt_api_keys: fptApiKeys, 
+          fpt_speed: parseFloat(fptSpeed), 
+          self_hosted_url: selfHostedUrl,
+          seed: currentSeed,
+          keep_voice: keepVoiceVal
+        })
       })
       if (res.ok) {
         const blob = await res.blob()
@@ -402,6 +523,49 @@ function App() {
     setIsTestingVoice(false)
   }
 
+  const handleSaveVoiceConfig = async () => {
+    let currentSeed = seed;
+    if (!currentSeed || currentSeed.trim() === '') {
+      currentSeed = Math.floor(Math.random() * 1000000000).toString();
+      setSeed(currentSeed);
+    }
+    
+    setSavedDbSeed(currentSeed);
+    setSavedDbVoice(voice);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: apiKey,
+          model_name: modelName,
+          provider: provider,
+          fpt_api_keys: fptApiKeys,
+          fpt_speed: parseFloat(fptSpeed),
+          max_workers: parseInt(maxWorkers),
+          self_hosted_url: selfHostedUrl,
+          self_hosted_voice: voice,
+          self_hosted_seed: currentSeed,
+          self_hosted_keep_voice: "true"
+        })
+      })
+      if (res.ok) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Đã lưu giọng nói cố định!',
+          text: `Đã lưu cấu hình với Seed: ${seed || 'Tự động băm từ tên phong cách'}.`,
+          background: '#1e293b',
+          color: '#fff',
+          timer: 2500,
+          showConfirmButton: false
+        });
+      }
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Không thể lưu cấu hình giọng nói.', background: '#1e293b', color: '#fff' });
+    }
+  }
+
   const handleRefreshVoices = async () => {
     await fetchVoices(provider, selfHostedUrl);
   }
@@ -416,11 +580,31 @@ function App() {
     setIsQuickConverting(true)
     setQuickAudioUrl(null)
     localStorage.setItem('tts_quick_text', quickText)
+
+    let currentSeed = seed;
+    if (!currentSeed || currentSeed.trim() === '') {
+      currentSeed = Math.floor(Math.random() * 1000000000).toString();
+      setSeed(currentSeed);
+    }
+
+    const keepVoiceVal = (currentSeed === savedDbSeed && voice === savedDbVoice) ? "true" : "false";
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: voice, text: quickText, api_key: apiKey, model_name: modelName, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), self_hosted_url: selfHostedUrl })
+        body: JSON.stringify({ 
+          voice: voice, 
+          text: quickText, 
+          api_key: apiKey, 
+          model_name: modelName, 
+          provider: provider, 
+          fpt_api_keys: fptApiKeys, 
+          fpt_speed: parseFloat(fptSpeed), 
+          self_hosted_url: selfHostedUrl,
+          seed: currentSeed,
+          keep_voice: keepVoiceVal
+        })
       })
       if (res.ok) {
         const blob = await res.blob()
@@ -591,13 +775,22 @@ Account2 | 0987654321..."
                   <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0.25rem 0 0.5rem 0' }}>
                     Địa chỉ API server của OmniVoice đang chạy (ví dụ: http://localhost:7860).
                   </p>
-                  <input
-                    type="text"
-                    value={selfHostedUrl}
-                    onChange={e => setSelfHostedUrl(e.target.value)}
-                    placeholder="http://localhost:7860"
-                    style={{ width: '100%', background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white', boxSizing: 'border-box' }}
-                  />
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      type="text"
+                      value={selfHostedUrl}
+                      onChange={e => setSelfHostedUrl(e.target.value)}
+                      placeholder="http://localhost:7860"
+                      style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white' }}
+                    />
+                    <button 
+                      className="btn" 
+                      style={{ width: 'auto', background: '#3b82f6', whiteSpace: 'nowrap' }}
+                      onClick={handleCheckConnection}
+                    >
+                      Check kết nối
+                    </button>
+                  </div>
                 </div>
                 <div className="form-group" style={{ marginBottom: '1rem' }}>
                   <label>Số luồng xử lý (Workers: 1 đến 10)</label>
@@ -641,8 +834,45 @@ Account2 | 0987654321..."
                 </button>
               </div>
             </div>
+            {provider === 'self_hosted' && (
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label>Seed (Số nguyên ngẫu nhiên hoặc nhập để cố định)</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input
+                    type="number"
+                    value={seed}
+                    onChange={e => setSeed(e.target.value)}
+                    placeholder="Để trống để random giọng"
+                    style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white' }}
+                  />
+                  <button 
+                    className="btn" 
+                    style={{ width: 'auto', background: '#334155' }}
+                    onClick={() => setSeed(Math.floor(Math.random() * 1000000).toString())}
+                  >
+                    Random Seed
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="form-group">
-              <label>{t('test_text')}</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                <label style={{ margin: 0 }}>{t('test_text')}</label>
+                <button
+                  className="btn"
+                  style={{
+                    width: 'auto',
+                    padding: '0.2rem 0.6rem',
+                    fontSize: '0.8rem',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    margin: 0
+                  }}
+                  onClick={handleRandomizeTestText}
+                >
+                  🎲 Đổi câu
+                </button>
+              </div>
               <textarea
                 rows="3"
                 value={testText}
@@ -662,6 +892,15 @@ Account2 | 0987654321..."
             <button className="btn" style={{ background: '#475569' }} onClick={handleTestVoice} disabled={isTestingVoice || (provider !== 'self_hosted' && !apiKey)}>
               {isTestingVoice ? t('testing') : ((apiKey || provider === 'self_hosted') ? t('test_voice', { voice: voice }) : t('api_key_required'))}
             </button>
+            {provider === 'self_hosted' && (
+              <button 
+                className="btn" 
+                style={{ background: '#10b981', marginTop: '10px' }} 
+                onClick={handleSaveVoiceConfig}
+              >
+                💾 Lưu giọng nói (Cố định giọng cho queue)
+              </button>
+            )}
             {audioUrl && (
               <audio src={audioUrl} controls autoPlay style={{ marginTop: '15px', width: '100%', borderRadius: '8px' }} />
             )}

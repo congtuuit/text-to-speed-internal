@@ -496,12 +496,13 @@ class QueueManager:
                         text = f.read()
 
                     base_name = os.path.splitext(task_file_name)[0]
-                    output_path = os.path.join(job.output_dir, f"{base_name}.mp3")
+                    job_provider = job.provider or "gemini"
+                    ext = ".wav" if job_provider == "self_hosted" else ".mp3"
+                    output_path = os.path.join(job.output_dir, f"{base_name}{ext}")
 
                     settings_api = db.query(Settings).filter(Settings.key == "api_key").first()
                     api_key = settings_api.value if settings_api else None
                     model_name = job.model_name or "gemini-2.5-flash-preview-tts"
-                    job_provider = job.provider or "gemini"
 
                     if job_provider == "gemini":
                         tts_provider_obj = TTSProvider(api_key=api_key)
@@ -537,7 +538,30 @@ class QueueManager:
                                 setting_url = db.query(Settings).filter(Settings.key == "self_hosted_url").first()
                                 self_hosted_url = setting_url.value if setting_url else "http://localhost:7860"
                                 url = f"{self_hosted_url.rstrip('/')}/api/tts"
-                                payload = {"text": text, "voice": job.voice}
+                                
+                                # Use voice directly from job configuration
+                                cleaned_voice = job.voice
+                                presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
+                                if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
+                                    # Fallback to saved self_hosted_voice or default
+                                    setting_voice = db.query(Settings).filter(Settings.key == "self_hosted_voice").first()
+                                    cleaned_voice = setting_voice.value if (setting_voice and setting_voice.value) else "female"
+
+                                # Read seed and keep_voice parameters from Settings DB
+                                setting_seed = db.query(Settings).filter(Settings.key == "self_hosted_seed").first()
+                                seed_val = int(setting_seed.value) if (setting_seed and setting_seed.value and setting_seed.value.strip()) else None
+                                
+                                setting_keep = db.query(Settings).filter(Settings.key == "self_hosted_keep_voice").first()
+                                keep_voice_val = (setting_keep.value == "true") if setting_keep else False
+                                
+                                payload = {
+                                    "text": text,
+                                    "voice": cleaned_voice
+                                }
+                                if seed_val is not None:
+                                    payload["seed"] = seed_val
+                                if keep_voice_val:
+                                    payload["keep_voice"] = keep_voice_val
                                 res = requests.post(url, json=payload, timeout=60)
                                 if res.status_code == 200:
                                     with open(output_path, "wb") as f:
