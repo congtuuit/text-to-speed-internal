@@ -1,8 +1,0 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-vieneu==3.0.5
-torch==2.5.1+cpu
-torchaudio==2.5.1+cpu
-numpy
-soundfile
-fastapi
-uvicorn

@@ -17,13 +17,12 @@ function App() {
   const [models, setModels] = useState([])
   const [provider, setProvider] = useState(() => {
     let p = localStorage.getItem('tts_provider');
-    if (p === 'vieneu') return 'fpt';
-    return p || 'fpt';
+    if (p === 'vieneu') return 'self_hosted';
+    return p || 'self_hosted';
   })
-  const [vieneuMode, setVieneuMode] = useState(() => localStorage.getItem('tts_vieneu_mode') || 'remote')
-  const [vieneuUrl, setVieneuUrl] = useState(() => localStorage.getItem('tts_vieneu_url') || 'http://localhost:23333/v1')
   const [fptApiKeys, setFptApiKeys] = useState(() => localStorage.getItem('tts_fpt_api_keys') || '')
   const [fptSpeed, setFptSpeed] = useState(() => localStorage.getItem('tts_fpt_speed') || 0)
+  const [selfHostedUrl, setSelfHostedUrl] = useState(() => localStorage.getItem('tts_self_hosted_url') || 'http://localhost:7860')
   const [maxWorkers, setMaxWorkers] = useState(() => parseInt(localStorage.getItem('tts_max_workers')) || 3)
   const [voices, setVoices] = useState([])
 
@@ -51,9 +50,14 @@ function App() {
     } catch (err) { }
   }
 
-  const fetchVoices = async (prov) => {
+  const fetchVoices = async (prov, shUrl) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/voices?provider=${prov}`)
+      let url = `${API_BASE_URL}/api/voices?provider=${prov}`
+      if (prov === 'self_hosted') {
+        const urlParam = shUrl || selfHostedUrl
+        url += `&self_hosted_url=${encodeURIComponent(urlParam)}`
+      }
+      const res = await fetch(url)
       const data = await res.json()
       setVoices(data || [])
       return data || []
@@ -75,15 +79,14 @@ function App() {
         }
         if (data.provider) {
           setProvider(data.provider)
-          setVieneuMode(data.vieneu_mode || 'remote')
-          setVieneuUrl(data.vieneu_url || 'http://localhost:23333/v1')
           setFptApiKeys(data.fpt_api_keys || '')
           if (data.fpt_speed !== undefined) setFptSpeed(data.fpt_speed)
           if (data.max_workers !== undefined) setMaxWorkers(data.max_workers)
+          setSelfHostedUrl(data.self_hosted_url || 'http://localhost:7860')
 
-          fetchVoices(data.provider || 'fpt')
+          fetchVoices(data.provider || 'self_hosted', data.self_hosted_url || 'http://localhost:7860')
         } else {
-          fetchVoices('fpt')
+          fetchVoices('self_hosted')
         }
       })
       .catch(err => console.error(err))
@@ -96,12 +99,11 @@ function App() {
     localStorage.setItem('tts_test_text', testText)
     localStorage.setItem('tts_model_name', modelName)
     localStorage.setItem('tts_provider', provider)
-    localStorage.setItem('tts_vieneu_mode', vieneuMode)
-    localStorage.setItem('tts_vieneu_url', vieneuUrl)
     localStorage.setItem('tts_fpt_api_keys', fptApiKeys)
     localStorage.setItem('tts_fpt_speed', fptSpeed)
     localStorage.setItem('tts_max_workers', maxWorkers)
-  }, [inputDir, outputDir, voice, testText, modelName, provider, vieneuMode, vieneuUrl, fptApiKeys, fptSpeed, maxWorkers])
+    localStorage.setItem('tts_self_hosted_url', selfHostedUrl)
+  }, [inputDir, outputDir, voice, testText, modelName, provider, fptApiKeys, fptSpeed, maxWorkers, selfHostedUrl])
 
   const fetchJobTasks = async (jobId) => {
     try {
@@ -144,7 +146,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers) })
+        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl })
       })
       if (res.ok) {
         Swal.fire({ icon: 'success', title: 'Lưu thành công!', background: '#1e293b', color: '#fff', timer: 1500, showConfirmButton: false });
@@ -162,7 +164,7 @@ function App() {
       await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: newModel, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers) })
+        body: JSON.stringify({ api_key: apiKey, model_name: newModel, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl })
       });
     } catch (err) { }
   }
@@ -170,7 +172,7 @@ function App() {
   const handleProviderChange = async (e) => {
     const newProvider = e.target.value;
     setProvider(newProvider);
-    const newVoices = await fetchVoices(newProvider);
+    const newVoices = await fetchVoices(newProvider, selfHostedUrl);
     if (newVoices.length > 0) {
       setVoice(newVoices[0].id);
     }
@@ -178,7 +180,7 @@ function App() {
       await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: newProvider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers) })
+        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: newProvider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl })
       });
     } catch (err) { }
   }
@@ -226,7 +228,7 @@ function App() {
         const splitRes = await fetch(`${API_BASE_URL}/api/docx/split`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ docx_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers) })
+          body: JSON.stringify({ docx_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl })
         })
         const splitData = await splitRes.json()
         if (splitRes.ok) {
@@ -267,7 +269,7 @@ function App() {
         const submitRes = await fetch(`${API_BASE_URL}/api/docx/batch-submit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ folder_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers) })
+          body: JSON.stringify({ folder_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl })
         })
         const submitData = await submitRes.json()
         if (submitRes.ok) {
@@ -294,7 +296,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input_dir: targetInputDir, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers) })
+        body: JSON.stringify({ input_dir: targetInputDir, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl })
       })
       const data = await res.json()
       if (res.ok) {
@@ -371,7 +373,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: voice, text: testText, api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
+        body: JSON.stringify({ voice: voice, text: testText, api_key: apiKey, model_name: modelName, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), self_hosted_url: selfHostedUrl })
       })
       if (res.ok) {
         const blob = await res.blob()
@@ -380,7 +382,7 @@ function App() {
         const errData = await res.json()
         Swal.fire({
           icon: 'error',
-          title: provider === 'gemini' ? 'Gemini API Error' : 'VieNeu TTS Error',
+          title: provider === 'gemini' ? 'Gemini API Error' : 'FPT AI TTS Error',
           text: errData.detail || t("alerts.test_voice_error"),
           background: '#1e293b',
           color: '#fff',
@@ -400,6 +402,10 @@ function App() {
     setIsTestingVoice(false)
   }
 
+  const handleRefreshVoices = async () => {
+    await fetchVoices(provider, selfHostedUrl);
+  }
+
   const toggleLang = () => {
     const newLang = i18n.language === 'vi' ? 'en' : 'vi'
     i18n.changeLanguage(newLang)
@@ -414,7 +420,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: voice, text: quickText, api_key: apiKey, model_name: modelName, provider: provider, vieneu_mode: vieneuMode, vieneu_url: vieneuUrl, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed) })
+        body: JSON.stringify({ voice: voice, text: quickText, api_key: apiKey, model_name: modelName, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), self_hosted_url: selfHostedUrl })
       })
       if (res.ok) {
         const blob = await res.blob()
@@ -479,6 +485,7 @@ function App() {
               <select value={provider} onChange={handleProviderChange}>
                 <option value="fpt">FPT AI TTS (API)</option>
                 <option value="gemini">Google Gemini (API)</option>
+                <option value="self_hosted">Self-hosted (OmniVoice)</option>
               </select>
             </div>
 
@@ -576,19 +583,63 @@ Account2 | 0987654321..."
                 <button className="btn" style={{ width: '100%', background: '#3b82f6' }} onClick={handleSaveSettings}>{t('save_key')}</button>
               </>
             )}
+
+            {provider === 'self_hosted' && (
+              <>
+                <div className="form-group" style={{ marginBottom: '1rem', marginTop: '1rem' }}>
+                  <label>Self-hosted API URL</label>
+                  <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0.25rem 0 0.5rem 0' }}>
+                    Địa chỉ API server của OmniVoice đang chạy (ví dụ: http://localhost:7860).
+                  </p>
+                  <input
+                    type="text"
+                    value={selfHostedUrl}
+                    onChange={e => setSelfHostedUrl(e.target.value)}
+                    placeholder="http://localhost:7860"
+                    style={{ width: '100%', background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label>Số luồng xử lý (Workers: 1 đến 10)</label>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      step="1"
+                      value={maxWorkers}
+                      onChange={e => setMaxWorkers(e.target.value)}
+                      style={{ flex: 1, accentColor: '#3b82f6' }}
+                    />
+                    <span style={{ minWidth: '40px', textAlign: 'center', background: '#334155', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>{maxWorkers}</span>
+                  </div>
+                </div>
+                <button className="btn" style={{ width: '100%', background: '#3b82f6' }} onClick={handleSaveSettings}>{t('save_key')}</button>
+              </>
+            )}
           </div>
 
           <div className="glass-panel">
             <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('test_voice_preview')}</h2>
             <div className="form-group">
               <label>{t('voice_selection')}</label>
-              <select value={voice} onChange={e => setVoice(e.target.value)}>
-                {voices.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name}
-                  </option>
-                ))}
-              </select>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <select value={voice} onChange={e => setVoice(e.target.value)} style={{ flex: 1 }}>
+                  {voices.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+                <button 
+                  className="btn" 
+                  style={{ width: 'auto', background: '#334155', padding: '0.5rem 1rem' }} 
+                  onClick={handleRefreshVoices}
+                  title="Tải lại danh sách giọng từ Server"
+                >
+                  🔄
+                </button>
+              </div>
             </div>
             <div className="form-group">
               <label>{t('test_text')}</label>
@@ -608,8 +659,8 @@ Account2 | 0987654321..."
                 }}
               />
             </div>
-            <button className="btn" style={{ background: '#475569' }} onClick={handleTestVoice} disabled={isTestingVoice || !apiKey}>
-              {isTestingVoice ? t('testing') : (apiKey ? t('test_voice', { voice: voice }) : t('api_key_required'))}
+            <button className="btn" style={{ background: '#475569' }} onClick={handleTestVoice} disabled={isTestingVoice || (provider !== 'self_hosted' && !apiKey)}>
+              {isTestingVoice ? t('testing') : ((apiKey || provider === 'self_hosted') ? t('test_voice', { voice: voice }) : t('api_key_required'))}
             </button>
             {audioUrl && (
               <audio src={audioUrl} controls autoPlay style={{ marginTop: '15px', width: '100%', borderRadius: '8px' }} />
@@ -646,7 +697,7 @@ Account2 | 0987654321..."
               className="btn btn-giant"
               style={{ width: 'auto', padding: '0.75rem 2.5rem', fontSize: '1.1rem' }}
               onClick={handleQuickConvert}
-              disabled={isQuickConverting || !apiKey || !quickText.trim()}
+              disabled={isQuickConverting || (provider !== 'self_hosted' && !apiKey) || !quickText.trim()}
             >
               {isQuickConverting ? t('testing') : t('quick_convert')}
             </button>

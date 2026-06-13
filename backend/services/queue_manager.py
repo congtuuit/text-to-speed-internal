@@ -533,6 +533,19 @@ class QueueManager:
                                     text, output_path, job.voice, speed_val, fpt_key_rotator,
                                     worker_name=worker_name
                                 )
+                            elif job_provider == "self_hosted":
+                                setting_url = db.query(Settings).filter(Settings.key == "self_hosted_url").first()
+                                self_hosted_url = setting_url.value if setting_url else "http://localhost:7860"
+                                url = f"{self_hosted_url.rstrip('/')}/api/tts"
+                                payload = {"text": text, "voice": job.voice}
+                                res = requests.post(url, json=payload, timeout=60)
+                                if res.status_code == 200:
+                                    with open(output_path, "wb") as f:
+                                        f.write(res.content)
+                                    success = True
+                                else:
+                                    success = False
+                                    print(f"[{worker_name}] Self-hosted TTS API Error: {res.text}")
                             else:
                                 success = False
 

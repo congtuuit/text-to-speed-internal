@@ -51,36 +51,33 @@ class JobRequest(BaseModel):
     output_dir: str
     voice: str
     model_name: str = "gemini-2.5-flash-preview-tts"
-    provider: str = "fpt"
-    vieneu_mode: str = "remote"
+    provider: str = "self_hosted"
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
-    vieneu_url: str = "http://localhost:23333/v1"
     max_workers: int = 3
+    self_hosted_url: str = "http://localhost:7860"
 
 class DocxJobRequest(BaseModel):
     docx_path: str
     output_dir: str
     voice: str
     model_name: str = "gemini-2.5-flash-preview-tts"
-    provider: str = "fpt"
-    vieneu_mode: str = "remote"
+    provider: str = "self_hosted"
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
-    vieneu_url: str = "http://localhost:23333/v1"
     max_workers: int = 3
+    self_hosted_url: str = "http://localhost:7860"
 
 class BatchDocxRequest(BaseModel):
     folder_path: str
     output_dir: str
     voice: str
     model_name: str = "gemini-2.5-flash-preview-tts"
-    provider: str = "fpt"
-    vieneu_mode: str = "remote"
+    provider: str = "self_hosted"
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
-    vieneu_url: str = "http://localhost:23333/v1"
     max_workers: int = 3
+    self_hosted_url: str = "http://localhost:7860"
 
 from services.docx_helper import split_docx_to_txt
 
@@ -129,7 +126,7 @@ def create_job(req: JobRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(job)
 
-    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers))]:
+    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers)), ("self_hosted_url", req.self_hosted_url)]:
         if not v:
             continue
         setting = db.query(models.Settings).filter(models.Settings.key == k).first()
@@ -155,11 +152,10 @@ class TestVoiceRequest(BaseModel):
     text: str = "Xin chào, đây là giọng đọc thử."
     api_key: str = ""
     model_name: str = "gemini-2.5-flash-preview-tts"
-    provider: str = "fpt"
-    vieneu_mode: str = "remote"
+    provider: str = "self_hosted"
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
-    vieneu_url: str = "http://localhost:23333/v1"
+    self_hosted_url: str = "http://localhost:7860"
 
 @app.post("/api/test-voice")
 def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
@@ -179,6 +175,17 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
             from services.queue_manager import process_fpt_tts
             keys = [k.split('|')[1].strip() if '|' in k else k.strip() for k in req.fpt_api_keys.split('\n') if k.strip()]
             success = process_fpt_tts(req.text, temp_file, req.voice, req.fpt_speed, keys)
+        elif req.provider == "self_hosted":
+            url = f"{req.self_hosted_url.rstrip('/')}/api/tts"
+            payload = {"text": req.text, "voice": req.voice}
+            res = requests.post(url, json=payload, timeout=60)
+            if res.status_code == 200:
+                with open(temp_file, "wb") as f:
+                    f.write(res.content)
+                success = True
+            else:
+                success = False
+                print(f"Self-hosted API Error: {res.text}")
         else:
             provider = TTSProvider(api_key=req.api_key)
             success = provider.process_text_to_speech(req.text, temp_file, req.voice, req.model_name)
@@ -188,7 +195,12 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
     
     if not success or not os.path.exists(temp_file):
         cleanup()
-        error_msg = "Failed to generate Gemini TTS audio. Check backend logs." if req.provider == "gemini" else "Lỗi tạo audio. Vui lòng kiểm tra log backend."
+        if req.provider == "gemini":
+            error_msg = "Failed to generate Gemini TTS audio. Check backend logs."
+        elif req.provider == "self_hosted":
+            error_msg = "Failed to generate Self-hosted TTS audio. Make sure the model server is running."
+        else:
+            error_msg = "Lỗi tạo audio. Vui lòng kiểm tra log backend."
         raise HTTPException(status_code=500, detail=error_msg)
         
     background_tasks.add_task(cleanup)
@@ -197,16 +209,15 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
 class SettingsRequest(BaseModel):
     api_key: str = ""
     model_name: str = ""
-    provider: str = "fpt"
-    vieneu_mode: str = "remote"
-    vieneu_url: str = "http://localhost:23333/v1"
+    provider: str = "self_hosted"
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
     max_workers: int = 3
+    self_hosted_url: str = "http://localhost:7860"
 
 @app.post("/api/settings")
 def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
-    for k, v in [("api_key", req.api_key), ("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers))]:
+    for k, v in [("api_key", req.api_key), ("model_name", req.model_name), ("provider", req.provider), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers)), ("self_hosted_url", req.self_hosted_url)]:
         setting = db.query(models.Settings).filter(models.Settings.key == k).first()
         if not setting:
             setting = models.Settings(key=k, value=v)
@@ -235,24 +246,22 @@ def get_settings(db: Session = Depends(get_db)):
     api_key_setting = db.query(models.Settings).filter(models.Settings.key == "api_key").first()
     model_name_setting = db.query(models.Settings).filter(models.Settings.key == "model_name").first()
     provider_setting = db.query(models.Settings).filter(models.Settings.key == "provider").first()
-    vieneu_mode_setting = db.query(models.Settings).filter(models.Settings.key == "vieneu_mode").first()
-    vieneu_url_setting = db.query(models.Settings).filter(models.Settings.key == "vieneu_url").first()
     fpt_api_keys_setting = db.query(models.Settings).filter(models.Settings.key == "fpt_api_keys").first()
     fpt_speed_setting = db.query(models.Settings).filter(models.Settings.key == "fpt_speed").first()
     max_workers_setting = db.query(models.Settings).filter(models.Settings.key == "max_workers").first()
-    provider_val = provider_setting.value if provider_setting else "fpt"
+    self_hosted_url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
+    provider_val = provider_setting.value if provider_setting else "self_hosted"
     if provider_val == "vieneu":
-        provider_val = "fpt"
+        provider_val = "self_hosted"
         
     return {
         "api_key": api_key_setting.value if api_key_setting else "",
         "model_name": model_name_setting.value if model_name_setting else "gemini-2.5-flash-preview-tts",
         "provider": provider_val,
-        "vieneu_mode": vieneu_mode_setting.value if vieneu_mode_setting else "remote",
-        "vieneu_url": vieneu_url_setting.value if vieneu_url_setting else "http://localhost:23333/v1",
         "fpt_api_keys": fpt_api_keys_setting.value if fpt_api_keys_setting else "",
         "fpt_speed": float(fpt_speed_setting.value) if fpt_speed_setting else 0.8,
-        "max_workers": int(max_workers_setting.value) if max_workers_setting else 3
+        "max_workers": int(max_workers_setting.value) if max_workers_setting else 3,
+        "self_hosted_url": self_hosted_url_setting.value if self_hosted_url_setting else "http://localhost:7860"
     }
 
 @app.get("/api/models")
@@ -281,7 +290,7 @@ def get_models(api_key: str = None, db: Session = Depends(get_db)):
         return {"models": []}
 
 @app.get("/api/voices")
-def get_voices(provider: str = "fpt"):
+def get_voices(provider: str = "fpt", self_hosted_url: str = None, db: Session = Depends(get_db)):
     if provider == "fpt":
         return [
             {"id": "banmai", "name": "Ban Mai (Nữ miền Bắc)"},
@@ -293,6 +302,31 @@ def get_voices(provider: str = "fpt"):
             {"id": "giahuy", "name": "Gia Huy (Nam miền Trung)"},
             {"id": "lannhi", "name": "Lan Nhi (Nữ miền Nam)"},
             {"id": "ngoclam", "name": "Ngọc Lam (Nữ miền Trung)"}
+        ]
+
+    if provider == "self_hosted":
+        url_to_use = self_hosted_url
+        if not url_to_use:
+            setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
+            url_to_use = setting.value if setting else "http://localhost:7860"
+        
+        try:
+            res = requests.get(f"{url_to_use.rstrip('/')}/api/voices", timeout=3)
+            if res.status_code == 200:
+                data = res.json()
+                voices = data.get("voices", [])
+                return [{"id": v.get("id", ""), "name": v.get("label", v.get("id", ""))} for v in voices]
+        except Exception as e:
+            print(f"Failed to fetch voices from Self-hosted URL {url_to_use}: {e}")
+            
+        return [
+            {"id": "", "name": "Tự động chọn (Auto)"},
+            {"id": "female", "name": "Nữ, giọng mặc định"},
+            {"id": "male", "name": "Nam, giọng mặc định"},
+            {"id": "female, low pitch", "name": "Nữ, giọng trầm"},
+            {"id": "female, high pitch", "name": "Nữ, giọng cao"},
+            {"id": "male, low pitch", "name": "Nam, giọng trầm"},
+            {"id": "male, high pitch", "name": "Nam, giọng cao"}
         ]
 
     return [
@@ -335,7 +369,7 @@ def split_docx_endpoint(req: DocxJobRequest, db: Session = Depends(get_db)):
     if not os.path.exists(req.output_dir):
         os.makedirs(req.output_dir)
         
-    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers))]:
+    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers)), ("self_hosted_url", req.self_hosted_url)]:
         if not v:
             continue
         setting = db.query(models.Settings).filter(models.Settings.key == k).first()
@@ -362,7 +396,7 @@ def batch_submit_docx(req: BatchDocxRequest, db: Session = Depends(get_db)):
     if not os.path.exists(req.output_dir):
         os.makedirs(req.output_dir)
         
-    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("vieneu_mode", req.vieneu_mode), ("vieneu_url", req.vieneu_url), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers))]:
+    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers)), ("self_hosted_url", req.self_hosted_url)]:
         if not v:
             continue
         setting = db.query(models.Settings).filter(models.Settings.key == k).first()
