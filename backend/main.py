@@ -15,7 +15,7 @@ import requests
 
 from database import engine, Base, get_db
 import models
-from services.queue_manager import queue_manager, fpt_key_rotator
+from services.queue_manager import queue_manager, fpt_key_rotator, adjust_audio_speed_ffmpeg
 from services.tts_provider import TTSProvider
 from fastapi.responses import FileResponse
 import tempfile
@@ -56,6 +56,7 @@ class JobRequest(BaseModel):
     fpt_speed: float = 0.8
     max_workers: int = 3
     self_hosted_url: str = "http://localhost:7860"
+    output_speed: float = 1.0
 
 class DocxJobRequest(BaseModel):
     docx_path: str
@@ -67,6 +68,7 @@ class DocxJobRequest(BaseModel):
     fpt_speed: float = 0.8
     max_workers: int = 3
     self_hosted_url: str = "http://localhost:7860"
+    output_speed: float = 1.0
 
 class BatchDocxRequest(BaseModel):
     folder_path: str
@@ -78,6 +80,7 @@ class BatchDocxRequest(BaseModel):
     fpt_speed: float = 0.8
     max_workers: int = 3
     self_hosted_url: str = "http://localhost:7860"
+    output_speed: float = 1.0
 
 from services.docx_helper import split_docx_to_txt
 
@@ -126,7 +129,7 @@ def create_job(req: JobRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(job)
 
-    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers)), ("self_hosted_url", req.self_hosted_url)]:
+    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers)), ("self_hosted_url", req.self_hosted_url), ("output_speed", str(req.output_speed))]:
         if not v:
             continue
         setting = db.query(models.Settings).filter(models.Settings.key == k).first()
@@ -158,6 +161,7 @@ class TestVoiceRequest(BaseModel):
     self_hosted_url: str = "http://localhost:7860"
     seed: str = ""
     keep_voice: str = "false"
+    output_speed: float = 1.0
 
 @app.post("/api/test-voice")
 def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
@@ -221,6 +225,15 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
             error_msg = "Lỗi tạo audio. Vui lòng kiểm tra log backend."
         raise HTTPException(status_code=500, detail=error_msg)
         
+    if req.output_speed != 1.0:
+        temp_speed_file = temp_file + ".speed.wav"
+        if adjust_audio_speed_ffmpeg(temp_file, temp_speed_file, req.output_speed):
+            import shutil
+            shutil.move(temp_speed_file, temp_file)
+        else:
+            if os.path.exists(temp_speed_file):
+                os.remove(temp_speed_file)
+        
     background_tasks.add_task(cleanup)
     return FileResponse(temp_file, media_type="audio/wav")
 
@@ -238,6 +251,7 @@ class SettingsRequest(BaseModel):
     self_hosted_voice: str = "female"
     self_hosted_seed: str = ""
     self_hosted_keep_voice: str = "false"
+    output_speed: float = 1.0
 
 @app.post("/api/settings")
 def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
@@ -251,7 +265,8 @@ def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
         ("self_hosted_url", req.self_hosted_url),
         ("self_hosted_voice", req.self_hosted_voice),
         ("self_hosted_seed", req.self_hosted_seed),
-        ("self_hosted_keep_voice", req.self_hosted_keep_voice)
+        ("self_hosted_keep_voice", req.self_hosted_keep_voice),
+        ("output_speed", str(req.output_speed))
     ]:
         setting = db.query(models.Settings).filter(models.Settings.key == k).first()
         if not setting:
@@ -288,6 +303,7 @@ def get_settings(db: Session = Depends(get_db)):
     self_hosted_voice_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_voice").first()
     self_hosted_seed_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_seed").first()
     self_hosted_keep_voice_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_keep_voice").first()
+    output_speed_setting = db.query(models.Settings).filter(models.Settings.key == "output_speed").first()
     
     provider_val = provider_setting.value if provider_setting else "self_hosted"
     if provider_val == "vieneu":
@@ -303,7 +319,8 @@ def get_settings(db: Session = Depends(get_db)):
         "self_hosted_url": self_hosted_url_setting.value if self_hosted_url_setting else "http://localhost:7860",
         "self_hosted_voice": self_hosted_voice_setting.value if self_hosted_voice_setting else "female",
         "self_hosted_seed": self_hosted_seed_setting.value if self_hosted_seed_setting else "",
-        "self_hosted_keep_voice": self_hosted_keep_voice_setting.value if self_hosted_keep_voice_setting else "false"
+        "self_hosted_keep_voice": self_hosted_keep_voice_setting.value if self_hosted_keep_voice_setting else "false",
+        "output_speed": float(output_speed_setting.value) if output_speed_setting else 1.0
     }
 
 @app.get("/api/self-hosted/config")
@@ -421,7 +438,7 @@ def split_docx_endpoint(req: DocxJobRequest, db: Session = Depends(get_db)):
     if not os.path.exists(req.output_dir):
         os.makedirs(req.output_dir)
         
-    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers)), ("self_hosted_url", req.self_hosted_url)]:
+    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers)), ("self_hosted_url", req.self_hosted_url), ("output_speed", str(req.output_speed))]:
         if not v:
             continue
         setting = db.query(models.Settings).filter(models.Settings.key == k).first()
@@ -453,7 +470,7 @@ def batch_submit_docx(req: BatchDocxRequest, db: Session = Depends(get_db)):
     if not os.path.exists(req.output_dir):
         os.makedirs(req.output_dir)
         
-    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers)), ("self_hosted_url", req.self_hosted_url)]:
+    for k, v in [("model_name", req.model_name), ("provider", req.provider), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers)), ("self_hosted_url", req.self_hosted_url), ("output_speed", str(req.output_speed))]:
         if not v:
             continue
         setting = db.query(models.Settings).filter(models.Settings.key == k).first()

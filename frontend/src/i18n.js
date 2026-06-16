@@ -4,10 +4,10 @@ import { initReactI18next } from 'react-i18next'
 const resources = {
   vi: {
     translation: {
-      "title": "Trình chuyển đổi văn bản sang giọng nói hàng loạt bằng Google Gemini 2.0 Flash",
+      "title": "Trình chuyển đổi văn bản sang giọng nói hàng loạt",
       "settings": "⚙️ Cài đặt",
       "api_key": "Mã Google Gemini API Key",
-      "save_key": "Lưu Mã",
+      "save_key": "Lưu cấu hình",
       "quick_tts": "Chuyển đổi văn bản (Single TTS)",
       "quick_convert": "Chuyển Đổi Sang Audio",
       "quick_placeholder": "Nhập văn bản cần chuyển đổi vào đây...",

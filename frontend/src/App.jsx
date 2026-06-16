@@ -36,7 +36,8 @@ function App() {
   const [maxWorkers, setMaxWorkers] = useState(() => parseInt(localStorage.getItem('tts_max_workers')) || 3)
   const [voices, setVoices] = useState([])
   const [seed, setSeed] = useState(() => localStorage.getItem('tts_self_hosted_seed') || '')
-  
+  const [outputSpeed, setOutputSpeed] = useState(() => parseFloat(localStorage.getItem('tts_output_speed')) || 1.0)
+
   const [savedDbSeed, setSavedDbSeed] = useState('')
   const [savedDbVoice, setSavedDbVoice] = useState('')
 
@@ -74,7 +75,7 @@ function App() {
       const res = await fetch(url)
       const data = await res.json()
       setVoices(data || [])
-      
+
       if (data && data.length > 0) {
         const currentVoice = localStorage.getItem('tts_voice') || voice;
         const exist = data.find(v => v.id === currentVoice);
@@ -82,7 +83,7 @@ function App() {
           setVoice(data[0].id);
         }
       }
-      
+
       return data || []
     } catch (err) {
       return []
@@ -113,6 +114,9 @@ function App() {
           if (data.self_hosted_voice !== undefined) {
             setSavedDbVoice(data.self_hosted_voice)
           }
+          if (data.output_speed !== undefined) {
+            setOutputSpeed(parseFloat(data.output_speed))
+          }
 
           fetchVoices(data.provider || 'self_hosted', data.self_hosted_url || 'http://localhost:7860')
         } else {
@@ -134,7 +138,8 @@ function App() {
     localStorage.setItem('tts_max_workers', maxWorkers)
     localStorage.setItem('tts_self_hosted_url', selfHostedUrl)
     localStorage.setItem('tts_self_hosted_seed', seed)
-  }, [inputDir, outputDir, voice, testText, modelName, provider, fptApiKeys, fptSpeed, maxWorkers, selfHostedUrl, seed])
+    localStorage.setItem('tts_output_speed', outputSpeed)
+  }, [inputDir, outputDir, voice, testText, modelName, provider, fptApiKeys, fptSpeed, maxWorkers, selfHostedUrl, seed, outputSpeed])
 
   const fetchJobTasks = async (jobId) => {
     try {
@@ -177,7 +182,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl })
+        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl, output_speed: parseFloat(outputSpeed) })
       })
       if (res.ok) {
         Swal.fire({ icon: 'success', title: 'Lưu thành công!', background: '#1e293b', color: '#fff', timer: 1500, showConfirmButton: false });
@@ -195,7 +200,7 @@ function App() {
       await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: newModel, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl })
+        body: JSON.stringify({ api_key: apiKey, model_name: newModel, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl, output_speed: parseFloat(outputSpeed) })
       });
     } catch (err) { }
   }
@@ -211,7 +216,7 @@ function App() {
       await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: newProvider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl })
+        body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: newProvider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl, output_speed: parseFloat(outputSpeed) })
       });
     } catch (err) { }
   }
@@ -259,7 +264,7 @@ function App() {
         const splitRes = await fetch(`${API_BASE_URL}/api/docx/split`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ docx_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl })
+          body: JSON.stringify({ docx_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl, output_speed: parseFloat(outputSpeed) })
         })
         const splitData = await splitRes.json()
         if (splitRes.ok) {
@@ -300,7 +305,7 @@ function App() {
         const submitRes = await fetch(`${API_BASE_URL}/api/docx/batch-submit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ folder_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl })
+          body: JSON.stringify({ folder_path: data.path, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl, output_speed: parseFloat(outputSpeed) })
         })
         const submitData = await submitRes.json()
         if (submitRes.ok) {
@@ -327,7 +332,7 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input_dir: targetInputDir, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl })
+        body: JSON.stringify({ input_dir: targetInputDir, output_dir: outputDir, voice: voice, model_name: modelName, api_key: apiKey, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl, output_speed: parseFloat(outputSpeed) })
       })
       const data = await res.json()
       if (res.ok) {
@@ -353,7 +358,7 @@ function App() {
       background: '#1e293b',
       color: '#fff'
     })
-    
+
     if (!result.isConfirmed) return;
 
     try {
@@ -470,7 +475,7 @@ function App() {
   const handleTestVoice = async () => {
     setIsTestingVoice(true)
     setAudioUrl(null)
-    
+
     let currentSeed = seed;
     if (!currentSeed || currentSeed.trim() === '') {
       currentSeed = Math.floor(Math.random() * 1000000000).toString();
@@ -483,17 +488,18 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          voice: voice, 
-          text: testText, 
-          api_key: apiKey, 
-          model_name: modelName, 
-          provider: provider, 
-          fpt_api_keys: fptApiKeys, 
-          fpt_speed: parseFloat(fptSpeed), 
+        body: JSON.stringify({
+          voice: voice,
+          text: testText,
+          api_key: apiKey,
+          model_name: modelName,
+          provider: provider,
+          fpt_api_keys: fptApiKeys,
+          fpt_speed: parseFloat(fptSpeed),
           self_hosted_url: selfHostedUrl,
           seed: currentSeed,
-          keep_voice: keepVoiceVal
+          keep_voice: keepVoiceVal,
+          output_speed: parseFloat(outputSpeed)
         })
       })
       if (res.ok) {
@@ -529,7 +535,7 @@ function App() {
       currentSeed = Math.floor(Math.random() * 1000000000).toString();
       setSeed(currentSeed);
     }
-    
+
     setSavedDbSeed(currentSeed);
     setSavedDbVoice(voice);
 
@@ -547,7 +553,8 @@ function App() {
           self_hosted_url: selfHostedUrl,
           self_hosted_voice: voice,
           self_hosted_seed: currentSeed,
-          self_hosted_keep_voice: "true"
+          self_hosted_keep_voice: "true",
+          output_speed: parseFloat(outputSpeed)
         })
       })
       if (res.ok) {
@@ -593,17 +600,18 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          voice: voice, 
-          text: quickText, 
-          api_key: apiKey, 
-          model_name: modelName, 
-          provider: provider, 
-          fpt_api_keys: fptApiKeys, 
-          fpt_speed: parseFloat(fptSpeed), 
+        body: JSON.stringify({
+          voice: voice,
+          text: quickText,
+          api_key: apiKey,
+          model_name: modelName,
+          provider: provider,
+          fpt_api_keys: fptApiKeys,
+          fpt_speed: parseFloat(fptSpeed),
           self_hosted_url: selfHostedUrl,
           seed: currentSeed,
-          keep_voice: keepVoiceVal
+          keep_voice: keepVoiceVal,
+          output_speed: parseFloat(outputSpeed)
         })
       })
       if (res.ok) {
@@ -654,7 +662,7 @@ function App() {
       </div>
 
       <div className="header">
-        <h1>Gemini TTS Batcher</h1>
+        <h1>TVC TTS Batcher</h1>
         <p>{t('title')}</p>
       </div>
 
@@ -670,6 +678,27 @@ function App() {
                 <option value="fpt">FPT AI TTS (API)</option>
                 <option value="gemini">Google Gemini (API)</option>
                 <option value="self_hosted">Self-hosted (OmniVoice)</option>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label>Tốc độ Phát (Output Speed)</label>
+              <select value={outputSpeed} onChange={e => {
+                const val = parseFloat(e.target.value);
+                setOutputSpeed(val);
+                fetch(`${API_BASE_URL}/api/settings`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl, output_speed: val })
+                });
+              }}>
+                <option value={0.5}>0.5x (Rất chậm)</option>
+                <option value={0.75}>0.75x (Chậm)</option>
+                <option value={1.0}>1.0x (Bình thường)</option>
+                <option value={1.25}>1.25x (Hơi nhanh)</option>
+                <option value={1.5}>1.5x (Nhanh)</option>
+                <option value={1.75}>1.75x (Khá nhanh)</option>
+                <option value={2.0}>2.0x (Rất nhanh)</option>
               </select>
             </div>
 
@@ -770,25 +799,51 @@ Account2 | 0987654321..."
 
             {provider === 'self_hosted' && (
               <>
-                <div className="form-group" style={{ marginBottom: '1rem', marginTop: '1rem' }}>
-                  <label>Self-hosted API URL</label>
-                  <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0.25rem 0 0.5rem 0' }}>
-                    Địa chỉ API server của OmniVoice đang chạy (ví dụ: http://localhost:7860).
+                <div className="form-group" style={{ marginBottom: '1.5rem', marginTop: '1.5rem', padding: '1.25rem', background: 'rgba(30, 41, 59, 0.6)', borderRadius: '12px', border: '1px solid rgba(148, 163, 184, 0.1)', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#e2e8f0', fontSize: '0.95rem' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+                    Kết nối Máy chủ (Self-hosted)
+                  </label>
+                  <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0.25rem 0 1rem 0' }}>
+                    Địa chỉ API server OmniVoice đang chạy (VD: <code>http://localhost:7860</code>).
                   </p>
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <input
                       type="text"
                       value={selfHostedUrl}
                       onChange={e => setSelfHostedUrl(e.target.value)}
                       placeholder="http://localhost:7860"
-                      style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white' }}
+                      style={{
+                        width: '100%',
+                        background: 'rgba(0, 0, 0, 0.3)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '8px',
+                        padding: '0.75rem 1rem',
+                        color: 'white',
+                        fontFamily: 'monospace',
+                        margin: 0,
+                        boxSizing: 'border-box'
+                      }}
                     />
-                    <button 
-                      className="btn" 
-                      style={{ width: 'auto', background: '#3b82f6', whiteSpace: 'nowrap' }}
+                    <button
+                      className="btn"
+                      style={{
+                        width: '100%',
+                        background: 'linear-gradient(to right, #3b82f6, #2563eb)',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        padding: '0.75rem 1.25rem',
+                        border: '1px solid rgba(59, 130, 246, 0.5)',
+                        boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)',
+                        margin: 0
+                      }}
                       onClick={handleCheckConnection}
                     >
-                      Check kết nối
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      Kiểm tra
                     </button>
                   </div>
                 </div>
@@ -824,9 +879,9 @@ Account2 | 0987654321..."
                     </option>
                   ))}
                 </select>
-                <button 
-                  className="btn" 
-                  style={{ width: 'auto', background: '#334155', padding: '0.5rem 1rem' }} 
+                <button
+                  className="btn"
+                  style={{ width: 'auto', background: '#334155', padding: '0.5rem 1rem' }}
                   onClick={handleRefreshVoices}
                   title="Tải lại danh sách giọng từ Server"
                 >
@@ -845,8 +900,8 @@ Account2 | 0987654321..."
                     placeholder="Để trống để random giọng"
                     style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white' }}
                   />
-                  <button 
-                    className="btn" 
+                  <button
+                    className="btn"
                     style={{ width: 'auto', background: '#334155' }}
                     onClick={() => setSeed(Math.floor(Math.random() * 1000000).toString())}
                   >
@@ -893,12 +948,12 @@ Account2 | 0987654321..."
               {isTestingVoice ? t('testing') : ((apiKey || provider === 'self_hosted') ? t('test_voice', { voice: voice }) : t('api_key_required'))}
             </button>
             {provider === 'self_hosted' && (
-              <button 
-                className="btn" 
-                style={{ background: '#10b981', marginTop: '10px' }} 
+              <button
+                className="btn"
+                style={{ marginTop: "20px", background: '#10b981' }}
                 onClick={handleSaveVoiceConfig}
               >
-                💾 Lưu giọng nói (Cố định giọng cho queue)
+                💾 Lưu cấu hình giọng nói
               </button>
             )}
             {audioUrl && (
@@ -1068,7 +1123,7 @@ Account2 | 0987654321..."
                     <span>{t('done')} <strong style={{ color: '#10b981' }}>{job.done}</strong></span>
                     <span>{t('error')} <strong style={{ color: '#ef4444' }}>{job.error}</strong></span>
                     <span>{t('processing')} <strong style={{ color: '#3b82f6' }}>{job.processing}</strong></span>
-                    <span style={{marginLeft:'auto'}}><strong>{p}%</strong></span>
+                    <span style={{ marginLeft: 'auto' }}><strong>{p}%</strong></span>
                   </div>
 
                   {/* Danh sách file txt khi expand */}

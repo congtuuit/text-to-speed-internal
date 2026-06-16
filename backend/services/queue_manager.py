@@ -13,6 +13,34 @@ from models import FileTask, BatchJob, Settings
 from services.tts_provider import TTSProvider
 
 import requests
+import subprocess
+import shutil
+
+def adjust_audio_speed_ffmpeg(input_path: str, output_path: str, speed: float) -> bool:
+    """Sử dụng FFmpeg để thay đổi tốc độ audio. Trả về True nếu thành công."""
+    if speed == 1.0:
+        if input_path != output_path:
+            shutil.copy2(input_path, output_path)
+        return True
+    
+    try:
+        # filter atempo limits: 0.5 to 100.0. For <0.5, we would need to chain it.
+        # But we only support 0.5 to 2.0 anyway.
+        cmd = [
+            "ffmpeg", "-y", 
+            "-i", input_path, 
+            "-filter:a", f"atempo={speed}", 
+            output_path
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if res.returncode == 0:
+            return True
+        else:
+            print(f"FFmpeg Error: {res.stderr.decode('utf-8', errors='replace')}")
+            return False
+    except Exception as e:
+        print(f"FFmpeg Exception: {e}")
+        return False
 
 
 
@@ -666,6 +694,21 @@ class QueueManager:
                                             for d in data:
                                                 output_wav.writeframes(d)
                                         print(f"[{worker_name}] joined DOCX audio → {job_obj.final_output_path}")
+
+                                        # Điều chỉnh tốc độ audio nếu cần
+                                        setting_speed = db.query(Settings).filter(Settings.key == "output_speed").first()
+                                        output_speed = float(setting_speed.value) if setting_speed else 1.0
+                                        if output_speed != 1.0:
+                                            print(f"[{worker_name}] Adjusting speed to {output_speed}x using FFmpeg...")
+                                            temp_speed_path = job_obj.final_output_path + ".temp.wav"
+                                            if adjust_audio_speed_ffmpeg(job_obj.final_output_path, temp_speed_path, output_speed):
+                                                shutil.move(temp_speed_path, job_obj.final_output_path)
+                                                print(f"[{worker_name}] Speed adjusted successfully.")
+                                            else:
+                                                print(f"[{worker_name}] Speed adjustment failed. Using original file.")
+                                                if os.path.exists(temp_speed_path):
+                                                    os.remove(temp_speed_path)
+
                                         shutil.rmtree(job_obj.output_dir, ignore_errors=True)
                                     except Exception as e:
                                         print(f"[{worker_name}] error joining audio: {e}")
