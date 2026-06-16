@@ -39,3 +39,12 @@ class Settings(Base):
 
     key = Column(String, primary_key=True, index=True)
     value = Column(String)
+
+class SavedVoice(Base):
+    __tablename__ = "saved_voices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    voice_type = Column(String)
+    seed = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -65,6 +65,19 @@ function App() {
     } catch (err) { }
   }
 
+  const [savedVoices, setSavedVoices] = useState([])
+  const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false)
+
+  const fetchSavedVoices = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/saved-voices`)
+      if (res.ok) {
+        const data = await res.json()
+        setSavedVoices(data.saved_voices || [])
+      }
+    } catch (err) { }
+  }
+
   const fetchVoices = async (prov, shUrl) => {
     try {
       let url = `${API_BASE_URL}/api/voices?provider=${prov}`
@@ -91,6 +104,7 @@ function App() {
   }
 
   useEffect(() => {
+    fetchSavedVoices()
     fetch(`${API_BASE_URL}/api/settings`)
       .then(res => res.json())
       .then(data => {
@@ -529,6 +543,49 @@ function App() {
     setIsTestingVoice(false)
   }
 
+  const handleSaveToLibrary = async () => {
+    const { value: voiceName } = await Swal.fire({
+      title: 'Lưu Thư viện Giọng nói',
+      input: 'text',
+      inputLabel: 'Tên gợi nhớ (VD: Giọng Đọc Truyện)',
+      inputPlaceholder: 'Nhập tên giọng nói...',
+      showCancelButton: true,
+      background: '#1e293b',
+      color: '#fff',
+      confirmButtonText: 'Lưu lại',
+      cancelButtonText: 'Hủy'
+    });
+
+    if (!voiceName) return;
+
+    let currentSeed = seed;
+    if (!currentSeed || currentSeed.trim() === '') {
+      currentSeed = Math.floor(Math.random() * 1000000000).toString();
+      setSeed(currentSeed);
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/saved-voices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: voiceName.trim(),
+          voice_type: voice,
+          seed: currentSeed
+        })
+      });
+
+      if (res.ok) {
+        Swal.fire({
+          icon: 'success', title: 'Đã lưu vào Thư viện!', text: `Giọng "${voiceName}" đã được lưu thành công.`, background: '#1e293b', color: '#fff', timer: 2000, showConfirmButton: false
+        });
+        fetchSavedVoices();
+      }
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Không thể lưu giọng nói.', background: '#1e293b', color: '#fff' });
+    }
+  }
+
   const handleSaveVoiceConfig = async () => {
     let currentSeed = seed;
     if (!currentSeed || currentSeed.trim() === '') {
@@ -558,18 +615,69 @@ function App() {
         })
       })
       if (res.ok) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Đã lưu giọng nói cố định!',
-          text: `Đã lưu cấu hình với Seed: ${seed || 'Tự động băm từ tên phong cách'}.`,
-          background: '#1e293b',
-          color: '#fff',
-          timer: 2500,
-          showConfirmButton: false
-        });
+        Swal.fire({ icon: 'success', title: 'Đã lưu cấu hình giọng!', text: `Đã lưu cố định với Seed: ${currentSeed}.`, background: '#1e293b', color: '#fff', timer: 2500, showConfirmButton: false });
       }
     } catch (err) {
       Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Không thể lưu cấu hình giọng nói.', background: '#1e293b', color: '#fff' });
+    }
+  }
+
+  const handleUseSavedVoice = async (v) => {
+    setVoice(v.voice_type);
+    setSeed(v.seed);
+    setIsLibraryModalOpen(false);
+    setAudioUrl(null);
+
+    try {
+      setIsTestingVoice(true);
+      const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          voice: v.voice_type,
+          text: testText || t('test_text'),
+          api_key: apiKey,
+          model_name: modelName,
+          provider: provider,
+          fpt_api_keys: fptApiKeys,
+          fpt_speed: parseFloat(fptSpeed),
+          self_hosted_url: selfHostedUrl,
+          seed: v.seed,
+          keep_voice: "true",
+          output_speed: parseFloat(outputSpeed)
+        })
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        setAudioUrl(URL.createObjectURL(blob));
+      } else {
+        Swal.fire({ icon: 'error', title: 'Lỗi Test', text: 'Không thể nghe thử giọng này.', background: '#1e293b', color: '#fff' });
+      }
+    } catch (err) { }
+    setIsTestingVoice(false);
+  }
+
+  const handleDeleteSavedVoice = async (id, name) => {
+    const result = await Swal.fire({
+      title: 'Xóa giọng nói?',
+      text: `Bạn có chắc muốn xóa giọng "${name}" khỏi thư viện?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Xóa',
+      cancelButtonText: 'Hủy',
+      background: '#1e293b',
+      color: '#fff'
+    });
+    if (result.isConfirmed) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/saved-voices/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          fetchSavedVoices();
+          Swal.fire({ icon: 'success', title: 'Đã xóa', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff' });
+        }
+      } catch (e) { }
     }
   }
 
@@ -869,6 +977,19 @@ Account2 | 0987654321..."
 
           <div className="glass-panel">
             <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('test_voice_preview')}</h2>
+
+            {provider === 'self_hosted' && (
+              <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '10px 15px', borderRadius: '8px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: '#94a3b8' }}>Giọng đang dùng:</span>
+                <strong style={{ color: '#38bdf8' }}>
+                  {(() => {
+                    const activeV = savedVoices.find(v => v.seed === seed && v.voice_type === voice);
+                    return activeV ? activeV.name : (seed ? "Tùy chỉnh (Có Seed)" : "Mặc định (Random)");
+                  })()}
+                </strong>
+              </div>
+            )}
+
             <div className="form-group">
               <label>{t('voice_selection')}</label>
               <div style={{ display: 'flex', gap: '10px' }}>
@@ -894,18 +1015,19 @@ Account2 | 0987654321..."
                 <label>Seed (Số nguyên ngẫu nhiên hoặc nhập để cố định)</label>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <input
+                    disabled
                     type="number"
                     value={seed}
                     onChange={e => setSeed(e.target.value)}
                     placeholder="Để trống để random giọng"
-                    style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white' }}
+                    style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white', maxWidth: "150px" }}
                   />
                   <button
                     className="btn"
                     style={{ width: 'auto', background: '#334155' }}
                     onClick={() => setSeed(Math.floor(Math.random() * 1000000).toString())}
                   >
-                    Random Seed
+                    Đổi giọng nói
                   </button>
                 </div>
               </div>
@@ -948,13 +1070,49 @@ Account2 | 0987654321..."
               {isTestingVoice ? t('testing') : ((apiKey || provider === 'self_hosted') ? t('test_voice', { voice: voice }) : t('api_key_required'))}
             </button>
             {provider === 'self_hosted' && (
-              <button
-                className="btn"
-                style={{ marginTop: "20px", background: '#10b981' }}
-                onClick={handleSaveVoiceConfig}
-              >
-                💾 Lưu cấu hình giọng nói
-              </button>
+              <div style={{ marginTop: '20px' }}>
+                <button
+                  className="btn"
+                  style={{ width: '100%', background: 'linear-gradient(to right, #10b981, #059669)', marginBottom: '10px' }}
+                  onClick={handleSaveToLibrary}
+                >
+                  📚 Thêm vào thư viện
+                </button>
+                <button
+                  className="btn"
+                  style={{ width: '100%', background: '#006affff', marginBottom: '15px' }}
+                  onClick={handleSaveVoiceConfig}
+                >
+                  💾 Lưu cấu hình giọng nói
+                </button>
+
+                {savedVoices.length > 0 && (
+                  <div className="form-group" style={{ marginBottom: '1rem', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '8px', padding: '15px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <label style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#cbd5e1' }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
+                        Thư viện đã lưu
+                      </label>
+                      <button className="btn" style={{ background: '#3b82f6', padding: '0.3rem 0.8rem', fontSize: '0.8rem', margin: 0, width: 'auto' }} onClick={() => setIsLibraryModalOpen(true)}>
+                        ⚙️ Quản lý
+                      </button>
+                    </div>
+                    <select
+                      value={savedVoices.find(v => v.seed === seed && v.voice_type === voice) ? seed : ''}
+                      onChange={(e) => {
+                        const selectedV = savedVoices.find(v => v.seed === e.target.value);
+                        if (selectedV) handleUseSavedVoice(selectedV);
+                      }}
+                      style={{ width: '100%', background: 'rgba(0, 0, 0, 0.3)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '0.75rem', borderRadius: '8px', color: '#fff' }}
+                    >
+                      <option value="">-- Chọn giọng từ thư viện --</option>
+                      {savedVoices.map(v => (
+                        <option key={v.id} value={v.seed}>{v.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
             )}
             {audioUrl && (
               <audio src={audioUrl} controls autoPlay style={{ marginTop: '15px', width: '100%', borderRadius: '8px' }} />
@@ -1193,6 +1351,40 @@ Account2 | 0987654321..."
           </div>
         </div>
       </div>
+      {/* Modal Quản lý Thư viện */}
+      {isLibraryModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: '#1e293b', width: '90%', maxWidth: '600px', borderRadius: '12px', padding: '20px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#fff' }}>Quản lý Thư viện Giọng nói</h2>
+              <button onClick={() => setIsLibraryModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '10px' }}>
+              {savedVoices.length === 0 ? (
+                <p style={{ textAlign: 'center', color: '#94a3b8' }}>Thư viện đang trống</p>
+              ) : (
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  {savedVoices.map(v => (
+                    <div key={v.id} style={{ background: 'rgba(0,0,0,0.3)', padding: '15px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#fff' }}>{v.name}</div>
+                        <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '4px' }}>Voice: {v.voice_type} | Seed: {v.seed}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button className="btn" style={{ background: '#3b82f6', padding: '0.4rem 0.8rem', fontSize: '0.85rem', width: 'auto', margin: 0 }} onClick={() => handleUseSavedVoice(v)}>Dùng & Nghe thử</button>
+                        <button className="btn" style={{ background: '#ef4444', padding: '0.4rem 0.8rem', fontSize: '0.85rem', width: 'auto', margin: 0 }} onClick={() => handleDeleteSavedVoice(v.id, v.name)}>Xóa</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ marginTop: '20px', textAlign: 'right' }}>
+              <button className="btn" style={{ background: '#475569', width: 'auto', padding: '0.5rem 1.5rem' }} onClick={() => setIsLibraryModalOpen(false)}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

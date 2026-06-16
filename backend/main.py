@@ -686,3 +686,31 @@ def debug_queue(db: Session = Depends(get_db)):
         "tasks": tasks_by_status,
         "jobs": jobs_by_status
     }
+
+class SavedVoiceRequest(BaseModel):
+    name: str
+    voice_type: str
+    seed: str
+
+@app.get("/api/saved-voices")
+def get_saved_voices(db: Session = Depends(get_db)):
+    voices = db.query(models.SavedVoice).order_by(models.SavedVoice.created_at.desc()).all()
+    return {"saved_voices": [{"id": v.id, "name": v.name, "voice_type": v.voice_type, "seed": v.seed, "created_at": v.created_at} for v in voices]}
+
+@app.post("/api/saved-voices")
+def create_saved_voice(req: SavedVoiceRequest, db: Session = Depends(get_db)):
+    voice = models.SavedVoice(name=req.name, voice_type=req.voice_type, seed=req.seed)
+    db.add(voice)
+    db.commit()
+    db.refresh(voice)
+    return {"status": "ok", "id": voice.id}
+
+@app.delete("/api/saved-voices/{voice_id}")
+def delete_saved_voice(voice_id: int, db: Session = Depends(get_db)):
+    voice = db.query(models.SavedVoice).filter(models.SavedVoice.id == voice_id).first()
+    if not voice:
+        raise HTTPException(status_code=404, detail="Saved voice not found")
+    db.delete(voice)
+    db.commit()
+    return {"status": "ok"}
+
