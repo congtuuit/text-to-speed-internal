@@ -777,8 +777,9 @@ function App() {
       <div className="dashboard-layout">
         {/* SIDEBAR */}
         <div className="sidebar">
+          {/* PANEL 1: Cài đặt Hệ thống */}
           <div className="glass-panel">
-            <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('settings')}</h2>
+            <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>⚙️ Cài đặt Hệ thống</h2>
 
             <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label>Bộ Tạo Giọng (Provider)</label>
@@ -786,27 +787,6 @@ function App() {
                 <option value="fpt">FPT AI TTS (API)</option>
                 <option value="gemini">Google Gemini (API)</option>
                 <option value="self_hosted">Self-hosted (OmniVoice)</option>
-              </select>
-            </div>
-
-            <div className="form-group" style={{ marginBottom: '1rem' }}>
-              <label>Tốc độ Phát (Output Speed)</label>
-              <select value={outputSpeed} onChange={e => {
-                const val = parseFloat(e.target.value);
-                setOutputSpeed(val);
-                fetch(`${API_BASE_URL}/api/settings`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl, output_speed: val })
-                });
-              }}>
-                <option value={0.5}>0.5x (Rất chậm)</option>
-                <option value={0.75}>0.75x (Chậm)</option>
-                <option value={1.0}>1.0x (Bình thường)</option>
-                <option value={1.25}>1.25x (Hơi nhanh)</option>
-                <option value={1.5}>1.5x (Nhanh)</option>
-                <option value={1.75}>1.75x (Khá nhanh)</option>
-                <option value={2.0}>2.0x (Rất nhanh)</option>
               </select>
             </div>
 
@@ -852,11 +832,9 @@ function App() {
               </>
             )}
 
-
-
             {provider === 'fpt' && (
               <>
-                <div className="form-group" style={{ marginBottom: '1rem', marginTop: '1rem' }}>
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
                   <label>Danh sách API Keys (FPT AI)</label>
                   <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0.25rem 0 0.5rem 0' }}>
                     Mỗi key 1 dòng. Định dạng: <code>Tên tài khoản | API_KEY</code> hoặc chỉ cần nhập <code>API_KEY</code>.
@@ -870,21 +848,6 @@ Account2 | 0987654321..."
                     rows={4}
                     style={{ width: '100%', background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white', fontFamily: 'monospace' }}
                   />
-                </div>
-                <div className="form-group" style={{ marginBottom: '1rem' }}>
-                  <label>Tốc độ đọc (Speed: -3 đến 3)</label>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <input
-                      type="range"
-                      min="-3"
-                      max="3"
-                      step="0.1"
-                      value={fptSpeed}
-                      onChange={e => setFptSpeed(e.target.value)}
-                      style={{ flex: 1, accentColor: '#3b82f6' }}
-                    />
-                    <span style={{ minWidth: '40px', textAlign: 'center', background: '#334155', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>{fptSpeed}</span>
-                  </div>
                 </div>
                 <div className="form-group" style={{ marginBottom: '1rem' }}>
                   <label>Số luồng xử lý (Workers: 1 đến 10)</label>
@@ -975,8 +938,9 @@ Account2 | 0987654321..."
             )}
           </div>
 
+          {/* PANEL 2: Chọn Giọng & Thư viện */}
           <div className="glass-panel">
-            <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('test_voice_preview')}</h2>
+            <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>🎙️ Chọn Giọng & Thư viện</h2>
 
             {provider === 'self_hosted' && (
               <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '10px 15px', borderRadius: '8px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -990,7 +954,7 @@ Account2 | 0987654321..."
               </div>
             )}
 
-            <div className="form-group">
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label>{t('voice_selection')}</label>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <select value={voice} onChange={e => setVoice(e.target.value)} style={{ flex: 1 }}>
@@ -1010,29 +974,120 @@ Account2 | 0987654321..."
                 </button>
               </div>
             </div>
+
             {provider === 'self_hosted' && (
-              <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <label>Seed (Số nguyên ngẫu nhiên hoặc nhập để cố định)</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <input
-                    disabled
-                    type="number"
-                    value={seed}
-                    onChange={e => setSeed(e.target.value)}
-                    placeholder="Để trống để random giọng"
-                    style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white', maxWidth: "150px" }}
-                  />
+              <>
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      disabled
+                      type="number"
+                      value={seed}
+                      onChange={e => setSeed(e.target.value)}
+                      placeholder="Để trống để random giọng"
+                      style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '0.75rem 1rem', color: 'white', maxWidth: "150px" }}
+                    />
+                    <button
+                      className="btn"
+                      style={{ width: 'auto', background: '#334155' }}
+                      onClick={() => setSeed(Math.floor(Math.random() * 1000000).toString())}
+                    >
+                      Đổi giọng nói
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '1rem' }}>
                   <button
                     className="btn"
-                    style={{ width: 'auto', background: '#334155' }}
-                    onClick={() => setSeed(Math.floor(Math.random() * 1000000).toString())}
+                    style={{ width: '100%', background: 'linear-gradient(to right, #10b981, #059669)', marginBottom: '10px' }}
+                    onClick={handleSaveToLibrary}
                   >
-                    Đổi giọng nói
+                    📚 Thêm vào thư viện
                   </button>
+                  <button
+                    className="btn"
+                    style={{ width: '100%', background: '#006affff', marginBottom: '15px' }}
+                    onClick={handleSaveVoiceConfig}
+                  >
+                    💾 Lưu cấu hình giọng nói
+                  </button>
+
+                  {savedVoices.length > 0 && (
+                    <div className="form-group" style={{ marginBottom: '0', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '8px', padding: '15px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <label style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#cbd5e1' }}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
+                          Thư viện đã lưu
+                        </label>
+                        <button className="btn" style={{ background: '#3b82f6', padding: '0.3rem 0.8rem', fontSize: '0.8rem', margin: 0, width: 'auto' }} onClick={() => setIsLibraryModalOpen(true)}>
+                          ⚙️ Quản lý
+                        </button>
+                      </div>
+                      <select
+                        value={savedVoices.find(v => v.seed === seed && v.voice_type === voice) ? seed : ''}
+                        onChange={(e) => {
+                          const selectedV = savedVoices.find(v => v.seed === e.target.value);
+                          if (selectedV) handleUseSavedVoice(selectedV);
+                        }}
+                        style={{ width: '100%', background: 'rgba(0, 0, 0, 0.3)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '0.75rem', borderRadius: '8px', color: '#fff' }}
+                      >
+                        <option value="">-- Chọn giọng từ thư viện --</option>
+                        {savedVoices.map(v => (
+                          <option key={v.id} value={v.seed}>{v.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* PANEL 3: Nghe Thử & Tùy chỉnh */}
+          <div className="glass-panel">
+            <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>🎧 Nghe Thử & Tùy chỉnh</h2>
+
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label>Tốc độ Phát (Output Speed)</label>
+              <select value={outputSpeed} onChange={e => {
+                const val = parseFloat(e.target.value);
+                setOutputSpeed(val);
+                fetch(`${API_BASE_URL}/api/settings`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ api_key: apiKey, model_name: modelName, provider: provider, fpt_api_keys: fptApiKeys, fpt_speed: parseFloat(fptSpeed), max_workers: parseInt(maxWorkers), self_hosted_url: selfHostedUrl, output_speed: val })
+                });
+              }}>
+                <option value={0.5}>0.5x (Rất chậm)</option>
+                <option value={0.75}>0.75x (Chậm)</option>
+                <option value={1.0}>1.0x (Bình thường)</option>
+                <option value={1.25}>1.25x (Hơi nhanh)</option>
+                <option value={1.5}>1.5x (Nhanh)</option>
+                <option value={1.75}>1.75x (Khá nhanh)</option>
+                <option value={2.0}>2.0x (Rất nhanh)</option>
+              </select>
+            </div>
+
+            {provider === 'fpt' && (
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label>Tốc độ đọc giọng FPT (Speed: -3 đến 3)</label>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <input
+                    type="range"
+                    min="-3"
+                    max="3"
+                    step="0.1"
+                    value={fptSpeed}
+                    onChange={e => setFptSpeed(e.target.value)}
+                    style={{ flex: 1, accentColor: '#3b82f6' }}
+                  />
+                  <span style={{ minWidth: '40px', textAlign: 'center', background: '#334155', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>{fptSpeed}</span>
                 </div>
               </div>
             )}
-            <div className="form-group">
+
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
                 <label style={{ margin: 0 }}>{t('test_text')}</label>
                 <button
@@ -1066,54 +1121,18 @@ Account2 | 0987654321..."
                 }}
               />
             </div>
-            <button className="btn" style={{ background: '#475569' }} onClick={handleTestVoice} disabled={isTestingVoice || (provider !== 'self_hosted' && !apiKey)}>
-              {isTestingVoice ? t('testing') : ((apiKey || provider === 'self_hosted') ? t('test_voice', { voice: voice }) : t('api_key_required'))}
+            <button className="btn" style={{ background: '#475569', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }} onClick={handleTestVoice} disabled={isTestingVoice || (provider !== 'self_hosted' && !apiKey)}>
+              {isTestingVoice ? (
+                <>
+                  <svg className="animate-spin" style={{ width: "1.2rem", height: "1.2rem" }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25"></circle>
+                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" opacity="0.75"></path>
+                  </svg>
+                  {t('testing')}
+                </>
+              ) : ((apiKey || provider === 'self_hosted') ? t('test_voice', { voice: voice }) : t('api_key_required'))}
             </button>
-            {provider === 'self_hosted' && (
-              <div style={{ marginTop: '20px' }}>
-                <button
-                  className="btn"
-                  style={{ width: '100%', background: 'linear-gradient(to right, #10b981, #059669)', marginBottom: '10px' }}
-                  onClick={handleSaveToLibrary}
-                >
-                  📚 Thêm vào thư viện
-                </button>
-                <button
-                  className="btn"
-                  style={{ width: '100%', background: '#006affff', marginBottom: '15px' }}
-                  onClick={handleSaveVoiceConfig}
-                >
-                  💾 Lưu cấu hình giọng nói
-                </button>
 
-                {savedVoices.length > 0 && (
-                  <div className="form-group" style={{ marginBottom: '1rem', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '8px', padding: '15px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <label style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#cbd5e1' }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
-                        Thư viện đã lưu
-                      </label>
-                      <button className="btn" style={{ background: '#3b82f6', padding: '0.3rem 0.8rem', fontSize: '0.8rem', margin: 0, width: 'auto' }} onClick={() => setIsLibraryModalOpen(true)}>
-                        ⚙️ Quản lý
-                      </button>
-                    </div>
-                    <select
-                      value={savedVoices.find(v => v.seed === seed && v.voice_type === voice) ? seed : ''}
-                      onChange={(e) => {
-                        const selectedV = savedVoices.find(v => v.seed === e.target.value);
-                        if (selectedV) handleUseSavedVoice(selectedV);
-                      }}
-                      style={{ width: '100%', background: 'rgba(0, 0, 0, 0.3)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '0.75rem', borderRadius: '8px', color: '#fff' }}
-                    >
-                      <option value="">-- Chọn giọng từ thư viện --</option>
-                      {savedVoices.map(v => (
-                        <option key={v.id} value={v.seed}>{v.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-            )}
             {audioUrl && (
               <audio src={audioUrl} controls autoPlay style={{ marginTop: '15px', width: '100%', borderRadius: '8px' }} />
             )}
@@ -1147,11 +1166,19 @@ Account2 | 0987654321..."
             </div>
             <button
               className="btn btn-giant"
-              style={{ width: 'auto', padding: '0.75rem 2.5rem', fontSize: '1.1rem' }}
+              style={{ width: 'auto', padding: '0.75rem 2.5rem', fontSize: '1.1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
               onClick={handleQuickConvert}
               disabled={isQuickConverting || (provider !== 'self_hosted' && !apiKey) || !quickText.trim()}
             >
-              {isQuickConverting ? t('testing') : t('quick_convert')}
+              {isQuickConverting ? (
+                <>
+                  <svg className="animate-spin" style={{ width: "1.5rem", height: "1.5rem" }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25"></circle>
+                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" opacity="0.75"></path>
+                  </svg>
+                  {t('testing')}
+                </>
+              ) : t('quick_convert')}
             </button>
             {quickAudioUrl && (
               <div style={{ marginTop: '1rem', display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -1277,10 +1304,10 @@ Account2 | 0987654321..."
                     <div className="progress-bar" style={{ width: `${p}%` }}></div>
                   </div>
 
-                  <div className="stats" style={{ marginBottom: '0' }}>
-                    <span>{t('done')} <strong style={{ color: '#10b981' }}>{job.done}</strong></span>
-                    <span>{t('error')} <strong style={{ color: '#ef4444' }}>{job.error}</strong></span>
-                    <span>{t('processing')} <strong style={{ color: '#3b82f6' }}>{job.processing}</strong></span>
+                  <div className="stats" style={{ marginBottom: '0', justifyContent: 'flex-start', gap: '1.5rem' }}>
+                    <span>{t('done')}: <strong style={{ color: '#10b981', marginLeft: '0.25rem' }}>{job.done}</strong></span>
+                    <span>{t('error')}: <strong style={{ color: '#ef4444', marginLeft: '0.25rem' }}>{job.error}</strong></span>
+                    <span>{t('processing')}: <strong style={{ color: '#3b82f6', marginLeft: '0.25rem' }}>{job.processing}</strong></span>
                     <span style={{ marginLeft: 'auto' }}><strong>{p}%</strong></span>
                   </div>
 
