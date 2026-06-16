@@ -262,6 +262,9 @@ function App() {
       const data = await res.json()
       if (data.path) {
         setter(data.path)
+        if (setter === setInputDir) {
+          setDocxChunksDir(null)
+        }
       } else if (data.error) {
         console.error("Browse error:", data.error)
       }
@@ -350,7 +353,11 @@ function App() {
       })
       const data = await res.json()
       if (res.ok) {
-        Swal.fire({ title: 'Thành công', text: t("alerts.start_job", { jobId: data.job_id, files: data.total_files }), icon: 'success' })
+        if (data.is_batch && data.job_ids) {
+            Swal.fire({ title: 'Thành công', text: `Đã tạo ${data.job_ids.length} tiến trình xử lý cho tổng cộng ${data.total_files} file văn bản nhỏ.`, icon: 'success' })
+        } else {
+            Swal.fire({ title: 'Thành công', text: t("alerts.start_job", { jobId: data.job_id, files: data.total_files }), icon: 'success' })
+        }
       } else {
         Swal.fire({ title: 'Lỗi', text: t("alerts.start_job_error") + (data.detail || "Unknown error"), icon: 'error' })
       }

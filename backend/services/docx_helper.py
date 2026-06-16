@@ -276,3 +276,58 @@ def split_docx_to_txt(
 
     return files
 
+
+def split_txt_to_chunks(
+    txt_path,
+    output_dir,
+    max_chars=200
+):
+    os.makedirs(output_dir, exist_ok=True)
+
+    full_text = ""
+    for enc in ['utf-8', 'utf-16', 'cp1258']:
+        try:
+            with open(txt_path, 'r', encoding=enc) as f:
+                full_text = f.read()
+            break
+        except UnicodeDecodeError:
+            pass
+
+    full_text = inject_book_markers(full_text)
+
+    sections = []
+    for block in full_text.split("\n"):
+        block = normalize_text(block)
+        if not block:
+            continue
+        sections.append(block)
+
+    chunks = []
+    current = ""
+    for section in sections:
+        sentences = split_sentences(section)
+        if not sentences:
+            sentences = [section]
+        expanded = []
+        for sentence in sentences:
+            if len(sentence) > max_chars:
+                expanded.extend(split_long_sentence(sentence, max_chars))
+            else:
+                expanded.append(sentence)
+        for sentence in expanded:
+            if not current:
+                current = sentence
+                continue
+            if len(current) + len(sentence) + 1 <= max_chars:
+                current += " " + sentence
+            else:
+                chunks.append(current.strip())
+                current = sentence
+    if current:
+        chunks.append(current.strip())
+
+    files = []
+    for idx, chunk in enumerate(chunks, start=1):
+        files.append(save_chunk(chunk, output_dir, idx))
+
+    return files

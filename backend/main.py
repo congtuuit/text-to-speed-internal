@@ -111,24 +111,6 @@ def create_job(req: JobRequest, db: Session = Depends(get_db)):
     final_output_path = ""
     actual_output_dir = req.output_dir
     
-    if is_docx_job:
-        base_name = os.path.basename(req.input_dir).replace("_chunks", "")
-        final_output_path = os.path.join(req.output_dir, f"{base_name}.wav")
-        actual_output_dir = req.input_dir
-        
-    job = models.BatchJob(
-        input_dir=req.input_dir, 
-        output_dir=actual_output_dir, 
-        voice=req.voice, 
-        model_name=req.model_name, 
-        provider=req.provider,
-        is_docx_job=is_docx_job,
-        final_output_path=final_output_path
-    )
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-
     for k, v in [("model_name", req.model_name), ("provider", req.provider), ("fpt_api_keys", req.fpt_api_keys), ("fpt_speed", str(req.fpt_speed)), ("max_workers", str(req.max_workers)), ("self_hosted_url", req.self_hosted_url), ("output_speed", str(req.output_speed))]:
         if not v:
             continue
@@ -139,14 +121,82 @@ def create_job(req: JobRequest, db: Session = Depends(get_db)):
         else:
             setting.value = v
     db.commit()
-
-    for file_name in files:
-        file_path = os.path.join(req.input_dir, file_name)
-        task = models.FileTask(job_id=job.id, file_name=file_name, file_path=file_path)
-        db.add(task)
     
-    db.commit()
-    return {"job_id": job.id, "total_files": len(files)}
+    if is_docx_job:
+        base_name = os.path.basename(req.input_dir).replace("_chunks", "")
+        final_output_path = os.path.join(req.output_dir, f"{base_name}.wav")
+        actual_output_dir = req.input_dir
+        
+        job = models.BatchJob(
+            input_dir=req.input_dir, 
+            output_dir=actual_output_dir, 
+            voice=req.voice, 
+            model_name=req.model_name, 
+            provider=req.provider,
+            is_docx_job=is_docx_job,
+            final_output_path=final_output_path
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+
+        for file_name in files:
+            file_path = os.path.join(req.input_dir, file_name)
+            task = models.FileTask(job_id=job.id, file_name=file_name, file_path=file_path)
+            db.add(task)
+        
+        db.commit()
+        queue_manager.resume()
+        queue_manager.ensure_workers()
+        return {"job_id": job.id, "total_files": len(files)}
+    else:
+        from services.docx_helper import split_txt_to_chunks
+        created_jobs = []
+        total_chunks_across_all = 0
+        
+        max_length = 200 if req.provider in ['fpt', 'self_hosted'] else 2800
+
+        for file_name in files:
+            txt_path = os.path.join(req.input_dir, file_name)
+            base_name = os.path.splitext(file_name)[0]
+            chunks_dir = os.path.join(req.output_dir, f"{base_name}_chunks")
+            
+            chunk_files = split_txt_to_chunks(txt_path, chunks_dir, max_chars=max_length)
+            if not chunk_files:
+                continue
+                
+            final_output_path = os.path.join(req.output_dir, f"{base_name}.wav")
+            
+            job = models.BatchJob(
+                input_dir=chunks_dir,
+                output_dir=chunks_dir,
+                voice=req.voice,
+                model_name=req.model_name,
+                provider=req.provider,
+                is_docx_job=2,
+                final_output_path=final_output_path
+            )
+            db.add(job)
+            db.commit()
+            db.refresh(job)
+            
+            for chunk_file in chunk_files:
+                chunk_path = os.path.join(chunks_dir, chunk_file)
+                task = models.FileTask(job_id=job.id, file_name=chunk_file, file_path=chunk_path)
+                db.add(task)
+                
+            total_chunks_across_all += len(chunk_files)
+            created_jobs.append(job.id)
+            
+        db.commit()
+        queue_manager.resume()
+        queue_manager.ensure_workers()
+        
+        return {
+            "job_ids": created_jobs,
+            "total_files": total_chunks_across_all,
+            "is_batch": True
+        }
 
 
 
@@ -182,6 +232,7 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
             keys = [k.split('|')[1].strip() if '|' in k else k.strip() for k in req.fpt_api_keys.split('\n') if k.strip()]
             success = process_fpt_tts(req.text, temp_file, req.voice, req.fpt_speed, keys)
         elif req.provider == "self_hosted":
+            from services.queue_manager import process_self_hosted_tts
             cleaned_voice = req.voice
             presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
             if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
@@ -192,22 +243,15 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
             seed_val = int(req.seed) if (req.seed and req.seed.strip()) else None
             keep_voice_val = (req.keep_voice == "true")
             
-            payload = {
-                "text": req.text,
-                "voice": cleaned_voice
-            }
-            if seed_val is not None:
-                payload["seed"] = seed_val
-            if keep_voice_val:
-                payload["keep_voice"] = keep_voice_val
-            res = requests.post(url, json=payload, timeout=60)
-            if res.status_code == 200:
-                with open(temp_file, "wb") as f:
-                    f.write(res.content)
-                success = True
-            else:
-                success = False
-                print(f"Self-hosted API Error: {res.text}")
+            success = process_self_hosted_tts(
+                text=req.text,
+                output_path=temp_file,
+                voice=cleaned_voice,
+                url=url,
+                seed_val=seed_val,
+                keep_voice_val=keep_voice_val,
+                worker_name="TestVoice"
+            )
         else:
             provider = TTSProvider(api_key=req.api_key)
             success = provider.process_text_to_speech(req.text, temp_file, req.voice, req.model_name)
@@ -529,6 +573,8 @@ def batch_submit_docx(req: BatchDocxRequest, db: Session = Depends(get_db)):
             total_files_across_all += 1
             
     db.commit()
+    queue_manager.resume()
+    queue_manager.ensure_workers()
     
     return {
         "job_ids": created_jobs,
@@ -577,6 +623,8 @@ def get_active_jobs_progress(db: Session = Depends(get_db)):
         job_name = os.path.basename(job.input_dir)
         if job.is_docx_job == 1 and job_name.endswith("_chunks"):
             job_name = job_name.replace("_chunks", ".docx")
+        elif job.is_docx_job == 2 and job_name.endswith("_chunks"):
+            job_name = job_name.replace("_chunks", ".txt")
             
         result.append({
             "job_id": job.id,

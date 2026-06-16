@@ -348,9 +348,78 @@ def _process_fpt_tts_with_rotator(
     return success_all
 
 
+def process_self_hosted_tts(text: str, output_path: str, voice: str, url: str, seed_val: int = None, keep_voice_val: bool = False, worker_name: str = "Backend") -> bool:
+    """Xử lý TTS với Self-hosted OmniVoice, có chia nhỏ văn bản để tránh timeout."""
+    if seed_val is None:
+        import random
+        seed_val = random.randint(1, 1000000000)
+        
+    chunks = _chunk_text_fpt(text, 200)
+    import tempfile
+    import wave
+    
+    chunk_files = []
+    success_all = True
+    total_chunks = len(chunks)
+    
+    for i, chunk in enumerate(chunks):
+        payload = {
+            "text": chunk,
+            "voice": voice
+        }
+        if seed_val is not None:
+            payload["seed"] = seed_val
+        if keep_voice_val:
+            payload["keep_voice"] = keep_voice_val
+            
+        try:
+            res = requests.post(url, json=payload, timeout=60)
+            if res.status_code == 200:
+                fd, temp_file_path = tempfile.mkstemp(suffix=".wav")
+                os.close(fd)
+                with open(temp_file_path, "wb") as f:
+                    f.write(res.content)
+                chunk_files.append(temp_file_path)
+            else:
+                success_all = False
+                print(f"[{worker_name}] Self-hosted API Error on chunk {i+1}/{total_chunks}: {res.text}")
+                break
+        except Exception as e:
+            success_all = False
+            print(f"[{worker_name}] Self-hosted exception on chunk {i+1}/{total_chunks}: {e}")
+            break
+            
+    if success_all and len(chunk_files) == total_chunks and total_chunks > 0:
+        try:
+            data = []
+            params = None
+            for audio_file in chunk_files:
+                with wave.open(audio_file, 'rb') as w:
+                    if not params:
+                        params = w.getparams()
+                    data.append(w.readframes(w.getnframes()))
+            with wave.open(output_path, 'wb') as output_wav:
+                output_wav.setparams(params)
+                for d in data:
+                    output_wav.writeframes(d)
+        except Exception as e:
+            print(f"[{worker_name}] Error merging self-hosted audio chunks: {e}")
+            success_all = False
+    else:
+        success_all = False
+        
+    for temp_file_path in chunk_files:
+        if os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+            except:
+                pass
+                
+    return success_all
 
 
 # ---------------------------------------------------------------------------
+
 # QueueManager
 # ---------------------------------------------------------------------------
 
@@ -520,8 +589,16 @@ class QueueManager:
                 final_output = None
 
                 try:
-                    with open(task_file_path, 'r', encoding='utf-8') as f:
-                        text = f.read()
+                    try:
+                        with open(task_file_path, 'r', encoding='utf-8') as f:
+                            text = f.read()
+                    except UnicodeDecodeError:
+                        try:
+                            with open(task_file_path, 'r', encoding='utf-16') as f:
+                                text = f.read()
+                        except UnicodeDecodeError:
+                            with open(task_file_path, 'r', encoding='cp1258', errors='ignore') as f:
+                                text = f.read()
 
                     base_name = os.path.splitext(task_file_name)[0]
                     job_provider = job.provider or "gemini"
@@ -579,25 +656,22 @@ class QueueManager:
                                 setting_seed = db.query(Settings).filter(Settings.key == "self_hosted_seed").first()
                                 seed_val = int(setting_seed.value) if (setting_seed and setting_seed.value and setting_seed.value.strip()) else None
                                 
+                                if seed_val is None:
+                                    import hashlib
+                                    seed_val = int(hashlib.md5(f"job_seed_{job.id}".encode()).hexdigest(), 16) % 1000000000
+                                
                                 setting_keep = db.query(Settings).filter(Settings.key == "self_hosted_keep_voice").first()
                                 keep_voice_val = (setting_keep.value == "true") if setting_keep else False
                                 
-                                payload = {
-                                    "text": text,
-                                    "voice": cleaned_voice
-                                }
-                                if seed_val is not None:
-                                    payload["seed"] = seed_val
-                                if keep_voice_val:
-                                    payload["keep_voice"] = keep_voice_val
-                                res = requests.post(url, json=payload, timeout=60)
-                                if res.status_code == 200:
-                                    with open(output_path, "wb") as f:
-                                        f.write(res.content)
-                                    success = True
-                                else:
-                                    success = False
-                                    print(f"[{worker_name}] Self-hosted TTS API Error: {res.text}")
+                                success = process_self_hosted_tts(
+                                    text=text,
+                                    output_path=output_path,
+                                    voice=cleaned_voice,
+                                    url=url,
+                                    seed_val=seed_val,
+                                    keep_voice_val=keep_voice_val,
+                                    worker_name=worker_name
+                                )
                             else:
                                 success = False
 
@@ -670,7 +744,7 @@ class QueueManager:
                             db.commit()
                             print(f"[{worker_name}] job {task_job_id} COMPLETED.")
 
-                            if job_obj.is_docx_job == 1 and job_obj.final_output_path:
+                            if job_obj.is_docx_job in (1, 2) and job_obj.final_output_path:
                                 import wave
                                 import shutil
                                 all_tasks = db.query(FileTask).filter(
