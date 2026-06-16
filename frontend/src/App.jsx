@@ -811,7 +811,7 @@ Account2 | 0987654321..."
                     <input
                       type="text"
                       value={selfHostedUrl}
-                      onChange={e => setSelfHostedUrl(e.target.value)}
+                      onChange={e => setSelfHostedUrl(e.target.value.trim())}
                       placeholder="http://localhost:7860"
                       style={{
                         width: '100%',
