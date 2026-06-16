@@ -1,29 +1,34 @@
 {
   "meta": { "schema_version": "1.1.0", "awf_version": "3.3.0" },
-  "project": { "name": "text-to-speed-internal", "type": "backend/frontend", "status": "development" },
-  "tech_stack": { "frontend": {"framework": "React"}, "backend": {"framework": "FastAPI", "database": "SQLite/SQLAlchemy"} },
-  "database_schema": {
-    "tables": ["FileTask", "BatchJob", "Settings"],
-    "relationships_explained": "A BatchJob represents a full request (e.g., a DOCX file). It contains multiple FileTasks (e.g., text chunks) which are processed individually."
+  "project": { "name": "Text to Speed Internal", "type": "Batch TTS Web App", "status": "active" },
+  "tech_stack": { 
+    "frontend": { "framework": "React + Vite", "styles": "Vanilla CSS", "notifications": "sweetalert2" },
+    "backend": { "framework": "Python FastAPI", "orm": "SQLAlchemy" },
+    "database": { "type": "SQLite" }
+  },
+  "database_schema": { 
+    "summary": "App lưu thông tin batch jobs, file tasks, các settings hệ thống và thư viện giọng mẫu",
+    "tables": ["BatchJob", "FileTask", "SavedVoice", "Settings"],
+    "relationships_explained": "1 BatchJob có nhiều FileTask (đại diện cho từng file txt/docx cần chuyển đổi)"
   },
   "api_endpoints": [
-    { "path": "/api/jobs/reset-stuck", "explained": "Resets tasks stuck in Processing to Pending, and clears FPT key locks." },
-    { "path": "/api/debug/queue", "explained": "Returns debug info about worker threads, tasks, and API key usage." }
+    { "path": "/api/jobs", "explained": "Quản lý danh sách các batch job" },
+    { "path": "/api/test_voice", "explained": "Test một đoạn audio ngắn" }
   ],
   "business_rules": [
-    "FPT Provider only allows one request per key at a time.",
-    "FPT API returns async URL, polling is required until audio is ready.",
-    "Dead worker threads must be pruned dynamically to avoid exceeding max_workers.",
-    "Workers lock DB for assignment only, processing API is unlocked."
+    "Hỗ trợ 3 nền tảng tạo giọng (Provider): FPT, Gemini, Self-hosted",
+    "Mọi tương tác thông báo lỗi/thành công đều dùng SweetAlert2",
+    "Giao diện tối ưu cho người dùng thao tác từ trái sang phải: Setup Hệ Thống -> Batch Config -> Theo dõi tiến trình"
   ],
   "features": [
-    "TTS Processing Queue with robust failure recovery",
-    "DOCX parsing and audio stitching",
-    "Thread-safe round-robin Key rotation for FPT provider"
+    "Single TTS (Quick Convert - Tiện ích chuyển đổi 1 đoạn text nhanh)",
+    "Batch TTS (Xử lý hàng loạt từ Thư mục TXT, File DOCX, Thư mục DOCX)",
+    "Quản lý thư viện giọng nói (Lưu Voice + Seed)",
+    "Dashboard theo dõi tiến trình chạy real-time với thanh Progress Bar"
   ],
-  "knowledge_items": {
-    "patterns": ["Round-robin queueing", "Thread-safe DB locks", "Polling async API with early abort on HTTP 404"],
-    "gotchas": ["Windows stdout unicode encoding errors", "Stuck thread accumulation due to zombie workers", "Lazy loading session expire issues requiring fresh DB queries"],
-    "conventions": []
+  "knowledge_items": { 
+    "patterns": ["React state management cho form", "Xử lý audio stream từ API FastAPI"], 
+    "gotchas": ["Cần escape string cẩn thận khi update file JSON"], 
+    "conventions": ["Component cấu trúc theo function/hooks", "Dùng icon SVG inline cho loading state"] 
   }
 }

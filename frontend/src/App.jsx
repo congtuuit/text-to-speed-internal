@@ -203,7 +203,7 @@ function App() {
         fetchModels(apiKey)
       }
     } catch (err) {
-      alert(t("alerts.save_failed"))
+      Swal.fire({ title: 'Lỗi', text: t("alerts.save_failed"), icon: 'error' })
     }
   }
 
@@ -248,10 +248,10 @@ function App() {
       if (res.ok) {
         setFileCount(data.total)
       } else {
-        alert(t("alerts.scan_error") + (data.detail || "Unknown error"))
+        Swal.fire({ title: 'Lỗi', text: t("alerts.scan_error") + (data.detail || "Unknown error"), icon: 'error' })
       }
     } catch (err) {
-      alert(t("alerts.conn_error"))
+      Swal.fire({ title: 'Lỗi', text: t("alerts.conn_error"), icon: 'error' })
     }
     setIsScanning(false)
   }
@@ -266,7 +266,7 @@ function App() {
         console.error("Browse error:", data.error)
       }
     } catch (err) {
-      alert(t("alerts.browse_error"))
+      Swal.fire({ title: 'Lỗi', text: t("alerts.browse_error"), icon: 'error' })
     }
   }
 
@@ -350,12 +350,12 @@ function App() {
       })
       const data = await res.json()
       if (res.ok) {
-        alert(t("alerts.start_job", { jobId: data.job_id, files: data.total_files }))
+        Swal.fire({ title: 'Thành công', text: t("alerts.start_job", { jobId: data.job_id, files: data.total_files }), icon: 'success' })
       } else {
-        alert(t("alerts.start_job_error") + (data.detail || "Unknown error"))
+        Swal.fire({ title: 'Lỗi', text: t("alerts.start_job_error") + (data.detail || "Unknown error"), icon: 'error' })
       }
     } catch (err) {
-      alert(t("alerts.conn_error"))
+      Swal.fire({ title: 'Lỗi', text: t("alerts.conn_error"), icon: 'error' })
     }
   }
 
@@ -1141,81 +1141,34 @@ Account2 | 0987654321..."
 
         {/* MAIN CONTENT */}
         <div className="main-content">
-          {/* QUICK TTS PANEL */}
           <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
-            <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('quick_tts')}</h2>
-            <div className="form-group" style={{ marginBottom: '1rem' }}>
-              <textarea
-                rows="6"
-                value={quickText}
-                onChange={e => setQuickText(e.target.value)}
-                placeholder={t('quick_placeholder')}
-                style={{
-                  width: '100%',
-                  background: 'rgba(0, 0, 0, 0.2)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '8px',
-                  padding: '1rem',
-                  color: 'white',
-                  fontSize: '1rem',
-                  resize: 'vertical',
-                  fontFamily: 'inherit',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-            <button
-              className="btn btn-giant"
-              style={{ width: 'auto', padding: '0.75rem 2.5rem', fontSize: '1.1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
-              onClick={handleQuickConvert}
-              disabled={isQuickConverting || (provider !== 'self_hosted' && !apiKey) || !quickText.trim()}
-            >
-              {isQuickConverting ? (
-                <>
-                  <svg className="animate-spin" style={{ width: "1.5rem", height: "1.5rem" }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25"></circle>
-                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" opacity="0.75"></path>
-                  </svg>
-                  {t('testing')}
-                </>
-              ) : t('quick_convert')}
-            </button>
-            {quickAudioUrl && (
-              <div style={{ marginTop: '1rem', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <audio src={quickAudioUrl} controls autoPlay style={{ flex: 1, borderRadius: '8px' }} />
-                <a
-                  href={quickAudioUrl}
-                  download={`tts_audio_${new Date().toISOString().replace(/[:T]/g, '-').split('.')[0]}.wav`}
-                  className="btn"
-                  style={{ background: '#10b981', width: 'auto', padding: '0.75rem 1.5rem', textDecoration: 'none', display: 'inline-block', textAlign: 'center' }}
-                >
-                  ⬇ Tải về
-                </a>
-              </div>
-            )}
-          </div>
-          <div className="glass-panel">
             <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem' }}>{t('batch_setup')}</h2>
-            <div className="form-group">
-              <label>{t('input_dir')}</label>
+            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Nguồn dữ liệu đầu vào (Input)</label>
               <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                <button className="btn" style={{ flex: 1, background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} onClick={() => handleBrowse(setInputDir)}>
+                  <span style={{ fontSize: '1.2rem' }}>📁</span> Thư mục TXT
+                </button>
+                <button className="btn" style={{ flex: 1, background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} onClick={handleBrowseDocx}>
+                  <span style={{ fontSize: '1.2rem' }}>📄</span> File DOCX
+                </button>
+                <button className="btn" style={{ flex: 1, background: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} onClick={handleBrowseBatchDocx}>
+                  <span style={{ fontSize: '1.2rem' }}>📂</span> Thư mục DOCX
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <input
                   type="text"
                   value={inputDir}
                   onChange={e => setInputDir(e.target.value)}
-                  placeholder="D:\Books\txt"
+                  placeholder="Đường dẫn file hoặc thư mục đã chọn..."
                   style={{ flex: 1 }}
                 />
-                <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={() => handleBrowse(setInputDir)}>{t('browse')}</button>
-                <button className="btn" style={{ width: 'auto' }} onClick={handleScan} disabled={isScanning}>
+                <button className="btn" style={{ width: 'auto', background: '#10b981' }} onClick={handleScan} disabled={isScanning}>
                   {isScanning ? t('scanning') : t('scan')}
                 </button>
               </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button className="btn" style={{ width: 'auto', background: '#3b82f6' }} onClick={handleBrowseDocx}>Chọn 1 file .docx</button>
-                <button className="btn" style={{ width: 'auto', background: '#8b5cf6' }} onClick={handleBrowseBatchDocx}>Chọn Folder DOCX</button>
-              </div>
-              {fileCount > 0 && <small style={{ color: '#10b981' }}>{t('found_files', { count: fileCount })}</small>}
+              {fileCount > 0 && <small style={{ color: '#10b981', marginTop: '0.5rem', display: 'block', fontWeight: 'bold' }}>✓ {t('found_files', { count: fileCount })}</small>}
             </div>
 
             <div className="form-group">
@@ -1237,7 +1190,7 @@ Account2 | 0987654321..."
             </button>
           </div>
 
-          <div className="glass-panel" style={{ maxHeight: '800px', overflowY: 'auto' }}>
+          <div className="glass-panel" style={{ maxHeight: '800px', overflowY: 'auto', marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{t('status_dashboard')}</h2>
               <button
@@ -1375,6 +1328,59 @@ Account2 | 0987654321..."
               );
             })}
 
+          </div>
+          {/* QUICK TTS PANEL */}
+          <div className="glass-panel">
+            <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.25rem', color: '#94a3b8' }}>{t('quick_tts')} (Tiện ích)</h2>
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <textarea
+                rows="6"
+                value={quickText}
+                onChange={e => setQuickText(e.target.value)}
+                placeholder={t('quick_placeholder')}
+                style={{
+                  width: '100%',
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  color: 'white',
+                  fontSize: '1rem',
+                  resize: 'vertical',
+                  fontFamily: 'inherit',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            <button
+              className="btn btn-giant"
+              style={{ width: 'auto', padding: '0.75rem 2.5rem', fontSize: '1.1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+              onClick={handleQuickConvert}
+              disabled={isQuickConverting || (provider !== 'self_hosted' && !apiKey) || !quickText.trim()}
+            >
+              {isQuickConverting ? (
+                <>
+                  <svg className="animate-spin" style={{ width: "1.5rem", height: "1.5rem" }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25"></circle>
+                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" opacity="0.75"></path>
+                  </svg>
+                  {t('testing')}
+                </>
+              ) : t('quick_convert')}
+            </button>
+            {quickAudioUrl && (
+              <div style={{ marginTop: '1rem', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <audio src={quickAudioUrl} controls autoPlay style={{ flex: 1, borderRadius: '8px' }} />
+                <a
+                  href={quickAudioUrl}
+                  download={`tts_audio_${new Date().toISOString().replace(/[:T]/g, '-').split('.')[0]}.wav`}
+                  className="btn"
+                  style={{ background: '#10b981', width: 'auto', padding: '0.75rem 1.5rem', textDecoration: 'none', display: 'inline-block', textAlign: 'center' }}
+                >
+                  ⬇ Tải về
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </div>

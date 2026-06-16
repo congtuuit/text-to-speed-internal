@@ -1,32 +1,49 @@
 {
-  "updated_at": "2026-06-12T12:00:00Z",
+  "updated_at": "2026-06-16T20:34:01+07:00",
   "working_on": {
-    "feature": "Hugging Face Space VieNeu-TTS Gradio",
-    "current_plan_path": "plans/260612-1022-vieneu-tts-gradio/",
-    "current_phase": "phase-05",
-    "task": "Completed all development and testing phases",
+    "feature": "UI & UX Polish",
+    "task": "Nâng cấp trải nghiệm người dùng",
     "status": "completed",
-    "files": [
-      "huggingface_space/requirements.txt",
-      "huggingface_space/packages.txt",
-      "huggingface_space/app.py",
-      "huggingface_space/README.md"
-    ],
+    "files": ["frontend/src/App.jsx", "frontend/src/index.css"],
     "blockers": [],
-    "notes": "Project code and documentation are fully prepared and tested locally. Sẵn sàng deploy."
+    "notes": "Hoàn tất tái cấu trúc layout và thay thế alert mặc định"
   },
   "pending_tasks": [],
   "recent_changes": [
-    {
-      "timestamp": "2026-06-12",
-      "type": "feature",
-      "description": "Completed Phase 04 and 05: Added text length check, auto file cleanup, try-except blocks, and created full Hugging Face Spaces README.md documentation.",
-      "files": [
-        "huggingface_space/app.py",
-        "huggingface_space/README.md"
-      ]
+    { 
+      "timestamp": "2026-06-16", 
+      "type": "feature", 
+      "description": "Chia sidebar App.jsx thành 3 panel rõ ràng (Hệ thống, Thư viện giọng, Nghe thử)", 
+      "files": ["frontend/src/App.jsx"] 
+    },
+    { 
+      "timestamp": "2026-06-16", 
+      "type": "feature", 
+      "description": "Sắp xếp lại Main Content: Đẩy Batch Setup lên đầu, Status Dashboard ở giữa, đưa Quick TTS xuống cuối", 
+      "files": ["frontend/src/App.jsx"] 
+    },
+    { 
+      "timestamp": "2026-06-16", 
+      "type": "feature", 
+      "description": "Thêm loading spinner SVG cho các nút convert", 
+      "files": ["frontend/src/App.jsx", "frontend/src/index.css"] 
+    },
+    { 
+      "timestamp": "2026-06-16", 
+      "type": "feature", 
+      "description": "Thay thế toàn bộ alert() bằng sweetalert2 (Swal.fire)", 
+      "files": ["frontend/src/App.jsx"] 
     }
   ],
   "errors_encountered": [],
-  "decisions_made": []
+  "decisions_made": [
+    { 
+      "decision": "Dùng SweetAlert2 thay vì alert mặc định", 
+      "reason": "Tăng độ chuyên nghiệp và thẩm mỹ cho Web App" 
+    },
+    {
+      "decision": "Đưa Batch Setup lên đầu Main Content",
+      "reason": "Vì 'Chuyển đổi hàng loạt' là tính năng chính của app"
+    }
+  ]
 }
