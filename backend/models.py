@@ -47,4 +47,5 @@ class SavedVoice(Base):
     name = Column(String, index=True)
     voice_type = Column(String)
     seed = Column(String)
+    reference_audio_path = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

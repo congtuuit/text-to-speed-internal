@@ -65,8 +65,13 @@ function App() {
     } catch (err) { }
   }
 
+  const [activeTab, setActiveTab] = useState('batch')
   const [savedVoices, setSavedVoices] = useState([])
-  const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false)
+  
+  const [cloneFile, setCloneFile] = useState(null)
+  const [cloneVoiceName, setCloneVoiceName] = useState('')
+  const [cloneTestText, setCloneTestText] = useState('Đây là văn bản đọc thử bằng giọng clone mới.')
+  const [isCloning, setIsCloning] = useState(false)
 
   const fetchSavedVoices = async () => {
     try {
@@ -630,10 +635,14 @@ function App() {
   }
 
   const handleUseSavedVoice = async (v) => {
-    setVoice(v.voice_type);
+    if (v.voice_type === 'self_hosted_cloned') {
+      setVoice(v.name);
+    } else {
+      setVoice(v.voice_type);
+    }
     setSeed(v.seed);
-    setIsLibraryModalOpen(false);
     setAudioUrl(null);
+    setActiveTab('batch');
 
     try {
       setIsTestingVoice(true);
@@ -690,6 +699,66 @@ function App() {
 
   const handleRefreshVoices = async () => {
     await fetchVoices(provider, selfHostedUrl);
+  }
+
+  const [cloneAudioUrl, setCloneAudioUrl] = useState(null)
+
+  const handleTestClone = async () => {
+    if (!cloneFile || !cloneTestText.trim()) {
+      Swal.fire({ icon: 'warning', title: 'Thiếu thông tin', text: 'Vui lòng chọn file mẫu và nhập câu đọc thử.', background: '#1e293b', color: '#fff' })
+      return;
+    }
+    setIsCloning(true)
+    setCloneAudioUrl(null)
+    const formData = new FormData()
+    formData.append('text', cloneTestText)
+    formData.append('ref_audio', cloneFile)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/self-hosted/clone`, {
+        method: 'POST',
+        body: formData
+      })
+      if (res.ok) {
+        const blob = await res.blob()
+        setCloneAudioUrl(URL.createObjectURL(blob))
+        Swal.fire({ icon: 'success', title: 'Clone thành công', text: 'Vui lòng nghe thử ở trình phát bên dưới!', background: '#1e293b', color: '#fff', timer: 1500, showConfirmButton: false })
+      } else {
+        const err = await res.json()
+        Swal.fire({ icon: 'error', title: 'Lỗi Clone', text: err.detail || 'Lỗi từ Server self-hosted.', background: '#1e293b', color: '#fff' })
+      }
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Lỗi kết nối', text: 'Không kết nối được đến Backend.', background: '#1e293b', color: '#fff' })
+    }
+    setIsCloning(false)
+  }
+
+  const handleSaveClone = async () => {
+    if (!cloneFile || !cloneVoiceName.trim()) {
+      Swal.fire({ icon: 'warning', title: 'Thiếu thông tin', text: 'Vui lòng chọn file mẫu và nhập Tên gợi nhớ.', background: '#1e293b', color: '#fff' })
+      return;
+    }
+    setIsCloning(true)
+    const formData = new FormData()
+    formData.append('voice_name', cloneVoiceName)
+    formData.append('ref_audio', cloneFile)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/self-hosted/voices/save`, {
+        method: 'POST',
+        body: formData
+      })
+      if (res.ok) {
+        Swal.fire({ icon: 'success', title: 'Thành công', text: 'Đã lưu giọng clone vào thư viện!', background: '#1e293b', color: '#fff' })
+        fetchSavedVoices()
+        setCloneFile(null)
+        setCloneVoiceName('')
+      } else {
+        const err = await res.json()
+        Swal.fire({ icon: 'error', title: 'Lỗi Lưu', text: err.detail || 'Lỗi', background: '#1e293b', color: '#fff' })
+      }
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Lỗi kết nối', text: 'Không kết nối được đến Backend.', background: '#1e293b', color: '#fff' })
+    }
+    setIsCloning(false)
   }
 
   const toggleLang = () => {
@@ -781,6 +850,24 @@ function App() {
         <p>{t('title')}</p>
       </div>
 
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginBottom: '2rem' }}>
+        <button 
+          className="btn" 
+          style={{ width: 'auto', background: activeTab === 'batch' ? '#3b82f6' : 'rgba(255,255,255,0.1)', padding: '0.75rem 2rem', fontSize: '1.1rem', fontWeight: 'bold' }}
+          onClick={() => setActiveTab('batch')}
+        >
+          🎧 Batch TTS
+        </button>
+        <button 
+          className="btn" 
+          style={{ width: 'auto', background: activeTab === 'clone' ? '#8b5cf6' : 'rgba(255,255,255,0.1)', padding: '0.75rem 2rem', fontSize: '1.1rem', fontWeight: 'bold' }}
+          onClick={() => setActiveTab('clone')}
+        >
+          🎙️ Voice Cloning
+        </button>
+      </div>
+
+      {activeTab === 'batch' && (
       <div className="dashboard-layout">
         {/* SIDEBAR */}
         <div className="sidebar">
@@ -1027,9 +1114,11 @@ Account2 | 0987654321..."
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
                           Thư viện đã lưu
                         </label>
-                        <button className="btn" style={{ background: '#3b82f6', padding: '0.3rem 0.8rem', fontSize: '0.8rem', margin: 0, width: 'auto' }} onClick={() => setIsLibraryModalOpen(true)}>
-                          ⚙️ Quản lý
-                        </button>
+                        <div style={{ display: 'flex', gap: '5px' }}>
+                          <button className="btn" style={{ background: '#3b82f6', padding: '0.3rem 0.8rem', fontSize: '0.8rem', margin: 0, width: 'auto' }} onClick={() => setActiveTab('clone')}>
+                            ⚙️ Quản lý & Clone
+                          </button>
+                        </div>
                       </div>
                       <select
                         value={savedVoices.find(v => v.seed === seed && v.voice_type === voice) ? seed : ''}
@@ -1391,17 +1480,52 @@ Account2 | 0987654321..."
           </div>
         </div>
       </div>
-      {/* Modal Quản lý Thư viện */}
-      {isLibraryModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', backdropFilter: 'blur(4px)' }}>
-          <div style={{ background: '#1e293b', width: '90%', maxWidth: '600px', borderRadius: '12px', padding: '20px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#fff' }}>Quản lý Thư viện Giọng nói</h2>
-              <button onClick={() => setIsLibraryModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
+      )}
+
+      {activeTab === 'clone' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+          {/* Panel: Tạo Giọng Mới */}
+          <div className="glass-panel" style={{ height: 'fit-content' }}>
+            <h2 style={{ marginTop: 0, marginBottom: '20px', fontSize: '1.25rem', color: '#fff' }}>🎙️ Tạo Giọng Mới</h2>
+            
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label>1. File Âm thanh Mẫu (.wav, .mp3 ngắn)</label>
+              <input type="file" accept="audio/*" onChange={e => setCloneFile(e.target.files[0])} style={{ width: '100%', color: '#fff', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }} />
             </div>
-            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '10px' }}>
+
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label>2. Tên gợi nhớ (để lưu thư viện)</label>
+              <input type="text" value={cloneVoiceName} onChange={e => setCloneVoiceName(e.target.value)} placeholder="VD: Giọng Kể Truyện Ma" style={{ width: '100%', padding: '0.75rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label>3. Test Text (Câu để nghe thử lúc này)</label>
+              <textarea value={cloneTestText} onChange={e => setCloneTestText(e.target.value)} rows="3" style={{ width: '100%', padding: '0.75rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button className="btn" style={{ flex: 1, background: '#8b5cf6', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }} onClick={handleTestClone} disabled={isCloning}>
+                {isCloning ? 'Đang xử lý...' : '🎧 Test Audio'}
+              </button>
+              <button className="btn" style={{ flex: 1, background: '#10b981', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }} onClick={handleSaveClone} disabled={isCloning}>
+                {isCloning ? 'Đang xử lý...' : '💾 Lưu Thư Viện'}
+              </button>
+            </div>
+
+            {cloneAudioUrl && (
+              <div style={{ marginTop: '15px' }}>
+                <audio src={cloneAudioUrl} controls autoPlay style={{ width: '100%', borderRadius: '8px' }} />
+              </div>
+            )}
+          </div>
+
+          {/* Panel: Thư Viện Đã Lưu */}
+          <div className="glass-panel" style={{ height: 'fit-content' }}>
+            <h2 style={{ marginTop: 0, marginBottom: '20px', fontSize: '1.25rem', color: '#fff' }}>📚 Thư Viện Đã Lưu</h2>
+            
+            <div style={{ overflowY: 'auto', maxHeight: '600px', paddingRight: '10px' }}>
               {savedVoices.length === 0 ? (
-                <p style={{ textAlign: 'center', color: '#94a3b8' }}>Thư viện đang trống</p>
+                <p style={{ textAlign: 'center', color: '#94a3b8', marginTop: '2rem' }}>Thư viện đang trống</p>
               ) : (
                 <div style={{ display: 'grid', gap: '12px' }}>
                   {savedVoices.map(v => (
@@ -1411,16 +1535,13 @@ Account2 | 0987654321..."
                         <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '4px' }}>Voice: {v.voice_type} | Seed: {v.seed}</div>
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button className="btn" style={{ background: '#3b82f6', padding: '0.4rem 0.8rem', fontSize: '0.85rem', width: 'auto', margin: 0 }} onClick={() => handleUseSavedVoice(v)}>Dùng & Nghe thử</button>
+                        <button className="btn" style={{ background: '#3b82f6', padding: '0.4rem 0.8rem', fontSize: '0.85rem', width: 'auto', margin: 0 }} onClick={() => handleUseSavedVoice(v)}>Dùng & Quay lại</button>
                         <button className="btn" style={{ background: '#ef4444', padding: '0.4rem 0.8rem', fontSize: '0.85rem', width: 'auto', margin: 0 }} onClick={() => handleDeleteSavedVoice(v.id, v.name)}>Xóa</button>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-            <div style={{ marginTop: '20px', textAlign: 'right' }}>
-              <button className="btn" style={{ background: '#475569', width: 'auto', padding: '0.5rem 1.5rem' }} onClick={() => setIsLibraryModalOpen(false)}>Đóng</button>
             </div>
           </div>
         </div>

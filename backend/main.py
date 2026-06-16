@@ -5,7 +5,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-from fastapi import FastAPI, Depends, BackgroundTasks, HTTPException
+from fastapi import FastAPI, Depends, BackgroundTasks, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -214,7 +214,7 @@ class TestVoiceRequest(BaseModel):
     output_speed: float = 1.0
 
 @app.post("/api/test-voice")
-def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
+def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     # Tạo file tạm thời duy nhất để tránh xung đột khi gọi liên tục
     fd, temp_file = tempfile.mkstemp(suffix=".wav", prefix="tts_")
     os.close(fd)
@@ -235,8 +235,15 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
             from services.queue_manager import process_self_hosted_tts
             cleaned_voice = req.voice
             presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
+            
+            ref_audio_path = None
             if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
-                cleaned_voice = "female"
+                saved_voice_exists = db.query(models.SavedVoice).filter(models.SavedVoice.name == cleaned_voice).first()
+                if not saved_voice_exists:
+                    cleaned_voice = "female"
+                elif saved_voice_exists.voice_type == "self_hosted_cloned":
+                    ref_audio_path = saved_voice_exists.reference_audio_path
+
             url = f"{req.self_hosted_url.rstrip('/')}/api/tts"
             
             # Parse seed and keep_voice parameters
@@ -250,7 +257,8 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
                 url=url,
                 seed_val=seed_val,
                 keep_voice_val=keep_voice_val,
-                worker_name="TestVoice"
+                worker_name="TestVoice",
+                ref_audio_path=ref_audio_path
             )
         else:
             provider = TTSProvider(api_key=req.api_key)
@@ -418,37 +426,44 @@ def get_models(api_key: str = None, db: Session = Depends(get_db)):
         return {"models": []}
 
 @app.get("/api/voices")
-def get_voices(provider: str = "fpt", self_hosted_url: str = None, db: Session = Depends(get_db)):
+def get_voices(provider: str = "self_hosted", self_hosted_url: str = "http://localhost:7860", db: Session = Depends(get_db)):
     if provider == "fpt":
         return [
             {"id": "banmai", "name": "Ban Mai (Nữ miền Bắc)"},
-            {"id": "leminh", "name": "Lê Minh (Nam miền Bắc)"},
-            {"id": "thuminh", "name": "Thu Minh (Nữ miền Bắc)"},
-            {"id": "minhquang", "name": "Minh Quang (Nam miền Nam)"},
-            {"id": "myan", "name": "Mỹ An (Nữ miền Trung)"},
-            {"id": "linhsan", "name": "Linh San (Nữ miền Nam)"},
-            {"id": "giahuy", "name": "Gia Huy (Nam miền Trung)"},
             {"id": "lannhi", "name": "Lan Nhi (Nữ miền Nam)"},
-            {"id": "ngoclam", "name": "Ngọc Lam (Nữ miền Trung)"}
+            {"id": "leminh", "name": "Lê Minh (Nam miền Bắc)"},
+            {"id": "myan", "name": "My An (Nữ miền Trung)"},
+            {"id": "thuminh", "name": "Thu Minh (Nữ miền Bắc)"},
+            {"id": "giahuy", "name": "Gia Huy (Nam miền Trung)"},
+            {"id": "ngoclam", "name": "Ngọc Lâm (Nữ miền Trung)"},
+            {"id": "linhsan", "name": "Linh San (Nữ miền Nam)"},
+            {"id": "minhquang", "name": "Minh Quang (Nam miền Nam)"}
         ]
-
-    if provider == "self_hosted":
+    if provider == "gemini":
         return [
+            {"id": "Puck", "name": "Puck"},
+            {"id": "Charon", "name": "Charon"},
+            {"id": "Kore", "name": "Kore"},
+            {"id": "Fenrir", "name": "Fenrir"},
+            {"id": "Aoede", "name": "Aoede"}
+        ]
+    if provider == "self_hosted":
+        voices = [
             {"id": "female", "name": "Nữ, giọng mặc định"},
             {"id": "male", "name": "Nam, giọng mặc định"},
-            {"id": "female, low pitch", "name": "Nữ, giọng trầm"},
-            {"id": "female, high pitch", "name": "Nữ, giọng cao"},
-            {"id": "male, low pitch", "name": "Nam, giọng trầm"},
-            {"id": "male, high pitch", "name": "Nam, giọng cao"}
+            {"id": "female, low pitch", "name": "Nữ, trầm"},
+            {"id": "female, high pitch", "name": "Nữ, cao"},
+            {"id": "male, low pitch", "name": "Nam, trầm"},
+            {"id": "male, high pitch", "name": "Nam, cao"}
         ]
-
-    return [
-        {"id": "Puck", "name": "Puck (Nam - Vui vẻ, năng động)"},
-        {"id": "Charon", "name": "Charon (Nam - Trầm ấm, mạnh mẽ)"},
-        {"id": "Kore", "name": "Kore (Nữ - Thanh thoát, dịu dàng)"},
-        {"id": "Fenrir", "name": "Fenrir (Nam - Trầm, cá tính)"},
-        {"id": "Aoede", "name": "Aoede (Nữ - Trầm ấm, nội lực)"}
-    ]
+        try:
+            cloned_voices = db.query(models.SavedVoice).filter(models.SavedVoice.voice_type == "self_hosted_cloned").all()
+            for cv in cloned_voices:
+                voices.append({"id": cv.name, "name": f"[Clone] {cv.name}"})
+        except Exception as e:
+            pass
+        return voices
+    return []
 
 @app.get("/api/browse-folder")
 def browse_folder():
@@ -762,3 +777,72 @@ def delete_saved_voice(voice_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "ok"}
 
+@app.post("/api/self-hosted/clone")
+async def clone_voice(
+    text: str = Form(...),
+    ref_text: str = Form(None),
+    ref_audio: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    setting_url = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
+    self_hosted_url = setting_url.value if setting_url else "http://localhost:7860"
+    url = f"{self_hosted_url.rstrip('/')}/api/clone"
+    
+    files = {"ref_audio": (ref_audio.filename, await ref_audio.read(), ref_audio.content_type)}
+    data = {"text": text}
+    if ref_text:
+        data["ref_text"] = ref_text
+        
+    try:
+        res = requests.post(url, data=data, files=files, timeout=60)
+        if res.status_code == 200:
+            fd, temp_file = tempfile.mkstemp(suffix=".wav", prefix="cloned_")
+            os.close(fd)
+            with open(temp_file, "wb") as f:
+                f.write(res.content)
+            return FileResponse(temp_file, media_type="audio/wav")
+        else:
+            raise HTTPException(status_code=res.status_code, detail=f"Self-hosted API Error: {res.text}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/self-hosted/voices/save")
+async def save_self_hosted_voice(
+    voice_name: str = Form(...),
+    ref_text: str = Form(None),
+    ref_audio: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    setting_url = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
+    self_hosted_url = setting_url.value if setting_url else "http://localhost:7860"
+    url = f"{self_hosted_url.rstrip('/')}/api/voices/save"
+    
+    audio_bytes = await ref_audio.read()
+    files = {"ref_audio": (ref_audio.filename, audio_bytes, ref_audio.content_type)}
+    data = {"voice_name": voice_name}
+    if ref_text:
+        data["ref_text"] = ref_text
+        
+    try:
+        res = requests.post(url, data=data, files=files, timeout=30)
+        if res.status_code == 200:
+            # Also save to our local DB
+            # We don't strictly need to save the audio file in our backend, since OmniVoice saved it
+            # But we can store it in SavedVoice so it appears in the list
+            existing = db.query(models.SavedVoice).filter(models.SavedVoice.name == voice_name).first()
+            if not existing:
+                # We can save a copy of the audio file locally just in case
+                local_dir = os.path.join(os.getcwd(), "backend", "reference_audios")
+                os.makedirs(local_dir, exist_ok=True)
+                local_path = os.path.join(local_dir, ref_audio.filename)
+                with open(local_path, "wb") as f:
+                    f.write(audio_bytes)
+                
+                new_voice = models.SavedVoice(name=voice_name, voice_type="self_hosted_cloned", seed="", reference_audio_path=local_path)
+                db.add(new_voice)
+                db.commit()
+            return res.json()
+        else:
+            raise HTTPException(status_code=res.status_code, detail=f"Self-hosted API Error: {res.text}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

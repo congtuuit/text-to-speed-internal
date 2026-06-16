@@ -9,7 +9,7 @@ import threading
 import time
 import os
 from database import SessionLocal
-from models import FileTask, BatchJob, Settings
+from models import FileTask, BatchJob, Settings, SavedVoice
 from services.tts_provider import TTSProvider
 
 import requests
@@ -348,7 +348,7 @@ def _process_fpt_tts_with_rotator(
     return success_all
 
 
-def process_self_hosted_tts(text: str, output_path: str, voice: str, url: str, seed_val: int = None, keep_voice_val: bool = False, worker_name: str = "Backend") -> bool:
+def process_self_hosted_tts(text: str, output_path: str, voice: str, url: str, seed_val: int = None, keep_voice_val: bool = False, worker_name: str = "Backend", ref_audio_path: str = None) -> bool:
     """Xử lý TTS với Self-hosted OmniVoice, có chia nhỏ văn bản để tránh timeout."""
     if seed_val is None:
         import random
@@ -363,17 +363,26 @@ def process_self_hosted_tts(text: str, output_path: str, voice: str, url: str, s
     total_chunks = len(chunks)
     
     for i, chunk in enumerate(chunks):
-        payload = {
-            "text": chunk,
-            "voice": voice
-        }
-        if seed_val is not None:
-            payload["seed"] = seed_val
-        if keep_voice_val:
-            payload["keep_voice"] = keep_voice_val
-            
         try:
-            res = requests.post(url, json=payload, timeout=60)
+            if ref_audio_path and os.path.exists(ref_audio_path):
+                # Sử dụng /api/clone thay vì /api/tts
+                clone_url = url.replace("/api/tts", "/api/clone")
+                data = {"text": chunk}
+                with open(ref_audio_path, "rb") as audio_f:
+                    files = {"ref_audio": (os.path.basename(ref_audio_path), audio_f, "audio/wav")}
+                    res = requests.post(clone_url, data=data, files=files, timeout=60)
+            else:
+                payload = {
+                    "text": chunk,
+                    "voice": voice
+                }
+                if seed_val is not None:
+                    payload["seed"] = seed_val
+                if keep_voice_val:
+                    payload["keep_voice"] = keep_voice_val
+                
+                res = requests.post(url, json=payload, timeout=60)
+
             if res.status_code == 200:
                 fd, temp_file_path = tempfile.mkstemp(suffix=".wav")
                 os.close(fd)
@@ -647,10 +656,16 @@ class QueueManager:
                                 # Use voice directly from job configuration
                                 cleaned_voice = job.voice
                                 presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
+                                
+                                ref_audio_path = None
                                 if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
-                                    # Fallback to saved self_hosted_voice or default
-                                    setting_voice = db.query(Settings).filter(Settings.key == "self_hosted_voice").first()
-                                    cleaned_voice = setting_voice.value if (setting_voice and setting_voice.value) else "female"
+                                    saved_voice_exists = db.query(SavedVoice).filter(SavedVoice.name == cleaned_voice).first()
+                                    if not saved_voice_exists:
+                                        # Fallback to saved self_hosted_voice or default
+                                        setting_voice = db.query(Settings).filter(Settings.key == "self_hosted_voice").first()
+                                        cleaned_voice = setting_voice.value if (setting_voice and setting_voice.value) else "female"
+                                    elif saved_voice_exists.voice_type == "self_hosted_cloned":
+                                        ref_audio_path = saved_voice_exists.reference_audio_path
 
                                 # Read seed and keep_voice parameters from Settings DB
                                 setting_seed = db.query(Settings).filter(Settings.key == "self_hosted_seed").first()
@@ -670,7 +685,8 @@ class QueueManager:
                                     url=url,
                                     seed_val=seed_val,
                                     keep_voice_val=keep_voice_val,
-                                    worker_name=worker_name
+                                    worker_name=worker_name,
+                                    ref_audio_path=ref_audio_path
                                 )
                             else:
                                 success = False
