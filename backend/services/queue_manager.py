@@ -113,6 +113,9 @@ class FPTKeyRotator:
 # Singleton rotator – được chia sẻ bởi tất cả workers
 fpt_key_rotator = FPTKeyRotator()
 
+# Semaphore giới hạn số lượng request đồng thời đến Self-hosted provider
+self_hosted_semaphore = threading.Semaphore(2)
+
 
 # ---------------------------------------------------------------------------
 # FPT TTS helper
@@ -372,21 +375,34 @@ def process_self_hosted_tts(text: str, output_path: str, voice: str, url: str, s
         if keep_voice_val:
             payload["keep_voice"] = keep_voice_val
             
-        try:
-            res = requests.post(url, json=payload, timeout=60)
-            if res.status_code == 200:
-                fd, temp_file_path = tempfile.mkstemp(suffix=".wav")
-                os.close(fd)
-                with open(temp_file_path, "wb") as f:
-                    f.write(res.content)
-                chunk_files.append(temp_file_path)
-            else:
-                success_all = False
-                print(f"[{worker_name}] Self-hosted API Error on chunk {i+1}/{total_chunks}: {res.text}")
-                break
-        except Exception as e:
-            success_all = False
-            print(f"[{worker_name}] Self-hosted exception on chunk {i+1}/{total_chunks}: {e}")
+        max_chunk_retries = 3
+        for attempt in range(max_chunk_retries):
+            try:
+                with self_hosted_semaphore:
+                    res = requests.post(url, json=payload, timeout=120)
+                if res.status_code == 200:
+                    fd, temp_file_path = tempfile.mkstemp(suffix=".wav")
+                    os.close(fd)
+                    with open(temp_file_path, "wb") as f:
+                        f.write(res.content)
+                    chunk_files.append(temp_file_path)
+                    break  # Thành công, thoát vòng lặp retry
+                else:
+                    if attempt == max_chunk_retries - 1:
+                        success_all = False
+                        print(f"[{worker_name}] Self-hosted API Error on chunk {i+1}/{total_chunks}: {res.text}")
+                        break
+                    print(f"[{worker_name}] Retry {attempt+1}/{max_chunk_retries} for chunk {i+1} due to status {res.status_code}")
+                    time.sleep(2)
+            except Exception as e:
+                if attempt == max_chunk_retries - 1:
+                    success_all = False
+                    print(f"[{worker_name}] Self-hosted exception on chunk {i+1}/{total_chunks}: {e}")
+                    break
+                print(f"[{worker_name}] Retry {attempt+1}/{max_chunk_retries} for chunk {i+1} due to exception: {e}")
+                time.sleep(2)
+                
+        if not success_all:
             break
             
     if success_all and len(chunk_files) == total_chunks and total_chunks > 0:
