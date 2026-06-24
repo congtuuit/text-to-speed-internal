@@ -1,0 +1,5 @@
+# Cấp quyền thực thi cho script
+chmod +x setup_vps.sh
+
+# Chạy script (Nên dùng sudo nếu muốn tự động cài đặt hệ thống & kích hoạt Nginx/Systemd)
+sudo ./setup_vps.sh
