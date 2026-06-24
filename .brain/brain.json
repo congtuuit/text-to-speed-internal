@@ -24,10 +24,11 @@
     "Single TTS (Quick Convert - Tiện ích chuyển đổi 1 đoạn text nhanh)",
     "Batch TTS (Xử lý hàng loạt từ Thư mục TXT, File DOCX, Thư mục DOCX)",
     "Quản lý thư viện giọng nói (Lưu Voice + Seed)",
-    "Dashboard theo dõi tiến trình chạy real-time với thanh Progress Bar"
+    "Dashboard theo dõi tiến trình chạy real-time với thanh Progress Bar",
+    "Nâng cấp bộ lưu trữ (Storage Service) & Thư viện Audio phát trực tuyến"
   ],
   "knowledge_items": { 
-    "patterns": ["React state management cho form", "Xử lý audio stream từ API FastAPI"], 
+    "patterns": ["React state management cho form", "Xử lý audio stream từ API FastAPI", "Provider Pattern cho bộ lưu trữ Storage"], 
     "gotchas": ["Cần escape string cẩn thận khi update file JSON"], 
     "conventions": ["Component cấu trúc theo function/hooks", "Dùng icon SVG inline cho loading state"] 
   }
