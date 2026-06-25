@@ -22,8 +22,7 @@
     "batch": "Batch Convert",
     "voices": "Voices",
     "library": "History",
-    "billing": "Billing",
-    "profile": "Profile",
+    "profile": "Account & Billing",
     "admin": "Admin Settings"
   },
   "dashboard": {
@@ -97,11 +96,13 @@
     "upgrade": "Upgrade Plan"
   },
   "profile": {
-    "title": "Profile",
-    "subtitle": "Account and workspace details.",
+    "title": "Account & Billing",
+    "subtitle": "Manage your profile, active plans and quotas.",
     "email": "Email",
     "role": "Role",
-    "workspace": "Workspace"
+    "workspace": "Workspace",
+    "accountInfo": "Account Information",
+    "billingInfo": "Subscription & Limits"
   },
   "admin": {
     "title": "Admin Settings",

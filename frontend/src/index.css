@@ -1,3 +1,7 @@
+html {
+  scrollbar-gutter: stable;
+}
+
 :root {
   --primary: #8b5cf6;
   --primary-hover: #7c3aed;
@@ -212,6 +216,19 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
 }
 
+.btn.danger-soft {
+  background: rgba(239, 68, 68, 0.08);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  box-shadow: none;
+}
+
+.btn.danger-soft:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
 .btn-giant {
   font-size: 1.1rem;
   padding: 1.2rem;
@@ -271,6 +288,12 @@ select option {
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 2rem;
   min-height: calc(100vh - 4rem);
+}
+
+.saas-main {
+  max-width: 1000px;
+  width: 100%;
+  min-width: 0;
 }
 
 .saas-sidebar {
@@ -366,7 +389,7 @@ select option {
 
 .voice-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
 }
@@ -711,4 +734,112 @@ audio::-webkit-media-controls-panel {
   width: 100% !important;
   display: block !important;
   justify-content: flex-start !important;
+}
+
+/* Mobile Header and Drawer styles */
+.mobile-header {
+  display: none;
+}
+.sidebar-close-btn {
+  display: none;
+}
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+}
+
+@media (max-width: 768px) {
+  #root {
+    padding: 1rem;
+  }
+
+  .saas-shell {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    min-height: auto;
+    padding-top: 4rem; /* Space for the fixed header */
+  }
+
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3.5rem;
+    background: var(--bg-glass);
+    border-bottom: 1px solid var(--border-glass);
+    backdrop-filter: blur(20px);
+    z-index: 998;
+    padding: 0 1.5rem;
+    gap: 1rem;
+  }
+
+  .menu-toggle {
+    background: transparent;
+    border: none;
+    color: var(--text-main);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-brand-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .saas-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    height: 100vh;
+    z-index: 1000;
+    border-radius: 0;
+    border-top: none;
+    border-bottom: none;
+    border-left: none;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .saas-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-close-btn {
+    display: block;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    transition: color 0.2s;
+  }
+
+  .sidebar-close-btn:hover {
+    color: var(--text-main);
+  }
+
+  .composer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .voice-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+  }
 }

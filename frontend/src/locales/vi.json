@@ -22,8 +22,7 @@
     "batch": "Chuyển đổi hàng loạt",
     "voices": "Kho Giọng Đọc",
     "library": "Lịch sử & Thư viện",
-    "billing": "Thanh toán",
-    "profile": "Tài khoản cá nhân",
+    "profile": "Tài khoản & Thanh toán",
     "admin": "Quản trị hệ thống"
   },
   "dashboard": {
@@ -97,11 +96,13 @@
     "upgrade": "Nâng cấp gói"
   },
   "profile": {
-    "title": "Tài khoản cá nhân",
-    "subtitle": "Thông tin tài khoản và workspace.",
+    "title": "Tài khoản & Thanh toán",
+    "subtitle": "Thông tin tài khoản và cấu hình thanh toán, hạn mức.",
     "email": "Email",
     "role": "Vai trò",
-    "workspace": "Workspace"
+    "workspace": "Workspace",
+    "accountInfo": "Thông tin tài khoản",
+    "billingInfo": "Gói dịch vụ & Hạn mức"
   },
   "admin": {
     "title": "Quản trị hệ thống",

@@ -96,13 +96,13 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
           <div className="voice-grid">
             {savedVoices.map(sv => (
               <article key={sv.id} className="voice-card saved-card" style={{ padding: "1rem", gap: "0.5rem", minHeight: "auto" }}>
-                <h3 style={{ margin: "0.5rem 0", fontSize: "1.1rem", color: "var(--text-main)" }}>{sv.name}</h3>
+                <h3 style={{ minHeight: "50px", margin: "0.5rem 0", fontSize: "1.1rem", color: "var(--text-main)" }}>{sv.name}</h3>
 
                 <div className="button-grid" style={{ marginTop: "0" }}>
                   <button className="btn ghost btn-sm" style={{ minWidth: "90px" }} onClick={() => handleCardPreview(sv.voice_type, sv.seed)} disabled={cardPreviewingId === sv.voice_type}>
                     {cardPreviewingId === sv.voice_type ? '…' : '🎧 Nghe'}
                   </button>
-                  <button className="btn danger btn-sm" onClick={() => onDelete(sv.id)}>
+                  <button className="btn danger-soft btn-sm" onClick={() => onDelete(sv.id)}>
                     🗑️
                   </button>
                 </div>

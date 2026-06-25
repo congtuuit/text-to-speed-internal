@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import './index.css';
@@ -14,12 +15,12 @@ import CreateAudio from './pages/CreateAudio';
 import BatchConvert from './pages/BatchConvert';
 import Voices from './pages/Voices';
 import AudioLibrary from './pages/AudioLibrary';
-import Billing from './pages/Billing';
 import Profile from './pages/Profile';
 import AdminSettings from './AdminSettings';
 
 function App() {
   const { t, i18n } = useTranslation();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const {
     authToken, currentUser, authMode, setAuthMode, authEmail, setAuthEmail,
@@ -49,7 +50,20 @@ function App() {
 
   return (
     <div className="saas-shell">
-      <Sidebar t={t} i18n={i18n} onLogout={handleLogout} />
+      {/* Mobile Top Bar */}
+      <header className="mobile-header">
+        <button className="menu-toggle" onClick={() => setIsSidebarOpen(true)}>
+          ☰
+        </button>
+        <span className="mobile-brand-name">{t('app.name')}</span>
+      </header>
+
+      {/* Sidebar Overlay on Mobile */}
+      {isSidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)} />
+      )}
+
+      <Sidebar t={t} i18n={i18n} onLogout={handleLogout} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
       <main className="saas-main">
         <Routes>
@@ -59,7 +73,7 @@ function App() {
           <Route path="/batch" element={<BatchConvert t={t} inputDir={inputDir} setInputDir={setInputDir} outputDir={outputDir} setOutputDir={setOutputDir} fileCount={fileCount} onScan={handleScan} onStart={handleStartBatch} voices={voices} batchVoice={batchVoice} setBatchVoice={setBatchVoice} batchSpeed={batchSpeed} setBatchSpeed={setBatchSpeed} savedVoices={savedVoices} onPreview={handlePreviewVoice} />} />
           <Route path="/voices" element={<Voices t={t} voice={voice} setVoice={setVoice} voices={voices} savedVoices={savedVoices} onPreview={handlePreviewVoice} onSave={handleSaveSavedVoice} onDelete={handleDeleteSavedVoice} />} />
           <Route path="/library" element={<AudioLibrary t={t} library={library} onRefresh={fetchLibrary} onCopy={handleCopyAudio} onDelete={handleDeleteAudio} />} />
-          <Route path="/billing" element={<Billing t={t} />} />
+
           <Route path="/profile" element={<Profile t={t} user={currentUser} />} />
           <Route path="/admin" element={<AdminSettings authToken={authToken} onSettingsSaved={fetchAdminSettings} />} />
         </Routes>
