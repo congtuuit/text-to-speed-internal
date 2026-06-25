@@ -67,6 +67,8 @@ function App() {
 
   const [savedVoices, setSavedVoices] = useState([])
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false)
+  const [audioLibrary, setAudioLibrary] = useState([])
+  const [isAudioLibraryOpen, setIsAudioLibraryOpen] = useState(false)
 
   const fetchSavedVoices = async () => {
     try {
@@ -76,6 +78,49 @@ function App() {
         setSavedVoices(data.saved_voices || [])
       }
     } catch (err) { }
+  }
+  const fetchAudioLibrary = async () => {
+    try {
+      const res = await fetch(API_BASE_URL + '/api/library')
+      if (res.ok) {
+        const data = await res.json()
+        setAudioLibrary(data.items || [])
+      }
+    } catch (err) { }
+  }
+
+  const openAudioLibrary = async () => {
+    setIsAudioLibraryOpen(true)
+    await fetchAudioLibrary()
+  }
+
+  const handleDeleteAudio = async (audio) => {
+    const result = await Swal.fire({
+      title: 'Xóa file audio?',
+      text: 'Bạn có chắc muốn xóa ' + audio.file_name + '?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Xóa',
+      cancelButtonText: 'Hủy',
+      background: '#1e293b',
+      color: '#fff'
+    })
+    if (!result.isConfirmed) return
+    const res = await fetch(API_BASE_URL + '/api/library/' + audio.id, { method: 'DELETE' })
+    if (res.ok) {
+      setAudioLibrary(prev => prev.filter(item => item.id !== audio.id))
+      Swal.fire({ icon: 'success', title: 'Đã xóa', timer: 1200, showConfirmButton: false, background: '#1e293b', color: '#fff' })
+    }
+  }
+
+  const handleCopyAudioLink = async (audio) => {
+    try {
+      const link = audio.audio_url && audio.audio_url.startsWith('http') ? audio.audio_url : API_BASE_URL + audio.audio_url
+      await navigator.clipboard.writeText(link)
+      Swal.fire({ icon: 'success', title: 'Đã sao chép link', timer: 1200, showConfirmButton: false, background: '#1e293b', color: '#fff' })
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Không thể copy link', background: '#1e293b', color: '#fff' })
+    }
   }
 
   const fetchVoices = async (prov, shUrl) => {
@@ -1030,6 +1075,9 @@ Account2 | 0987654321..."
                         <button className="btn" style={{ background: '#3b82f6', padding: '0.3rem 0.8rem', fontSize: '0.8rem', margin: 0, width: 'auto' }} onClick={() => setIsLibraryModalOpen(true)}>
                           ⚙️ Quản lý
                         </button>
+                        <button className="btn" style={{ background: '#8b5cf6', padding: '0.3rem 0.8rem', fontSize: '0.8rem', margin: 0, width: 'auto' }} onClick={openAudioLibrary}>
+                          Audio Library
+                        </button>
                       </div>
                       <select
                         value={savedVoices.find(v => v.seed === seed && v.voice_type === voice) ? seed : ''}
@@ -1391,6 +1439,41 @@ Account2 | 0987654321..."
           </div>
         </div>
       </div>
+      {isAudioLibraryOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)', zIndex: 1100, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ width: 'min(1100px, 100%)', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Thư Viện Audio</h2>
+                <p style={{ margin: '0.35rem 0 0', color: '#94a3b8' }}>Nghe thử, sao chép link và tải xuống.</p>
+              </div>
+              <button className="btn" style={{ width: 'auto', background: '#334155' }} onClick={() => setIsAudioLibraryOpen(false)}>Đóng</button>
+            </div>
+            <div style={{ overflow: 'auto', display: 'grid', gap: '1rem', paddingRight: '0.25rem' }}>
+              {audioLibrary.length === 0 ? (
+                <div style={{ color: '#94a3b8' }}>Chưa có file audio nào.</div>
+              ) : audioLibrary.map((audio) => {
+                const audioSrc = audio.audio_url && audio.audio_url.startsWith('http') ? audio.audio_url : API_BASE_URL + audio.audio_url
+                return (
+                  <div key={audio.id} className="audio-card">
+                    <div className="audio-card__meta">
+                      <strong>{audio.file_name}</strong>
+                      <span>{audio.storage_provider || 'local'} • {new Date(audio.created_at).toLocaleString()}</span>
+                    </div>
+                    <audio controls src={audioSrc} className="audio-player" />
+                    <div className="audio-actions">
+                      <button className="btn" style={{ width: 'auto', background: '#0ea5e9' }} onClick={() => handleCopyAudioLink(audio)}>Copy Link</button>
+                      <a className="btn" style={{ width: 'auto', background: '#10b981', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }} href={audioSrc} download>Tải về</a>
+                      <button className="btn" style={{ width: 'auto', background: '#ef4444' }} onClick={() => handleDeleteAudio(audio)}>Xóa File</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Quản lý Thư viện */}
       {isLibraryModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', backdropFilter: 'blur(4px)' }}>

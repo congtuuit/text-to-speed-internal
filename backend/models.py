@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+﻿from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -47,4 +47,14 @@ class SavedVoice(Base):
     name = Column(String, index=True)
     voice_type = Column(String)
     seed = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class GeneratedAudio(Base):
+    __tablename__ = "generated_audios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_name = Column(String, index=True, nullable=False)
+    file_path = Column(String, nullable=False)
+    storage_provider = Column(String, default="local")
+    audio_url = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
