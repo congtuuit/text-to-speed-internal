@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 # Fix Windows encoding: force UTF-8 Ä‘á»ƒ print Unicode khÃ´ng lá»—i charmap
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -352,8 +352,11 @@ def _process_fpt_tts_with_rotator(
     return success_all
 
 
+LAST_SELF_HOSTED_SEED = None
+
 def process_self_hosted_tts(text: str, output_path: str, voice: str, url: str, seed_val: int = None, keep_voice_val: bool = False, worker_name: str = "Backend") -> bool:
-    """Xá»­ lÃ½ TTS vá»›i Self-hosted OmniVoice, cÃ³ chia nhá» vÄƒn báº£n Ä‘á»ƒ trÃ¡nh timeout."""
+    """Xá»­ lÃ½ TTS vá»›i Self-hosted OmniVoice, cÃ³ chia nhá»  vÄƒn báº£n Ä‘á»ƒ trÃ¡nh timeout."""
+    global LAST_SELF_HOSTED_SEED
     if seed_val is None:
         import random
         seed_val = random.randint(1, 1000000000)

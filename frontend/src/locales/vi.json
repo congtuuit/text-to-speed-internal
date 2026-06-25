@@ -1,0 +1,135 @@
+{
+  "app": {
+    "name": "TTS Studio",
+    "tagline": "Nền tảng tạo giọng đọc cho creator, audiobook và marketing",
+    "logout": "Đăng xuất"
+  },
+  "auth": {
+    "title": "Đăng nhập để tiếp tục",
+    "subtitle": "Tạo audio, quản lý thư viện và theo dõi hạn mức trong workspace của bạn.",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "fullName": "Họ tên",
+    "signIn": "Đăng nhập",
+    "createAccount": "Tạo tài khoản",
+    "needAccount": "Chưa có tài khoản?",
+    "haveAccount": "Đã có tài khoản?",
+    "loading": "Đang xử lý..."
+  },
+  "nav": {
+    "dashboard": "Tổng quan",
+    "create": "Tạo Audio",
+    "batch": "Chuyển đổi hàng loạt",
+    "voices": "Kho Giọng Đọc",
+    "library": "Lịch sử & Thư viện",
+    "billing": "Thanh toán",
+    "profile": "Tài khoản cá nhân",
+    "admin": "Quản trị hệ thống"
+  },
+  "dashboard": {
+    "title": "Tổng quan",
+    "subtitle": "Theo dõi usage, job gần đây và audio đã tạo.",
+    "charactersUsed": "Ký tự đã dùng",
+    "remainingQuota": "Hạn mức còn lại",
+    "generatedAudios": "Audio đã tạo",
+    "recentJobs": "Job gần đây",
+    "empty": "Chưa có dữ liệu. Hãy tạo audio đầu tiên của bạn."
+  },
+  "create": {
+    "title": "Tạo Audio",
+    "subtitle": "Nhập nội dung, chọn giọng và tạo bản đọc tự nhiên.",
+    "textLabel": "Nội dung",
+    "textPlaceholder": "Nhập văn bản cần chuyển thành giọng nói...",
+    "characters": "{{count}} ký tự",
+    "voice": "Giọng đọc",
+    "speed": "Tốc độ",
+    "preview": "Nghe thử",
+    "generate": "Tạo audio",
+    "download": "Tải về",
+    "sample": "Xin chào, đây là bản đọc thử tiếng Việt cho sản phẩm TTS Studio.",
+    "missingText": "Vui lòng nhập nội dung trước khi tạo audio.",
+    "chooseVoice": "Chọn giọng đọc"
+  },
+  "batch": {
+    "title": "Chuyển đổi hàng loạt",
+    "subtitle": "Chuyển đổi nhiều file TXT/DOCX theo workflow đơn giản.",
+    "input": "Nguồn đầu vào",
+    "output": "Thư mục đầu ra",
+    "scan": "Quét file",
+    "start": "Bắt đầu chuyển đổi",
+    "browse": "Duyệt",
+    "found": "Đã tìm thấy {{count}} file",
+    "empty": "Chọn thư mục đầu vào để bắt đầu.",
+    "voice": "Giọng đọc (dành riêng cho queue này)",
+    "speed": "Tốc độ phát",
+    "previewVoice": "Nghe thử giọng đọc"
+  },
+  "voices": {
+    "title": "Kho Giọng Đọc",
+    "subtitle": "Chọn giọng hiển thị thân thiện, không lộ provider ID.",
+    "use": "Dùng giọng này",
+    "preview": "Nghe thử",
+    "save": "Lưu vào thư viện",
+    "saved": "Đã lưu!",
+    "savedVoices": "Thư viện giọng đã lưu",
+    "savedSubtitle": "Quản lý và sử dụng các giọng đọc bạn đã lưu.",
+    "noSaved": "Chưa có giọng nào được lưu vào thư viện.",
+    "deleteConfirm": "Xóa giọng này khỏi thư viện của bạn?",
+    "seed": "Seed",
+    "seedPlaceholder": "Nhập giá trị seed..."
+  },
+  "library": {
+    "title": "Lịch sử & Thư viện",
+    "subtitle": "Nghe lại, tải xuống, copy link hoặc xóa audio đã tạo.",
+    "copy": "Sao chép liên kết",
+    "download": "Tải về",
+    "delete": "Xóa",
+    "empty": "Chưa có audio nào trong thư viện.",
+    "deleteConfirm": "Bạn có chắc muốn xóa file này?",
+    "copied": "Đã sao chép link"
+  },
+  "billing": {
+    "title": "Thanh toán",
+    "subtitle": "Theo dõi gói hiện tại, usage và trạng thái subscription.",
+    "currentPlan": "Gói hiện tại",
+    "status": "Trạng thái",
+    "usage": "Usage tháng này",
+    "upgrade": "Nâng cấp gói"
+  },
+  "profile": {
+    "title": "Tài khoản cá nhân",
+    "subtitle": "Thông tin tài khoản và workspace.",
+    "email": "Email",
+    "role": "Vai trò",
+    "workspace": "Workspace"
+  },
+  "admin": {
+    "title": "Quản trị hệ thống",
+    "subtitle": "Cấu hình AI Provider và kết nối API.",
+    "provider": "Nhà cung cấp (Provider)",
+    "selfHostedUrl": "Đường dẫn Self-Hosted",
+    "testConnection": "Kiểm tra kết nối",
+    "fptKeys": "FPT API Keys (mỗi dòng 1 key)",
+    "fptSpeed": "Tốc độ FPT",
+    "maxWorkers": "Số luồng tối đa",
+    "save": "Lưu cấu hình",
+    "connectionSuccess": "Kết nối thành công!",
+    "connectionFailed": "Kết nối thất bại",
+    "apiKey": "API Key",
+    "modelName": "Tên Model",
+    "outputSpeed": "Tốc độ xuất",
+    "selfHostedVoice": "Giọng mặc định",
+    "selfHostedSeed": "Seed",
+    "selfHostedKeepVoice": "Giữ giọng"
+  },
+  "common": {
+    "loading": "Đang tải...",
+    "error": "Có lỗi xảy ra",
+    "retry": "Thử lại",
+    "close": "Đóng",
+    "save": "Lưu",
+    "refresh": "Làm mới",
+    "processing": "Đang xử lý...",
+    "success": "Thành công"
+  }
+}

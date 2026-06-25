@@ -1,35 +1,104 @@
 {
-  "meta": { "schema_version": "1.1.0", "awf_version": "3.3.0" },
-  "project": { "name": "Text to Speed Internal", "type": "Batch TTS Web App", "status": "active" },
-  "tech_stack": { 
-    "frontend": { "framework": "React + Vite", "styles": "Vanilla CSS", "notifications": "sweetalert2" },
-    "backend": { "framework": "Python FastAPI", "orm": "SQLAlchemy" },
-    "database": { "type": "SQLite" }
+  "meta": {
+    "schema_version": "1.1.0",
+    "awf_version": "4.0.2"
   },
-  "database_schema": { 
-    "summary": "App lưu thông tin batch jobs, file tasks, các settings hệ thống và thư viện giọng mẫu",
-    "tables": ["BatchJob", "FileTask", "SavedVoice", "Settings"],
-    "relationships_explained": "1 BatchJob có nhiều FileTask (đại diện cho từng file txt/docx cần chuyển đổi)"
+  "project": {
+    "name": "Text to Speech Internal",
+    "type": "Fullstack Web App",
+    "status": "Development"
+  },
+  "tech_stack": {
+    "frontend": {
+      "framework": "React + Vite",
+      "styling": "CSS"
+    },
+    "backend": {
+      "framework": "FastAPI",
+      "language": "Python"
+    },
+    "database": {
+      "type": "SQLite",
+      "orm": "SQLAlchemy"
+    }
+  },
+  "database_schema": {
+    "summary": "App lưu thông tin cấu hình, lịch sử tạo audio, thư viện giọng đọc và tiến trình batch",
+    "tables": [
+      {
+        "name": "users",
+        "columns": [
+          "id",
+          "email",
+          "password_hash"
+        ]
+      },
+      {
+        "name": "settings",
+        "columns": [
+          "key",
+          "value"
+        ]
+      },
+      {
+        "name": "saved_voices",
+        "columns": [
+          "id",
+          "name",
+          "voice_type",
+          "seed"
+        ]
+      },
+      {
+        "name": "generated_audio",
+        "columns": [
+          "id",
+          "file_name",
+          "original_text"
+        ]
+      },
+      {
+        "name": "batch_jobs",
+        "columns": [
+          "id",
+          "status",
+          "total_files",
+          "completed_files"
+        ]
+      },
+      {
+        "name": "file_tasks",
+        "columns": [
+          "id",
+          "job_id",
+          "file_name",
+          "status"
+        ]
+      }
+    ],
+    "relationships_explained": "Mỗi batch job có nhiều file tasks."
   },
   "api_endpoints": [
-    { "path": "/api/jobs", "explained": "Quản lý danh sách các batch job" },
-    { "path": "/api/test_voice", "explained": "Test một đoạn audio ngắn" }
+    {
+      "path": "/api/auth/login",
+      "explained": "Đăng nhập"
+    },
+    {
+      "path": "/api/tts/chunk",
+      "explained": "Tạo từng đoạn audio ngắn"
+    },
+    {
+      "path": "/api/tts/merge",
+      "explained": "Ghép các đoạn audio thành file dài"
+    },
+    {
+      "path": "/api/jobs",
+      "explained": "Quản lý quá trình chuyển đổi hàng loạt"
+    }
   ],
   "business_rules": [
-    "Hỗ trợ 3 nền tảng tạo giọng (Provider): FPT, Gemini, Self-hosted",
-    "Mọi tương tác thông báo lỗi/thành công đều dùng SweetAlert2",
-    "Giao diện tối ưu cho người dùng thao tác từ trái sang phải: Setup Hệ Thống -> Batch Config -> Theo dõi tiến trình"
-  ],
-  "features": [
-    "Single TTS (Quick Convert - Tiện ích chuyển đổi 1 đoạn text nhanh)",
-    "Batch TTS (Xử lý hàng loạt từ Thư mục TXT, File DOCX, Thư mục DOCX)",
-    "Quản lý thư viện giọng nói (Lưu Voice + Seed)",
-    "Dashboard theo dõi tiến trình chạy real-time với thanh Progress Bar",
-    "Nâng cấp bộ lưu trữ (Storage Service) & Thư viện Audio phát trực tuyến"
-  ],
-  "knowledge_items": { 
-    "patterns": ["React state management cho form", "Xử lý audio stream từ API FastAPI", "Provider Pattern cho bộ lưu trữ Storage"], 
-    "gotchas": ["Cần escape string cẩn thận khi update file JSON"], 
-    "conventions": ["Component cấu trúc theo function/hooks", "Dùng icon SVG inline cho loading state"] 
-  }
+    "Nếu văn bản > 150 ký tự, frontend tự động chia nhỏ và gọi /api/tts/chunk",
+    "Nếu văn bản > 2000 ký tự bị từ chối ở API bảo vệ",
+    "Thư mục session chứa các file tạm sẽ tự động bị xoá sau 60 phút"
+  ]
 }

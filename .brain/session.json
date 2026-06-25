@@ -1,63 +1,33 @@
 {
-  "updated_at": "2026-06-24T08:04:23+07:00",
+  "updated_at": "2026-06-25T10:19:47.844467Z",
   "working_on": {
-    "feature": "Storage & Audio Library Upgrade",
-    "task": "Khởi tạo kế hoạch và tài liệu đặc tả thiết kế",
+    "feature": "Backend Refactoring",
+    "task": "Tách main.py thành nhiều file routers",
     "status": "completed",
-    "files": ["docs/specs/storage_library_spec.md", "plans/260624-0729-storage-library/plan.md"],
-    "blockers": [],
-    "notes": "Hoàn thành phác thảo kế hoạch và đặc tả kỹ thuật cho tính năng mới."
+    "files": [
+      "backend/main.py",
+      "backend/schemas.py",
+      "backend/routers/*"
+    ],
+    "notes": "Đã chia API thành auth, tts, jobs, library, documents"
   },
-  "pending_tasks": [
-    { "task": "Phase 01: Project & Environment Setup (Cài đặt boto3 và config .env)", "priority": "high", "notes": "Cần thêm thư viện và key R2/S3" },
-    { "task": "Phase 02: Database Schema & Configuration Settings (Tạo bảng generated_audios)", "priority": "high", "notes": "" },
-    { "task": "Phase 03: Backend Storage Service & Stream API", "priority": "high", "notes": "" },
-    { "task": "Phase 04: Frontend UI - Audio Library Screen", "priority": "medium", "notes": "" },
-    { "task": "Phase 05: Integration & Testing", "priority": "medium", "notes": "" }
-  ],
   "recent_changes": [
-    { 
-      "timestamp": "2026-06-24", 
-      "type": "feature", 
-      "description": "Tạo script tự động hóa setup VPS setup_vps.sh", 
-      "files": ["setup_vps.sh"] 
-    },
-    { 
-      "timestamp": "2026-06-24", 
-      "type": "feature", 
-      "description": "Tạo tài liệu hướng dẫn setup VPS docs/vps_deployment_guide.md", 
-      "files": ["docs/vps_deployment_guide.md"] 
-    },
-    { 
-      "timestamp": "2026-06-24", 
-      "type": "feature", 
-      "description": "Tạo kế hoạch nâng cấp bộ lưu trữ và thư viện âm thanh plans/260624-0729-storage-library/plan.md", 
-      "files": ["plans/260624-0729-storage-library/plan.md"] 
-    },
-    { 
-      "timestamp": "2026-06-24", 
-      "type": "feature", 
-      "description": "Tạo đặc tả kỹ thuật tính năng docs/specs/storage_library_spec.md", 
-      "files": ["docs/specs/storage_library_spec.md"] 
+    {
+      "timestamp": "2026-06-25T10:19:47.844504Z",
+      "type": "refactor",
+      "description": "Refactored backend to use FastAPI APIRouter"
     }
   ],
-  "errors_encountered": [],
-  "decisions_made": [
-    { 
-      "decision": "Dùng SweetAlert2 thay vì alert mặc định", 
-      "reason": "Tăng độ chuyên nghiệp và thẩm mỹ cho Web App" 
+  "errors_encountered": [
+    {
+      "error": "NameError: name models is not defined",
+      "solution": "Thêm import models vào các file routers",
+      "resolved": true
     },
     {
-      "decision": "Đưa Batch Setup lên đầu Main Content",
-      "reason": "Vì 'Chuyển đổi hàng loạt' là tính năng chính của app"
-    },
-    {
-      "decision": "Tách biệt module lưu trữ (Storage Service) với 2 nhà cung cấp Local và R2",
-      "reason": "Giúp linh hoạt hoán đổi và mở rộng kho lưu trữ sau này không ảnh hưởng đến logic tạo audio"
-    },
-    {
-      "decision": "Thêm màn hình Thư viện audio phát trực tuyến trên giao diện web",
-      "reason": "Giúp người dùng dễ dàng quản lý, nghe online và lấy link audio trực tiếp"
+      "error": "CORS policy do lỗi 500",
+      "solution": "Sửa lỗi 500 (NameError) sẽ tự động hết lỗi CORS",
+      "resolved": true
     }
   ]
 }

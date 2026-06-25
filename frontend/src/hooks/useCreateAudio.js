@@ -1,0 +1,116 @@
+import { useState } from 'react';
+import Swal from 'sweetalert2';
+
+// Helper to chunk text
+function splitText(text, maxLength = 150) {
+  const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
+  const chunks = [];
+  let currentChunk = "";
+  for (const sentence of sentences) {
+    if ((currentChunk + sentence).length > maxLength && currentChunk) {
+      chunks.push(currentChunk.trim());
+      currentChunk = sentence;
+    } else {
+      currentChunk += sentence;
+    }
+  }
+  if (currentChunk) chunks.push(currentChunk.trim());
+  return chunks;
+}
+
+export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
+  const [text, setText] = useState(t('create.sample'));
+  const [voice, setVoice] = useState('female');
+  const [createVoiceSeed, setCreateVoiceSeed] = useState('');
+  const [speed, setSpeed] = useState(1);
+  const [audioUrl, setAudioUrl] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progressState, setProgressState] = useState({ current: 0, total: 0, merging: false });
+
+  const handleGenerate = async () => {
+    if (!text.trim()) {
+      Swal.fire({ icon: 'warning', title: t('create.missingText'), background: '#1e293b', color: '#fff' });
+      return;
+    }
+    if (text.length > 2000) {
+      Swal.fire({ icon: 'warning', title: "Văn bản quá dài", text: "Vui lòng nhập tối đa 2000 ký tự.", background: '#1e293b', color: '#fff' });
+      return;
+    }
+
+    setIsGenerating(true);
+    setProgressState({ current: 0, total: 0, merging: false });
+
+    try {
+      if (text.length <= 150) {
+        // Direct call
+        const url = await handlePreviewVoice(voice, text, Number(speed), createVoiceSeed);
+        setAudioUrl(url);
+      } else {
+        // Chunking
+        const chunks = splitText(text, 150);
+        setProgressState({ current: 0, total: chunks.length, merging: false });
+        
+        const sessionId = Date.now().toString() + Math.random().toString(36).substring(7);
+        
+        for (let i = 0; i < chunks.length; i++) {
+          setProgressState({ current: i + 1, total: chunks.length, merging: false });
+          
+          const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
+          const token = localStorage.getItem('access_token');
+          const headers = { 'Content-Type': 'application/json' };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          
+          const res = await fetch(`${API_BASE_URL}/api/tts/chunk`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              text: chunks[i],
+              voice,
+              provider: 'self_hosted',
+              self_hosted_url: selfHostedUrl || "http://localhost:7860",
+              output_speed: Number(speed),
+              seed: createVoiceSeed,
+              session_id: sessionId,
+              chunk_index: i,
+              keep_voice: "true"
+            })
+          });
+          
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || "Chunk failed to generate.");
+          }
+        }
+        
+        // Merge
+        setProgressState(prev => ({ ...prev, merging: true }));
+        const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
+        const token = localStorage.getItem('access_token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        
+        const mergeRes = await fetch(`${API_BASE_URL}/api/tts/merge`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ session_id: sessionId })
+        });
+        
+        if (!mergeRes.ok) throw new Error("Gộp audio thất bại.");
+        const blob = await mergeRes.blob();
+        setAudioUrl(URL.createObjectURL(blob));
+      }
+      
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: t('common.success'), timer: 3000, showConfirmButton: false, background: '#1e293b', color: '#fff' });
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: t('common.error'), text: err.message, background: '#1e293b', color: '#fff' });
+    } finally {
+      setIsGenerating(false);
+      setProgressState({ current: 0, total: 0, merging: false });
+    }
+  };
+
+  return {
+    text, setText, voice, setVoice, createVoiceSeed, setCreateVoiceSeed,
+    speed, setSpeed, audioUrl, setAudioUrl, isGenerating, handleGenerate, progressState
+  };
+}

@@ -1,0 +1,84 @@
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+from fastapi.responses import FileResponse, StreamingResponse
+from sqlalchemy.orm import Session
+from database import get_db
+from models import *
+import models
+from schemas import *
+import os
+import tempfile
+import time
+
+
+router = APIRouter()
+
+import json
+import requests
+import asyncio
+from services.queue_manager import queue_manager, fpt_key_rotator, adjust_audio_speed_ffmpeg
+from services.tts_provider import TTSProvider
+from services.storage_service import get_storage_provider, delete_audio_file
+from auth import create_jwt, decode_jwt, hash_password, verify_password
+from services.docx_helper import split_docx_to_txt
+
+@router.post("/api/auth/register")
+def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
+    email = req.email.strip().lower()
+    if not email or not req.password:
+        raise HTTPException(status_code=400, detail="Email and password are required")
+    existing = db.query(models.User).filter(models.User.email == email).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Email already registered")
+    user = models.User(email=email, password_hash=hash_password(req.password), full_name=req.full_name, role="user")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    workspace = models.Workspace(user_id=user.id, name=(req.full_name or email.split('@')[0]), slug=f"ws-{user.id}")
+    db.add(workspace)
+    db.commit()
+    token = create_jwt({"sub": str(user.id), "email": user.email, "role": user.role, "workspace_id": workspace.id})
+    return {"token": token, "user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role, "workspace_id": workspace.id}}
+
+
+
+@router.post("/api/auth/login")
+def login_user(req: LoginRequest, db: Session = Depends(get_db)):
+    email = req.email.strip().lower()
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user or not verify_password(req.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    workspace = db.query(models.Workspace).filter(models.Workspace.user_id == user.id).first()
+    if not workspace:
+        workspace = models.Workspace(user_id=user.id, name=user.full_name or email.split('@')[0], slug=f"ws-{user.id}")
+        db.add(workspace)
+        db.commit()
+        db.refresh(workspace)
+    token = create_jwt({"sub": str(user.id), "email": user.email, "role": user.role, "workspace_id": workspace.id})
+    return {"token": token, "user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role, "workspace_id": workspace.id}}
+
+
+
+def _current_user_from_request(request: Request, db: Session):
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.lower().startswith("bearer "):
+        return None
+    token = auth_header.split(" ", 1)[1].strip()
+    if not token:
+        return None
+    try:
+        payload = decode_jwt(token)
+    except Exception:
+        return None
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+    return db.query(models.User).filter(models.User.id == int(user_id)).first()
+
+@router.get("/api/auth/me")
+def me(request: Request, db: Session = Depends(get_db)):
+    user = _current_user_from_request(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    workspace = db.query(models.Workspace).filter(models.Workspace.user_id == user.id).first()
+    return {"user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role, "workspace_id": workspace.id if workspace else None}}
+
