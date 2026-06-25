@@ -20,7 +20,7 @@ export default function AdminSettings({ authToken, onSettingsSaved }) {
   const [activeTab, setActiveTab] = useState("settings"); // "settings" | "users" | "queues" | "monitor"
   const [users, setUsers] = useState([]);
   const [allJobs, setAllJobs] = useState([]);
-  const [systemStats, setSystemStats] = useState(null);
+
   const [loadingUsers, setLoadingUsers] = useState(false);
 
   const authHeaders = useMemo(
@@ -95,23 +95,7 @@ export default function AdminSettings({ authToken, onSettingsSaved }) {
     }
   }, [activeTab, authToken]);
 
-  // Fetch CPU/RAM stats
-  const fetchSystemStats = () => {
-    if (activeTab === "monitor" && authToken) {
-      fetch(`${API_BASE_URL}/api/admin/system-stats`, { headers: authHeaders })
-        .then((res) => res.json())
-        .then((data) => setSystemStats(data))
-        .catch((err) => console.error(err));
-    }
-  };
 
-  useEffect(() => {
-    fetchSystemStats();
-    if (activeTab === "monitor") {
-      const interval = setInterval(fetchSystemStats, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [activeTab, authToken]);
 
   const handleChange = (field, value) => setSettings((prev) => ({ ...prev, [field]: value }));
 
@@ -273,7 +257,9 @@ export default function AdminSettings({ authToken, onSettingsSaved }) {
       )}
 
       {activeTab === "monitor" && (
-        <MonitorTab stats={systemStats} />
+        <MonitorTab
+          authToken={authToken}
+        />
       )}
     </>
   );

@@ -24,6 +24,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi import Request
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    path = request.url.path
+    if path.startswith("/api"):
+        response = await call_next(request)
+        # Avoid logging the admin stats/request-stats queries themselves to prevent self-looping logs
+        if not "/admin/system-stats" in path and not "/admin/request-stats" in path:
+            from database import SessionLocal
+            db = SessionLocal()
+            try:
+                log_entry = models.RequestLog(
+                    path=path,
+                    method=request.method,
+                    status_code=response.status_code
+                )
+                db.add(log_entry)
+                db.commit()
+            except Exception as e:
+                print(f"Error logging request: {e}")
+            finally:
+                db.close()
+        return response
+    return await call_next(request)
+
 from services.queue_manager import queue_manager
 
 @app.on_event("startup")

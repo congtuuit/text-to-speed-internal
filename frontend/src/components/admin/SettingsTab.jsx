@@ -68,22 +68,8 @@ export default function SettingsTab({
                 </button>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
-                <div>
-                  <label>{t("admin.selfHostedVoice")}</label>
-                  <input type="text" value={settings.self_hosted_voice} onChange={(e) => onChange("self_hosted_voice", e.target.value)} />
-                </div>
-                <div>
-                  <label>{t("admin.selfHostedSeed")}</label>
-                  <input type="text" value={settings.self_hosted_seed} onChange={(e) => onChange("self_hosted_seed", e.target.value)} />
-                </div>
-              </div>
 
-              <label>{t("admin.selfHostedKeepVoice")}</label>
-              <select value={settings.self_hosted_keep_voice} onChange={(e) => onChange("self_hosted_keep_voice", e.target.value)}>
-                <option value="true">True</option>
-                <option value="false">False</option>
-              </select>
+
             </>
           )}
 
@@ -134,19 +120,7 @@ export default function SettingsTab({
         <section className="glass-panel form-stack">
           <h3 style={{ marginBottom: "1rem" }}>Cấu hình hệ thống</h3>
 
-          <label>{t("admin.outputSpeed")}</label>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-            <input 
-              type="range" 
-              min="0.5" 
-              max="2.0" 
-              step="0.1" 
-              value={settings.output_speed} 
-              onChange={(e) => onChange("output_speed", Number(e.target.value))} 
-              style={{ flex: 1, accentColor: "var(--primary)" }}
-            />
-            <strong style={{ minWidth: "2.5rem", textAlign: "right" }}>{settings.output_speed}x</strong>
-          </div>
+
 
           <label>{t("admin.maxWorkers")}</label>
           <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
@@ -177,10 +151,7 @@ export default function SettingsTab({
               <span className="status-summary-value">{settings.max_workers} luồng xử lý</span>
             </div>
             
-            <div className="status-summary-row">
-              <span className="status-summary-label">Tốc độ xuất giọng nói:</span>
-              <span className="status-summary-value">{settings.output_speed}x</span>
-            </div>
+
           </div>
 
           <div className="button-row" style={{ marginTop: "1.5rem" }}>

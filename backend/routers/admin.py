@@ -143,3 +143,36 @@ def get_system_stats(request: Request, db: Session = Depends(get_db)):
         },
         "self_hosted": self_hosted_health
     }
+
+from datetime import datetime, timedelta
+from sqlalchemy import func
+
+@router.get("/request-stats")
+def get_request_stats(request: Request, group_by: str = "hour", db: Session = Depends(get_db)):
+    require_admin(request, db)
+    
+    now = datetime.utcnow()
+    
+    if group_by == "minute":
+        date_format = "%Y-%m-%d %H:%M"
+        time_limit = now - timedelta(minutes=60)
+    elif group_by == "day":
+        date_format = "%Y-%m-%d"
+        time_limit = now - timedelta(days=30)
+    else: # hour
+        date_format = "%Y-%m-%d %H:00"
+        time_limit = now - timedelta(hours=24)
+        
+    stats = db.query(
+        func.strftime(date_format, models.RequestLog.created_at).label("time_bucket"),
+        func.count(models.RequestLog.id).label("count")
+    ).filter(
+        models.RequestLog.created_at >= time_limit
+    ).group_by(
+        "time_bucket"
+    ).order_by(
+        "time_bucket"
+    ).all()
+    
+    return [{"time": row.time_bucket, "count": row.count} for row in stats]
+

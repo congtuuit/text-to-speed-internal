@@ -1,4 +1,4 @@
-﻿from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -91,3 +91,13 @@ class Workspace(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     owner = relationship("User")
+
+
+class RequestLog(Base):
+    __tablename__ = "request_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    path = Column(String, index=True)
+    method = Column(String)
+    status_code = Column(Integer)
+    created_at = Column(DateTime, default=datetime.utcnow)
