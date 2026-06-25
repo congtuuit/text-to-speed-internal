@@ -19,7 +19,7 @@ function splitText(text, maxLength = 150) {
 }
 
 export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
-  const [text, setText] = useState("Xin chào, đây là bản đọc thử tiếng Việt cho sản phẩm TTS Studio.");
+  const [text, setText] = useState("Xin chÃ o, Ä‘Ã¢y lÃ  báº£n Ä‘á»c thá»­ tiáº¿ng Viá»‡t cho sáº£n pháº©m TTS Studio.");
   const [voice, setVoice] = useState('female');
   const [createVoiceSeed, setCreateVoiceSeed] = useState('');
   const [speed, setSpeed] = useState(1);
@@ -33,7 +33,7 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
       return;
     }
     if (text.length > 2000) {
-      Swal.fire({ icon: 'warning', title: "Văn bản quá dài", text: "Vui lòng nhập tối đa 2000 ký tự.", background: '#1e293b', color: '#fff' });
+      Swal.fire({ icon: 'warning', title: "VÄƒn báº£n quÃ¡ dÃ i", text: "Vui lÃ²ng nháº­p tá»‘i Ä‘a 2000 kÃ½ tá»±.", background: '#1e293b', color: '#fff' });
       return;
     }
 
@@ -50,7 +50,12 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
         const chunks = splitText(text, 150);
         setProgressState({ current: 0, total: chunks.length, merging: false });
 
-        const sessionId = Date.now().toString() + Math.random().toString(36).substring(7);
+        const _user = JSON.parse(localStorage.getItem('tts_current_user') || 'null');
+        const _uid  = _user?.id        ?? '0';
+        const _wid  = _user?.workspace_id ?? '0';
+        const _ts   = Math.floor(Date.now() / 1000);
+        const _rand = Math.random().toString(36).substring(2, 6);
+        const sessionId = `u${_uid}_ws${_wid}_${_ts}_${_rand}`;
 
         for (let i = 0; i < chunks.length; i++) {
           setProgressState({ current: i + 1, total: chunks.length, merging: false });
@@ -95,7 +100,7 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
           body: JSON.stringify({ session_id: sessionId })
         });
 
-        if (!mergeRes.ok) throw new Error("Gộp audio thất bại.");
+        if (!mergeRes.ok) throw new Error("Gá»™p audio tháº¥t báº¡i.");
         const blob = await mergeRes.blob();
         setAudioUrl(URL.createObjectURL(blob));
       }

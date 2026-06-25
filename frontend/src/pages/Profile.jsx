@@ -10,19 +10,26 @@ export default function Profile({ t, user }) {
         {/* Account Info Section */}
         <section>
           <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--text-main)' }}>
-            {t('profile.accountInfo', 'Thông tin tài khoản')}
+            {t('profile.accountInfo', 'ThÃƒÂ´ng tin tÃƒÂ i khoÃ¡ÂºÂ£n')}
           </h2>
           <div className="profile-card">
             <p style={{ margin: '0.5rem 0' }}><strong>{t('profile.email')}:</strong> {user?.email || '-'}</p>
-            <p style={{ margin: '0.5rem 0' }}><strong>{t('profile.role')}:</strong> {user?.role || 'user'}</p>
-            <p style={{ margin: '0.5rem 0' }}><strong>{t('profile.workspace')}:</strong> {user?.workspace_id || '-'}</p>
+            <p style={{ margin: '0.5rem 0' }}>
+              <strong>{t('profile.workspace')}:</strong>{' '}
+              {user?.workspace_name || user?.workspace_id || '-'}
+              {user?.workspace_slug && (
+                <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  ({user.workspace_slug})
+                </span>
+              )}
+            </p>
           </div>
         </section>
 
         {/* Billing Section */}
         <section>
           <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--text-main)' }}>
-            {t('profile.billingInfo', 'Gói dịch vụ & Hạn mức')}
+            {t('profile.billingInfo', 'GÃƒÂ³i dÃ¡Â»â€¹ch vÃ¡Â»Â¥ & HÃ¡ÂºÂ¡n mÃ¡Â»Â©c')}
           </h2>
           <div className="metric-grid">
             <Metric title={t('billing.currentPlan')} value="Free" />

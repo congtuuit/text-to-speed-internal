@@ -1,5 +1,5 @@
 import sys
-# Fix Windows encoding: force UTF-8 Ä‘á»ƒ print Unicode khÃ´ng lá»—i charmap
+# Fix Windows encoding: force UTF-8 Ã„â€˜Ã¡Â»Æ’ print Unicode khÃƒÂ´ng lÃ¡Â»â€”i charmap
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 if hasattr(sys.stderr, 'reconfigure'):
@@ -18,7 +18,7 @@ import subprocess
 import shutil
 
 def adjust_audio_speed_ffmpeg(input_path: str, output_path: str, speed: float) -> bool:
-    """Sá»­ dá»¥ng FFmpeg Ä‘á»ƒ thay Ä‘á»•i tá»‘c Ä‘á»™ audio. Tráº£ vá» True náº¿u thÃ nh cÃ´ng."""
+    """SÃ¡Â»Â­ dÃ¡Â»Â¥ng FFmpeg Ã„â€˜Ã¡Â»Æ’ thay Ã„â€˜Ã¡Â»â€¢i tÃ¡Â»â€˜c Ã„â€˜Ã¡Â»â„¢ audio. TrÃ¡ÂºÂ£ vÃ¡Â»Â True nÃ¡ÂºÂ¿u thÃƒÂ nh cÃƒÂ´ng."""
     if speed == 1.0:
         if input_path != output_path:
             shutil.copy2(input_path, output_path)
@@ -46,33 +46,33 @@ def adjust_audio_speed_ffmpeg(input_path: str, output_path: str, speed: float) -
 
 
 # ---------------------------------------------------------------------------
-# Thread-safe round-robin key rotator (chá»‰ dÃ¹ng cho FPT)
+# Thread-safe round-robin key rotator (chÃ¡Â»â€° dÃƒÂ¹ng cho FPT)
 # ---------------------------------------------------------------------------
 
 class FPTKeyRotator:
     """
-    PhÃ¢n phá»‘i API key theo round-robin, Ä‘áº£m báº£o má»—i thá»i Ä‘iá»ƒm
-    khÃ´ng cÃ³ 2 worker nÃ o Ä‘ang dÃ¹ng cÃ¹ng 1 key.
+    PhÃƒÂ¢n phÃ¡Â»â€˜i API key theo round-robin, Ã„â€˜Ã¡ÂºÂ£m bÃ¡ÂºÂ£o mÃ¡Â»â€”i thÃ¡Â»Âi Ã„â€˜iÃ¡Â»Æ’m
+    khÃƒÂ´ng cÃƒÂ³ 2 worker nÃƒÂ o Ã„â€˜ang dÃƒÂ¹ng cÃƒÂ¹ng 1 key.
     """
 
     def __init__(self):
         self._lock = threading.Lock()
         self._keys: list[str] = []
-        self._index: int = 0             # con trá» round-robin toÃ n cá»¥c
-        self._in_use: set[str] = set()   # key Ä‘ang bá»‹ 1 worker giá»¯
+        self._index: int = 0             # con trÃ¡Â»Â round-robin toÃƒÂ n cÃ¡Â»Â¥c
+        self._in_use: set[str] = set()   # key Ã„â€˜ang bÃ¡Â»â€¹ 1 worker giÃ¡Â»Â¯
 
     def load(self, keys: list[str]):
-        """Cáº­p nháº­t danh sÃ¡ch key (gá»i má»—i khi settings thay Ä‘á»•i)."""
+        """CÃ¡ÂºÂ­p nhÃ¡ÂºÂ­t danh sÃƒÂ¡ch key (gÃ¡Â»Âi mÃ¡Â»â€”i khi settings thay Ã„â€˜Ã¡Â»â€¢i)."""
         with self._lock:
             self._keys = list(keys)
             self._index = 0
-            # XÃ³a nhá»¯ng key Ä‘Ã£ bá»‹ gá»¡ khá»i danh sÃ¡ch in_use
+            # XÃƒÂ³a nhÃ¡Â»Â¯ng key Ã„â€˜ÃƒÂ£ bÃ¡Â»â€¹ gÃ¡Â»Â¡ khÃ¡Â»Âi danh sÃƒÂ¡ch in_use
             self._in_use = {k for k in self._in_use if k in self._keys}
 
     def acquire(self) -> str | None:
         """
-        Láº¥y key tiáº¿p theo theo round-robin mÃ  chÆ°a bá»‹ worker nÃ o giá»¯.
-        Tráº£ vá» None náº¿u khÃ´ng cÃ³ key kháº£ dá»¥ng.
+        LÃ¡ÂºÂ¥y key tiÃ¡ÂºÂ¿p theo theo round-robin mÃƒÂ  chÃ†Â°a bÃ¡Â»â€¹ worker nÃƒÂ o giÃ¡Â»Â¯.
+        TrÃ¡ÂºÂ£ vÃ¡Â»Â None nÃ¡ÂºÂ¿u khÃƒÂ´ng cÃƒÂ³ key khÃ¡ÂºÂ£ dÃ¡Â»Â¥ng.
         """
         with self._lock:
             n = len(self._keys)
@@ -84,18 +84,18 @@ class FPTKeyRotator:
                 if key not in self._in_use:
                     self._in_use.add(key)
                     return key
-            # Táº¥t cáº£ key Ä‘ang bá»‹ giá»¯ â€” fallback: tráº£ vá» key round-robin báº¥t ká»³
+            # TÃ¡ÂºÂ¥t cÃ¡ÂºÂ£ key Ã„â€˜ang bÃ¡Â»â€¹ giÃ¡Â»Â¯ Ã¢â‚¬â€ fallback: trÃ¡ÂºÂ£ vÃ¡Â»Â key round-robin bÃ¡ÂºÂ¥t kÃ¡Â»Â³
             key = self._keys[self._index % n]
             self._index = (self._index + 1) % n
             return key
 
     def release(self, key: str):
-        """Giáº£i phÃ³ng key sau khi worker hoÃ n thÃ nh task."""
+        """GiÃ¡ÂºÂ£i phÃƒÂ³ng key sau khi worker hoÃƒÂ n thÃƒÂ nh task."""
         with self._lock:
             self._in_use.discard(key)
 
     def clear_in_use(self):
-        """Giáº£i phÃ³ng Táº¤T Cáº¢ key Ä‘ang bá»‹ giá»¯ (gá»i khi reset-stuck)."""
+        """GiÃ¡ÂºÂ£i phÃƒÂ³ng TÃ¡ÂºÂ¤T CÃ¡ÂºÂ¢ key Ã„â€˜ang bÃ¡Â»â€¹ giÃ¡Â»Â¯ (gÃ¡Â»Âi khi reset-stuck)."""
         with self._lock:
             released = set(self._in_use)
             self._in_use.clear()
@@ -111,10 +111,10 @@ class FPTKeyRotator:
             return len(self._in_use)
 
 
-# Singleton rotator â€“ Ä‘Æ°á»£c chia sáº» bá»Ÿi táº¥t cáº£ workers
+# Singleton rotator Ã¢â‚¬â€œ Ã„â€˜Ã†Â°Ã¡Â»Â£c chia sÃ¡ÂºÂ» bÃ¡Â»Å¸i tÃ¡ÂºÂ¥t cÃ¡ÂºÂ£ workers
 fpt_key_rotator = FPTKeyRotator()
 
-# Semaphore giá»›i háº¡n sá»‘ lÆ°á»£ng request Ä‘á»“ng thá»i Ä‘áº¿n Self-hosted provider
+# Semaphore giÃ¡Â»â€ºi hÃ¡ÂºÂ¡n sÃ¡Â»â€˜ lÃ†Â°Ã¡Â»Â£ng request Ã„â€˜Ã¡Â»â€œng thÃ¡Â»Âi Ã„â€˜Ã¡ÂºÂ¿n Self-hosted provider
 self_hosted_semaphore = threading.Semaphore(2)
 
 
@@ -142,8 +142,8 @@ def _chunk_text_fpt(text: str, max_len: int = 200) -> list:
 
 def process_fpt_tts(text: str, output_path: str, voice: str, speed: float, keys: list) -> bool:
     """
-    Xá»­ lÃ½ TTS vá»›i FPT AI. Thá»­ tá»«ng key theo thá»© tá»± keys Ä‘Æ°á»£c truyá»n vÃ o.
-    HÃ m nÃ y dÃ¹ng cho test-voice (khÃ´ng cáº§n rotator).
+    XÃ¡Â»Â­ lÃƒÂ½ TTS vÃ¡Â»â€ºi FPT AI. ThÃ¡Â»Â­ tÃ¡Â»Â«ng key theo thÃ¡Â»Â© tÃ¡Â»Â± keys Ã„â€˜Ã†Â°Ã¡Â»Â£c truyÃ¡Â»Ân vÃƒÂ o.
+    HÃƒÂ m nÃƒÂ y dÃƒÂ¹ng cho test-voice (khÃƒÂ´ng cÃ¡ÂºÂ§n rotator).
     """
     if not keys:
         print("No FPT API keys provided.")
@@ -229,8 +229,8 @@ def _process_fpt_tts_with_rotator(
     worker_name: str = "Worker"
 ) -> bool:
     """
-    PhiÃªn báº£n dÃ¹ng cho worker â€” láº¥y key qua rotator, tá»± Ä‘á»™ng fallback sang key khÃ¡c náº¿u lá»—i.
-    Log chi tiáº¿t tá»«ng bÆ°á»›c: key, HTTP status, async polling, káº¿t quáº£.
+    PhiÃƒÂªn bÃ¡ÂºÂ£n dÃƒÂ¹ng cho worker Ã¢â‚¬â€ lÃ¡ÂºÂ¥y key qua rotator, tÃ¡Â»Â± Ã„â€˜Ã¡Â»â„¢ng fallback sang key khÃƒÂ¡c nÃ¡ÂºÂ¿u lÃ¡Â»â€”i.
+    Log chi tiÃ¡ÂºÂ¿t tÃ¡Â»Â«ng bÃ†Â°Ã¡Â»â€ºc: key, HTTP status, async polling, kÃ¡ÂºÂ¿t quÃ¡ÂºÂ£.
     """
     import tempfile
 
@@ -239,16 +239,16 @@ def _process_fpt_tts_with_rotator(
         print(f"[{worker_name}] FPT: No API keys in rotator.")
         return False
 
-    # Láº¥y key Æ°u tiÃªn (round-robin, khÃ´ng trÃ¹ng worker khÃ¡c náº¿u cÃ³ thá»ƒ)
+    # LÃ¡ÂºÂ¥y key Ã†Â°u tiÃƒÂªn (round-robin, khÃƒÂ´ng trÃƒÂ¹ng worker khÃƒÂ¡c nÃ¡ÂºÂ¿u cÃƒÂ³ thÃ¡Â»Æ’)
     primary_key = rotator.acquire()
     if not primary_key:
         print(f"[{worker_name}] FPT: Could not acquire key from rotator.")
         return False
 
-    key_label = f"...{primary_key[-6:]}"  # chá»‰ hiá»‡n 6 kÃ½ tá»± cuá»‘i Ä‘á»ƒ báº£o máº­t
+    key_label = f"...{primary_key[-6:]}"  # chÃ¡Â»â€° hiÃ¡Â»â€¡n 6 kÃƒÂ½ tÃ¡Â»Â± cuÃ¡Â»â€˜i Ã„â€˜Ã¡Â»Æ’ bÃ¡ÂºÂ£o mÃ¡ÂºÂ­t
     print(f"[{worker_name}] FPT: acquired key {key_label} (pool={len(all_keys)} keys)")
 
-    # Thá»© tá»± thá»­: primary_key trÆ°á»›c, rá»“i cÃ¡c key cÃ²n láº¡i
+    # ThÃ¡Â»Â© tÃ¡Â»Â± thÃ¡Â»Â­: primary_key trÃ†Â°Ã¡Â»â€ºc, rÃ¡Â»â€œi cÃƒÂ¡c key cÃƒÂ²n lÃ¡ÂºÂ¡i
     keys_to_try = [primary_key] + [k for k in all_keys if k != primary_key]
 
     chunks = _chunk_text_fpt(text, 200)
@@ -266,7 +266,7 @@ def _process_fpt_tts_with_rotator(
             for key in keys_to_try:
                 key_tag = f"...{key[-6:]}"
                 try:
-                    print(f"[{worker_name}] FPT {chunk_label}: POST â†’ key={key_tag}")
+                    print(f"[{worker_name}] FPT {chunk_label}: POST Ã¢â€ â€™ key={key_tag}")
                     res = requests.post(
                         "https://api.fpt.ai/hmi/tts/v5",
                         headers={
@@ -292,10 +292,10 @@ def _process_fpt_tts_with_rotator(
                                 time.sleep(2)
                                 audio_res = requests.get(async_url, timeout=15)
                                 content_type = audio_res.headers.get('content-type', '')
-                                print(f"[{worker_name}] FPT {chunk_label}: poll #{poll_attempt+1} â†’ HTTP {audio_res.status_code}, content-type={content_type[:40]}")
+                                print(f"[{worker_name}] FPT {chunk_label}: poll #{poll_attempt+1} Ã¢â€ â€™ HTTP {audio_res.status_code}, content-type={content_type[:40]}")
 
                                 if audio_res.status_code == 404:
-                                    print(f"[{worker_name}] FPT {chunk_label}: âœ— HTTP 404 (Job expired/lost). Retrying with next key...")
+                                    print(f"[{worker_name}] FPT {chunk_label}: Ã¢Å“â€” HTTP 404 (Job expired/lost). Retrying with next key...")
                                     break
 
                                 if audio_res.status_code == 200 and 'json' not in content_type.lower():
@@ -305,20 +305,20 @@ def _process_fpt_tts_with_rotator(
                                         f.write(audio_res.content)
                                     chunk_files.append(temp_file)
                                     chunk_success = True
-                                    print(f"[{worker_name}] FPT {chunk_label}: âœ“ audio ready ({len(audio_res.content)} bytes)")
+                                    print(f"[{worker_name}] FPT {chunk_label}: Ã¢Å“â€œ audio ready ({len(audio_res.content)} bytes)")
                                     break
                             else:
-                                print(f"[{worker_name}] FPT {chunk_label}: âœ— polling timeout (30 attempts)")
+                                print(f"[{worker_name}] FPT {chunk_label}: Ã¢Å“â€” polling timeout (30 attempts)")
                         else:
-                            print(f"[{worker_name}] FPT {chunk_label}: âœ— bad response body: {str(data)[:120]}")
+                            print(f"[{worker_name}] FPT {chunk_label}: Ã¢Å“â€” bad response body: {str(data)[:120]}")
                     else:
-                        print(f"[{worker_name}] FPT {chunk_label}: âœ— HTTP error body: {res.text[:120]}")
+                        print(f"[{worker_name}] FPT {chunk_label}: Ã¢Å“â€” HTTP error body: {res.text[:120]}")
 
                     if chunk_success:
                         break
 
                 except Exception as e:
-                    print(f"[{worker_name}] FPT {chunk_label}: âœ— exception key={key_tag}: {e}")
+                    print(f"[{worker_name}] FPT {chunk_label}: Ã¢Å“â€” exception key={key_tag}: {e}")
                     continue
 
             if not chunk_success:
@@ -332,7 +332,7 @@ def _process_fpt_tts_with_rotator(
                     for temp_file in chunk_files:
                         with open(temp_file, "rb") as f_in:
                             f_out.write(f_in.read())
-                print(f"[{worker_name}] FPT: all {total_chunks} chunk(s) merged â†’ {output_path}")
+                print(f"[{worker_name}] FPT: all {total_chunks} chunk(s) merged Ã¢â€ â€™ {output_path}")
             except Exception as e:
                 print(f"[{worker_name}] FPT: merge error: {e}")
                 success_all = False
@@ -355,7 +355,7 @@ def _process_fpt_tts_with_rotator(
 LAST_SELF_HOSTED_SEED = None
 
 def process_self_hosted_tts(text: str, output_path: str, voice: str, url: str, seed_val: int = None, keep_voice_val: bool = False, worker_name: str = "Backend") -> bool:
-    """Xá»­ lÃ½ TTS vá»›i Self-hosted OmniVoice, cÃ³ chia nhá»  vÄƒn báº£n Ä‘á»ƒ trÃ¡nh timeout."""
+    """XÃ¡Â»Â­ lÃƒÂ½ TTS vÃ¡Â»â€ºi Self-hosted OmniVoice, cÃƒÂ³ chia nhÃ¡Â»  vÃ„Æ’n bÃ¡ÂºÂ£n Ã„â€˜Ã¡Â»Æ’ trÃƒÂ¡nh timeout."""
     global LAST_SELF_HOSTED_SEED
     if seed_val is None:
         import random
@@ -390,7 +390,7 @@ def process_self_hosted_tts(text: str, output_path: str, voice: str, url: str, s
                     with open(temp_file_path, "wb") as f:
                         f.write(res.content)
                     chunk_files.append(temp_file_path)
-                    break  # ThÃ nh cÃ´ng, thoÃ¡t vÃ²ng láº·p retry
+                    break  # ThÃƒÂ nh cÃƒÂ´ng, thoÃƒÂ¡t vÃƒÂ²ng lÃ¡ÂºÂ·p retry
                 else:
                     if attempt == max_chunk_retries - 1:
                         success_all = False
@@ -466,7 +466,7 @@ class QueueManager:
 
     def start(self):
         if not self.is_running:
-            # Load max_workers tá»« DB (náº¿u cÃ³) â€” trÃ¡nh reset vá» default khi restart
+            # Load max_workers tÃ¡Â»Â« DB (nÃ¡ÂºÂ¿u cÃƒÂ³) Ã¢â‚¬â€ trÃƒÂ¡nh reset vÃ¡Â»Â default khi restart
             try:
                 db = SessionLocal()
                 setting = db.query(Settings).filter(Settings.key == "max_workers").first()
@@ -477,7 +477,7 @@ class QueueManager:
             except Exception as e:
                 print(f"QueueManager: Could not load max_workers from DB: {e}")
 
-            # Load FPT keys vÃ o rotator
+            # Load FPT keys vÃƒÂ o rotator
             try:
                 db = SessionLocal()
                 keys_setting = db.query(Settings).filter(Settings.key == "fpt_api_keys").first()
@@ -493,7 +493,7 @@ class QueueManager:
             except Exception as e:
                 print(f"QueueManager: Could not load FPT keys: {e}")
 
-            # Reset task bá»‹ káº¹t á»Ÿ "Processing" (do server restart giá»¯a chá»«ng)
+            # Reset task bÃ¡Â»â€¹ kÃ¡ÂºÂ¹t Ã¡Â»Å¸ "Processing" (do server restart giÃ¡Â»Â¯a chÃ¡Â»Â«ng)
             try:
                 db = SessionLocal()
                 stuck = db.query(FileTask).filter(FileTask.status == "Processing").all()
@@ -501,7 +501,7 @@ class QueueManager:
                     for t in stuck:
                         t.status = "Pending"
                     db.commit()
-                    print(f"QueueManager: reset {len(stuck)} stuck 'Processing' task(s) â†’ 'Pending'.")
+                    print(f"QueueManager: reset {len(stuck)} stuck 'Processing' task(s) Ã¢â€ â€™ 'Pending'.")
                 db.close()
             except Exception as e:
                 print(f"QueueManager: Could not reset stuck tasks: {e}")
@@ -522,7 +522,7 @@ class QueueManager:
         print("QueueManager stopped.")
 
     def ensure_workers(self):
-        """Äáº£m báº£o Ä‘á»§ sá»‘ worker Ä‘ang cháº¡y. Tá»± Ä‘á»™ng restart náº¿u thread cháº¿t."""
+        """Ã„ÂÃ¡ÂºÂ£m bÃ¡ÂºÂ£o Ã„â€˜Ã¡Â»Â§ sÃ¡Â»â€˜ worker Ã„â€˜ang chÃ¡ÂºÂ¡y. TÃ¡Â»Â± Ã„â€˜Ã¡Â»â„¢ng restart nÃ¡ÂºÂ¿u thread chÃ¡ÂºÂ¿t."""
         with self.db_lock:
             alive = [t for t in self.threads if t.is_alive()]
             self.threads = alive
@@ -536,7 +536,7 @@ class QueueManager:
         return needed
 
     def status(self):
-        """Tráº£ vá» tráº¡ng thÃ¡i hiá»‡n táº¡i cá»§a queue manager."""
+        """TrÃ¡ÂºÂ£ vÃ¡Â»Â trÃ¡ÂºÂ¡ng thÃƒÂ¡i hiÃ¡Â»â€¡n tÃ¡ÂºÂ¡i cÃ¡Â»Â§a queue manager."""
         alive = [t for t in self.threads if t.is_alive()]
         return {
             "is_running": self.is_running,
@@ -555,7 +555,7 @@ class QueueManager:
         worker_name = threading.current_thread().name
         print(f"[{worker_name}] started.")
         while self.is_running:
-            # --- BÆ°á»›c 1: dá»n dead threads, kiá»ƒm tra xem mÃ¬nh cÃ³ thá»«a khÃ´ng ---
+            # --- BÃ†Â°Ã¡Â»â€ºc 1: dÃ¡Â»Ân dead threads, kiÃ¡Â»Æ’m tra xem mÃƒÂ¬nh cÃƒÂ³ thÃ¡Â»Â«a khÃƒÂ´ng ---
             with self.db_lock:
                 self.threads = [t for t in self.threads if t.is_alive()]
                 if len(self.threads) > self.max_workers:
@@ -570,7 +570,7 @@ class QueueManager:
 
             db = SessionLocal()
             try:
-                # --- BÆ°á»›c 2: láº¥y 1 task (critical section ngáº¯n gá»n) ---
+                # --- BÃ†Â°Ã¡Â»â€ºc 2: lÃ¡ÂºÂ¥y 1 task (critical section ngÃ¡ÂºÂ¯n gÃ¡Â»Ân) ---
                 task = None
                 task_id = None
                 task_file_name = None
@@ -622,7 +622,7 @@ class QueueManager:
 
                 print(f"[{worker_name}] processing task {task_id}: {task_file_name}")
 
-                # Fresh query Ä‘á»ƒ láº¥y job data (trÃ¡nh lazy-load session expire)
+                # Fresh query Ã„â€˜Ã¡Â»Æ’ lÃ¡ÂºÂ¥y job data (trÃƒÂ¡nh lazy-load session expire)
                 job = db.query(BatchJob).filter(BatchJob.id == task_job_id).first()
                 if not job:
                     print(f"[{worker_name}] job not found for task {task_id}, skip.")
@@ -671,7 +671,7 @@ class QueueManager:
                                     text, output_path, job.voice, model_name=model_name
                                 )
                             elif job_provider == "fpt":
-                                # Reload keys vÃ o rotator náº¿u cáº§n
+                                # Reload keys vÃƒÂ o rotator nÃ¡ÂºÂ¿u cÃ¡ÂºÂ§n
                                 if len(fpt_key_rotator.all_keys()) == 0:
                                     setting_keys = db.query(Settings).filter(Settings.key == "fpt_api_keys").first()
                                     if setting_keys and setting_keys.value:
@@ -749,7 +749,7 @@ class QueueManager:
                                 self.is_paused = True
                                 final_status = "Pending"
                                 final_error = "Paused due to API Key/Quota limit."
-                                print(f"[{worker_name}] API quota/key error â†’ queue paused: {e}")
+                                print(f"[{worker_name}] API quota/key error Ã¢â€ â€™ queue paused: {e}")
                                 break
                             else:
                                 if attempt == max_retries - 1:
@@ -765,29 +765,29 @@ class QueueManager:
                     final_error = str(e)
                     print(f"[{worker_name}] task {task_id} outer error: {e}")
 
-                # --- BÆ°á»›c 4: lÆ°u káº¿t quáº£ ---
-                # OWNERSHIP CHECK: kiá»ƒm tra task cÃ³ cÃ²n thuá»™c vá» worker nÃ y khÃ´ng
-                # (reset-stuck cÃ³ thá»ƒ Ä‘Ã£ set láº¡i task â†’ Pending trong khi worker Ä‘ang poll FPT)
+                # --- BÃ†Â°Ã¡Â»â€ºc 4: lÃ†Â°u kÃ¡ÂºÂ¿t quÃ¡ÂºÂ£ ---
+                # OWNERSHIP CHECK: kiÃ¡Â»Æ’m tra task cÃƒÂ³ cÃƒÂ²n thuÃ¡Â»â„¢c vÃ¡Â»Â worker nÃƒÂ y khÃƒÂ´ng
+                # (reset-stuck cÃƒÂ³ thÃ¡Â»Æ’ Ã„â€˜ÃƒÂ£ set lÃ¡ÂºÂ¡i task Ã¢â€ â€™ Pending trong khi worker Ã„â€˜ang poll FPT)
                 try:
                     task_obj = db.query(FileTask).filter(FileTask.id == task_id).first()
                     if not task_obj:
                         print(f"[{worker_name}] task {task_id} not found, discarding result.")
                     elif task_obj.status == "Pending":
-                        # Task Ä‘Ã£ bá»‹ reset bá»Ÿi reset-stuck â€” KHÃ”NG ghi Ä‘Ã¨, Ä‘á»ƒ worker khÃ¡c pickup
+                        # Task Ã„â€˜ÃƒÂ£ bÃ¡Â»â€¹ reset bÃ¡Â»Å¸i reset-stuck Ã¢â‚¬â€ KHÃƒâ€NG ghi Ã„â€˜ÃƒÂ¨, Ã„â€˜Ã¡Â»Æ’ worker khÃƒÂ¡c pickup
                         print(f"[{worker_name}] task {task_id} was reset to Pending by reset-stuck, discarding result.")
                     else:
-                        # task váº«n á»Ÿ Processing â†’ Ä‘Ã¢y váº«n lÃ  cá»§a mÃ¬nh, lÆ°u bÃ¬nh thÆ°á»ng
+                        # task vÃ¡ÂºÂ«n Ã¡Â»Å¸ Processing Ã¢â€ â€™ Ã„â€˜ÃƒÂ¢y vÃ¡ÂºÂ«n lÃƒÂ  cÃ¡Â»Â§a mÃƒÂ¬nh, lÃ†Â°u bÃƒÂ¬nh thÃ†Â°Ã¡Â»Âng
                         task_obj.status = final_status
                         task_obj.error_message = final_error
                         if final_output:
                             task_obj.output_path = final_output
                         db.commit()
-                        print(f"[{worker_name}] task {task_id} saved â†’ {final_status}")
+                        print(f"[{worker_name}] task {task_id} saved Ã¢â€ â€™ {final_status}")
                 except Exception as e:
                     print(f"[{worker_name}] DB commit error for task {task_id}: {e}")
 
 
-                # --- BÆ°á»›c 5: kiá»ƒm tra job hoÃ n thÃ nh ---
+                # --- BÃ†Â°Ã¡Â»â€ºc 5: kiÃ¡Â»Æ’m tra job hoÃƒÂ n thÃƒÂ nh ---
                 try:
                     pending_count = db.query(FileTask).filter(
                         FileTask.job_id == task_job_id,
@@ -823,13 +823,13 @@ class QueueManager:
                                             output_wav.setparams(params)
                                             for d in data:
                                                 output_wav.writeframes(d)
-                                        print(f"[{worker_name}] joined DOCX audio â†’ {job_obj.final_output_path}")
+                                        print(f"[{worker_name}] joined DOCX audio Ã¢â€ â€™ {job_obj.final_output_path}")
                                         try:
                                             register_audio_file(job_obj.final_output_path, file_name=os.path.basename(job_obj.final_output_path), db=db)
                                         except Exception as upload_error:
                                             print(f"[{worker_name}] storage register error for DOCX output: {upload_error}")
 
-                                        # Điều chỉnh tốc độ audio nếu cần
+                                        # Äiá»u chá»‰nh tá»‘c Ä‘á»™ audio náº¿u cáº§n
                                         setting_speed = None
                                         if job_obj.owner_id:
                                             setting_speed = db.query(Settings).filter(Settings.key == f"{job_obj.owner_id}_output_speed").first()
@@ -866,4 +866,49 @@ class QueueManager:
 queue_manager = QueueManager()
 
 
+# ---------------------------------------------------------------------------
+# Session cache cleaner – runs every 60 minutes in a background thread.
+# Removes session folders under cache/sessions/ that are older than 60 mins.
+# Folders modified within the last 60 mins are left untouched.
+# ---------------------------------------------------------------------------
 
+CACHE_SESSIONS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache", "sessions")
+CACHE_MAX_AGE_SECS = 60 * 60   # 60 minutes
+CACHE_CHECK_INTERVAL_SECS = 60 * 60  # run cleanup every 60 minutes
+
+def _cleanup_old_sessions():
+    """Delete session folders older than CACHE_MAX_AGE_SECS."""
+    if not os.path.isdir(CACHE_SESSIONS_DIR):
+        return
+    now = time.time()
+    removed = 0
+    for entry in os.scandir(CACHE_SESSIONS_DIR):
+        if not entry.is_dir():
+            continue
+        try:
+            age = now - entry.stat().st_mtime
+            if age > CACHE_MAX_AGE_SECS:
+                shutil.rmtree(entry.path, ignore_errors=True)
+                removed += 1
+                print(f"[CacheClean] Removed old session: {entry.name} (age {int(age)}s)")
+        except Exception as exc:
+            print(f"[CacheClean] Error checking {entry.name}: {exc}")
+    if removed:
+        print(f"[CacheClean] Cleaned {removed} session(s).")
+    else:
+        print("[CacheClean] No expired sessions found.")
+
+def _session_cleaner_loop():
+    """Background loop: wait CACHE_CHECK_INTERVAL_SECS, then clean, repeat."""
+    while True:
+        time.sleep(CACHE_CHECK_INTERVAL_SECS)
+        try:
+            _cleanup_old_sessions()
+        except Exception as exc:
+            print(f"[CacheClean] Unexpected error: {exc}")
+
+def start_session_cleaner():
+    """Spawn the daemon cleaner thread (call once from app startup)."""
+    t = threading.Thread(target=_session_cleaner_loop, daemon=True, name="SessionCacheCleaner")
+    t.start()
+    print(f"[CacheClean] Started – will clean sessions older than {CACHE_MAX_AGE_SECS//60} min every {CACHE_CHECK_INTERVAL_SECS//60} min.")

@@ -33,11 +33,12 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    workspace = models.Workspace(user_id=user.id, name=(req.full_name or email.split('@')[0]), slug=f"ws-{user.id}")
+    _ts = int(time.time())
+    workspace = models.Workspace(user_id=user.id, name=f"{req.full_name or email.split('@')[0]}-{_ts}", slug=f"ws-{user.id}-{_ts}")
     db.add(workspace)
     db.commit()
     token = create_jwt({"sub": str(user.id), "email": user.email, "role": user.role, "workspace_id": workspace.id})
-    return {"token": token, "user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role, "workspace_id": workspace.id}}
+    return {"token": token, "user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role, "workspace_id": workspace.id, "workspace_name": workspace.name, "workspace_slug": workspace.slug}}
 
 
 
@@ -49,12 +50,13 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     workspace = db.query(models.Workspace).filter(models.Workspace.user_id == user.id).first()
     if not workspace:
-        workspace = models.Workspace(user_id=user.id, name=user.full_name or email.split('@')[0], slug=f"ws-{user.id}")
+        _ts = int(time.time())
+        workspace = models.Workspace(user_id=user.id, name=f"{user.full_name or email.split('@')[0]}-{_ts}", slug=f"ws-{user.id}-{_ts}")
         db.add(workspace)
         db.commit()
         db.refresh(workspace)
     token = create_jwt({"sub": str(user.id), "email": user.email, "role": user.role, "workspace_id": workspace.id})
-    return {"token": token, "user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role, "workspace_id": workspace.id}}
+    return {"token": token, "user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role, "workspace_id": workspace.id, "workspace_name": workspace.name, "workspace_slug": workspace.slug}}
 
 @router.post("/api/auth/google")
 def google_auth(req: GoogleLoginRequest, db: Session = Depends(get_db)):
@@ -100,7 +102,8 @@ def google_auth(req: GoogleLoginRequest, db: Session = Depends(get_db)):
     # Get or create workspace
     workspace = db.query(models.Workspace).filter(models.Workspace.user_id == user.id).first()
     if not workspace:
-        workspace = models.Workspace(user_id=user.id, name=user.full_name or email.split('@')[0], slug=f"ws-{user.id}")
+        _ts = int(time.time())
+        workspace = models.Workspace(user_id=user.id, name=f"{user.full_name or email.split('@')[0]}-{_ts}", slug=f"ws-{user.id}-{_ts}")
         db.add(workspace)
         db.commit()
         db.refresh(workspace)
@@ -114,7 +117,9 @@ def google_auth(req: GoogleLoginRequest, db: Session = Depends(get_db)):
             "email": user.email,
             "full_name": user.full_name,
             "role": user.role,
-            "workspace_id": workspace.id
+            "workspace_id": workspace.id,
+            "workspace_name": workspace.name,
+            "workspace_slug": workspace.slug,
         }
     }
 
@@ -142,5 +147,5 @@ def me(request: Request, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
     workspace = db.query(models.Workspace).filter(models.Workspace.user_id == user.id).first()
-    return {"user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role, "workspace_id": workspace.id if workspace else None}}
+    return {"user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role, "workspace_id": workspace.id if workspace else None, "workspace_name": workspace.name if workspace else None, "workspace_slug": workspace.slug if workspace else None}}
 
