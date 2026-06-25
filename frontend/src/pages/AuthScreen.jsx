@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import Button from '../components/Button';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -70,7 +70,7 @@ export default function AuthScreen({
         </div>
 
         <h1 className="auth-heading">
-          {authMode === 'login' ? t('auth.title') : t('auth.createTitle', 'Create your account')}
+          {t('auth.title')}
         </h1>
         <p className="auth-subheading">{t('auth.subtitle')}</p>
 
@@ -98,20 +98,6 @@ export default function AuthScreen({
             />
           </div>
 
-          {authMode === 'register' && (
-            <div className="auth-field-group">
-              <label className="auth-label">{t('auth.fullName')}</label>
-              <input
-                className="auth-input"
-                type="text"
-                value={authName}
-                onChange={e => setAuthName(e.target.value)}
-                placeholder="Your full name"
-                autoComplete="name"
-              />
-            </div>
-          )}
-
           <div className="auth-field-group">
             <label className="auth-label">{t('auth.password')}</label>
             <input
@@ -120,7 +106,7 @@ export default function AuthScreen({
               value={authPassword}
               onChange={e => setAuthPassword(e.target.value)}
               placeholder="••••••••"
-              autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
+              autoComplete="current-password"
             />
           </div>
 
@@ -132,20 +118,10 @@ export default function AuthScreen({
           )}
 
           <Button className="btn auth-submit-btn" onClick={onSubmit} isLoading={authLoading}>
-            {authLoading
-              ? t('auth.loading')
-              : authMode === 'register'
-                ? t('auth.createAccount')
-                : t('auth.signIn')}
+            {authLoading ? t('auth.loading') : t('auth.signIn')}
           </Button>
         </div>
 
-        <button
-          className="auth-switch-btn"
-          onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
-        >
-          {authMode === 'login' ? t('auth.needAccount') : t('auth.haveAccount')}
-        </button>
       </section>
     </div>
   );
