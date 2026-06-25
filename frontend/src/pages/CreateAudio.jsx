@@ -25,7 +25,8 @@ export default function CreateAudio({ t, text, setText, voice, setVoice, createV
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         voice: voiceType,
-        seed: seed || ''
+        seed: seed || '',
+        text: text
       })
     }).catch(err => console.error("Warmup API error:", err));
   }

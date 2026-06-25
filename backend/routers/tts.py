@@ -372,7 +372,7 @@ def warmup_self_hosted_voice(req: WarmupRequest, background_tasks: BackgroundTas
             os.close(fd)
             try:
                 process_self_hosted_tts(
-                    text="warmup",
+                    text=req.text,
                     output_path=tmp,
                     voice=cleaned_voice,
                     url=url,

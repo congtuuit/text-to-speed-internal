@@ -68,6 +68,7 @@ class CheckConnectionRequest(BaseModel):
 
 class WarmupRequest(BaseModel):
     voice: str
+    text: str = "Xin chào, đây là giọng đọc thử."
     seed: str = ""
     self_hosted_url: str = "http://localhost:7860"
     keep_voice: str = "true"

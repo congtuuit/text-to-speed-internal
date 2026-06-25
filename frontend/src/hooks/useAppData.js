@@ -61,7 +61,7 @@ export function useAppData(authToken, t) {
     } catch (_) {}
   };
 
-  const handlePreviewVoice = async (voiceId, previewText, previewSpeed = 1.0, seed = "") => {
+  const handlePreviewVoice = async (voiceId, previewText, previewSpeed = 1.0, seed = "", keepVoice = "true") => {
     const isSample = !previewText || previewText === t('create.sample');
     const res = await fetch(`${API_BASE_URL}/api/test-voice`, {
       method: 'POST',
@@ -74,7 +74,7 @@ export function useAppData(authToken, t) {
         output_speed: Number(previewSpeed),
         seed: seed,
         is_sample: isSample,
-        keep_voice: "true"
+        keep_voice: keepVoice
       })
     });
     if (!res.ok) {

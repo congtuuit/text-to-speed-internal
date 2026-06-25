@@ -46,7 +46,7 @@
     "preview": "Nghe thử",
     "generate": "Tạo audio",
     "download": "Tải về",
-    "sample": "Xin chào, đây là bản đọc thử tiếng Việt cho sản phẩm TTS Studio.",
+    "sample": "Xin chào, đây là giọng đọc thử tiếng Việt.",
     "missingText": "Vui lòng nhập nội dung trước khi tạo audio.",
     "chooseVoice": "Chọn giọng đọc"
   },

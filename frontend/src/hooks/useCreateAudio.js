@@ -19,7 +19,7 @@ function splitText(text, maxLength = 150) {
 }
 
 export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
-  const [text, setText] = useState(t('create.sample'));
+  const [text, setText] = useState("Xin chào, đây là bản đọc thử tiếng Việt cho sản phẩm TTS Studio.");
   const [voice, setVoice] = useState('female');
   const [createVoiceSeed, setCreateVoiceSeed] = useState('');
   const [speed, setSpeed] = useState(1);
@@ -49,17 +49,17 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
         // Chunking
         const chunks = splitText(text, 150);
         setProgressState({ current: 0, total: chunks.length, merging: false });
-        
+
         const sessionId = Date.now().toString() + Math.random().toString(36).substring(7);
-        
+
         for (let i = 0; i < chunks.length; i++) {
           setProgressState({ current: i + 1, total: chunks.length, merging: false });
-          
+
           const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
           const token = localStorage.getItem('access_token');
           const headers = { 'Content-Type': 'application/json' };
           if (token) headers['Authorization'] = `Bearer ${token}`;
-          
+
           const res = await fetch(`${API_BASE_URL}/api/tts/chunk`, {
             method: 'POST',
             headers,
@@ -75,31 +75,31 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
               keep_voice: "true"
             })
           });
-          
+
           if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
             throw new Error(errData.detail || "Chunk failed to generate.");
           }
         }
-        
+
         // Merge
         setProgressState(prev => ({ ...prev, merging: true }));
         const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
         const token = localStorage.getItem('access_token');
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        
+
         const mergeRes = await fetch(`${API_BASE_URL}/api/tts/merge`, {
           method: 'POST',
           headers,
           body: JSON.stringify({ session_id: sessionId })
         });
-        
+
         if (!mergeRes.ok) throw new Error("Gộp audio thất bại.");
         const blob = await mergeRes.blob();
         setAudioUrl(URL.createObjectURL(blob));
       }
-      
+
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: t('common.success'), timer: 3000, showConfirmButton: false, background: '#1e293b', color: '#fff' });
     } catch (err) {
       Swal.fire({ icon: 'error', title: t('common.error'), text: err.message, background: '#1e293b', color: '#fff' });
