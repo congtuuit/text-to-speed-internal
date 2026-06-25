@@ -35,10 +35,11 @@ def shutdown_event():
     queue_manager.stop()
 
 # Import routers
-from routers import auth, tts, jobs, library, documents
+from routers import auth, tts, jobs, library, documents, admin
 
 app.include_router(auth.router)
 app.include_router(tts.router)
 app.include_router(jobs.router)
 app.include_router(library.router)
 app.include_router(documents.router)
+app.include_router(admin.router)

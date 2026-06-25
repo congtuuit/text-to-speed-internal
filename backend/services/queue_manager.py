@@ -578,9 +578,38 @@ class QueueManager:
                 task_job_id = None
 
                 with self.db_lock:
-                    task = db.query(FileTask).filter(FileTask.status == "Pending").first()
+                    from sqlalchemy import func
+                    # 1. Count active jobs per user
+                    active_job_counts = db.query(
+                        BatchJob.owner_id,
+                        func.count(BatchJob.id).label("count")
+                    ).filter(
+                        BatchJob.status == "Processing"
+                    ).group_by(
+                        BatchJob.owner_id
+                    ).all()
+
+                    # Find users who have reached the limit of 2 concurrent jobs
+                    MAX_CONCURRENT_JOBS = 2
+                    overlimit_users = [
+                        row.owner_id for row in active_job_counts
+                        if row.owner_id is not None and row.count >= MAX_CONCURRENT_JOBS
+                    ]
+
+                    # 2. Query pending tasks where the job owner is not overlimit
+                    query = db.query(FileTask).join(BatchJob)
+                    if overlimit_users:
+                        query = query.filter(BatchJob.owner_id.not_in(overlimit_users))
+
+                    task = query.filter(FileTask.status == "Pending").first()
+
                     if task:
                         task.status = "Processing"
+                        # Set job status to Processing if it's still Pending
+                        job_obj = db.query(BatchJob).filter(BatchJob.id == task.job_id).first()
+                        if job_obj and job_obj.status == "Pending":
+                            job_obj.status = "Processing"
+
                         db.commit()
                         task_id = task.id
                         task_file_name = task.file_name
