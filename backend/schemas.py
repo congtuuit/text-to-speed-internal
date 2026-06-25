@@ -66,6 +66,12 @@ class MergeSessionRequest(BaseModel):
 class CheckConnectionRequest(BaseModel):
     self_hosted_url: str
 
+class WarmupRequest(BaseModel):
+    voice: str
+    seed: str = ""
+    self_hosted_url: str = "http://localhost:7860"
+    keep_voice: str = "true"
+
 class SettingsRequest(BaseModel):
     api_key: str = ""
     model_name: str = ""

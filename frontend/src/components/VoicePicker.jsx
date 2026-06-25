@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Swal from 'sweetalert2'
+import { API_BASE_URL } from '../config'
 
 export default function VoicePicker({ voices, selectedId, onSelect, onPreview, t }) {
   const [previewingId, setPreviewingId] = useState(null)
@@ -19,6 +20,19 @@ export default function VoicePicker({ voices, selectedId, onSelect, onPreview, t
     }
   }
 
+  const handleSelect = (voiceId) => {
+    onSelect(voiceId);
+    // Call API to warmup voice in background
+    fetch(`${API_BASE_URL}/api/self-hosted/warmup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        voice: voiceId,
+        seed: ''
+      })
+    }).catch(err => console.error("Warmup API error:", err));
+  };
+
   return (
     <>
       <div className="voice-picker">
@@ -26,7 +40,7 @@ export default function VoicePicker({ voices, selectedId, onSelect, onPreview, t
           <div
             key={item.id}
             className={`voice-pick-row ${selectedId === item.id ? 'active' : ''}`}
-            onClick={() => onSelect(item.id)}
+            onClick={() => handleSelect(item.id)}
           >
             <span className="voice-pick-dot">{selectedId === item.id ? '●' : '○'}</span>
             <span className="voice-pick-name">{item.name}</span>

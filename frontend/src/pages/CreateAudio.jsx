@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Swal from 'sweetalert2'
 import PageHeader from '../components/PageHeader'
 import Button from '../components/Button'
+import { API_BASE_URL } from '../config'
 
 export default function CreateAudio({ t, text, setText, voice, setVoice, createVoiceSeed, setCreateVoiceSeed, speed, setSpeed, audioUrl, isGenerating, onGenerate, voices, savedVoices = [], onPreview, progressState }) {
   const [savedPreviewId, setSavedPreviewId] = useState(null)
@@ -10,6 +11,24 @@ export default function CreateAudio({ t, text, setText, voice, setVoice, createV
   const [showVoiceDialog, setShowVoiceDialog] = useState(false)
   const [dialogPreviewId, setDialogPreviewId] = useState(null)
   const [dialogPreviewUrl, setDialogPreviewUrl] = useState(null)
+
+  const handleSelectVoice = (voiceType, seed) => {
+    setVoice(voiceType);
+    setCreateVoiceSeed(seed || '');
+    setShowVoiceDialog(false);
+    setDialogPreviewUrl(null);
+    setDialogPreviewId(null);
+
+    // Call API to warmup voice in background
+    fetch(`${API_BASE_URL}/api/self-hosted/warmup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        voice: voiceType,
+        seed: seed || ''
+      })
+    }).catch(err => console.error("Warmup API error:", err));
+  }
 
   return (
     <>
@@ -70,7 +89,7 @@ export default function CreateAudio({ t, text, setText, voice, setVoice, createV
 
           {audioUrl && (
             <>
-              <audio controls src={audioUrl} />
+              <audio controls autoPlay src={audioUrl} key={audioUrl} />
               <a className="btn success" href={audioUrl} download="tts-preview.wav">{t('create.download')}</a>
             </>
           )}
@@ -102,7 +121,7 @@ export default function CreateAudio({ t, text, setText, voice, setVoice, createV
                     return (
                       <article
                         key={sv.id}
-                        onClick={() => { setVoice(sv.voice_type); setCreateVoiceSeed(sv.seed || ''); setShowVoiceDialog(false); setDialogPreviewUrl(null); setDialogPreviewId(null); }}
+                        onClick={() => handleSelectVoice(sv.voice_type, sv.seed)}
                         style={{ cursor: "pointer", border: isSelected ? "1px solid rgba(34, 211, 238, 0.85)" : "1px solid rgba(148, 163, 184, 0.18)", background: isSelected ? "rgba(34, 211, 238, 0.12)" : "rgba(15, 23, 42, 0.55)", borderRadius: "16px", padding: "0.9rem", display: "flex", alignItems: "center", gap: "0.75rem" }}
                       >
                         <span className="voice-pick-dot" style={{ color: isSelected ? "#22d3ee" : "#94a3b8" }}>{isSelected ? "●" : "○"}</span>
@@ -118,7 +137,7 @@ export default function CreateAudio({ t, text, setText, voice, setVoice, createV
                         >
                           {dialogPreviewId === sv.id ? "" : "▶"}
                         </Button>
-                        <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); setVoice(sv.voice_type); setCreateVoiceSeed(sv.seed || ''); setShowVoiceDialog(false); setDialogPreviewUrl(null); setDialogPreviewId(null); }}>
+                        <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); handleSelectVoice(sv.voice_type, sv.seed); }}>
                           {isSelected ? "✓" : t("voices.use")}
                         </button>
                       </article>

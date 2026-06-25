@@ -20,6 +20,23 @@ from services.tts_provider import TTSProvider
 from services.storage_service import get_storage_provider, delete_audio_file
 from auth import create_jwt, decode_jwt, hash_password, verify_password
 from services.docx_helper import split_docx_to_txt
+import hashlib
+
+def generate_customer_voice_params(seed_input: str, keep_voice_input: str, customer_prefix: str):
+    """
+    Đảm bảo tính nhất quán của giọng đọc (voice cache) cho từng khách hàng khi gọi Self-hosted TTS.
+    Sinh ra seed cố định dựa trên customer_prefix và bật keep_voice=True để request sau gọi lại đúng giọng đó.
+    """
+    seed_val = int(seed_input) if (seed_input and str(seed_input).strip()) else None
+    
+    if seed_val is None:
+        # Sinh seed duy nhất nhưng cố định theo khách hàng để gọi lại đúng cache voice cũ
+        seed_val = int(hashlib.md5(f"customer_{customer_prefix}".encode()).hexdigest(), 16) % 1000000000
+        keep_voice_val = True
+    else:
+        keep_voice_val = str(keep_voice_input).lower() == "true"
+        
+    return seed_val, keep_voice_val
 
 @router.post("/api/test-voice")
 def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
@@ -66,8 +83,7 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
             url = f"{req.self_hosted_url.rstrip('/')}/api/tts"
             
             # Parse seed and keep_voice parameters
-            seed_val = int(req.seed) if (req.seed and req.seed.strip()) else None
-            keep_voice_val = (req.keep_voice == "true")
+            seed_val, keep_voice_val = generate_customer_voice_params(req.seed, req.keep_voice, customer_prefix="test_voice")
             
             success = process_self_hosted_tts(
                 text=req.text,
@@ -149,13 +165,8 @@ def tts_chunk(req: ChunkSessionRequest, background_tasks: BackgroundTasks):
                 cleaned_voice = "female"
             url = f"{req.self_hosted_url.rstrip('/')}/api/tts"
             
-            seed_val = int(req.seed) if (req.seed and req.seed.strip()) else None
-            
-            if seed_val is None:
-                import hashlib
-                seed_val = int(hashlib.md5(f"session_seed_{req.session_id}".encode()).hexdigest(), 16) % 1000000000
+            seed_val, keep_voice_val = generate_customer_voice_params(req.seed, req.keep_voice, customer_prefix=req.session_id)
 
-            keep_voice_val = (req.keep_voice == "true")
             
             success = process_self_hosted_tts(
                 text=req.text,
@@ -340,6 +351,43 @@ def get_self_hosted_config(db: Session = Depends(get_db)):
         "seed": seed_setting.value if seed_setting else "",
         "keep_voice": keep_setting.value if keep_setting else "false"
     }
+
+
+@router.post("/api/self-hosted/warmup")
+def warmup_self_hosted_voice(req: WarmupRequest, background_tasks: BackgroundTasks):
+    def do_warmup():
+        try:
+            from services.queue_manager import process_self_hosted_tts
+            import tempfile
+            import os
+            cleaned_voice = req.voice
+            presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
+            if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
+                cleaned_voice = "female"
+            url = f"{req.self_hosted_url.rstrip('/')}/api/tts"
+            
+            seed_val, keep_voice_val = generate_customer_voice_params(req.seed, req.keep_voice, customer_prefix="test_voice")
+            
+            fd, tmp = tempfile.mkstemp(suffix=".wav")
+            os.close(fd)
+            try:
+                process_self_hosted_tts(
+                    text="warmup",
+                    output_path=tmp,
+                    voice=cleaned_voice,
+                    url=url,
+                    seed_val=seed_val,
+                    keep_voice_val=keep_voice_val,
+                    worker_name="WarmupVoice"
+                )
+            finally:
+                if os.path.exists(tmp):
+                    os.remove(tmp)
+        except Exception as e:
+            print(f"Warmup voice error: {e}")
+
+    background_tasks.add_task(do_warmup)
+    return {"status": "ok"}
 
 
 @router.post("/api/self-hosted/check-connection")
