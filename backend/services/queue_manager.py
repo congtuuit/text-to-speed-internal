@@ -669,13 +669,20 @@ class QueueManager:
                                 presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
                                 if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
                                     # Fallback to saved self_hosted_voice or default
-                                    setting_voice = db.query(Settings).filter(Settings.key == "self_hosted_voice").first()
+                                    setting_voice = None
+                                    if job.owner_id:
+                                        setting_voice = db.query(Settings).filter(Settings.key == f"{job.owner_id}_self_hosted_voice").first()
+                                    if not setting_voice:
+                                        setting_voice = db.query(Settings).filter(Settings.key == "self_hosted_voice").first()
                                     cleaned_voice = setting_voice.value if (setting_voice and setting_voice.value) else "female"
 
                                 # Read seed and keep_voice parameters from Settings DB
-                                setting_seed = db.query(Settings).filter(Settings.key == "self_hosted_seed").first()
+                                setting_seed = None
+                                if job.owner_id:
+                                    setting_seed = db.query(Settings).filter(Settings.key == f"{job.owner_id}_self_hosted_seed").first()
+                                if not setting_seed:
+                                    setting_seed = db.query(Settings).filter(Settings.key == "self_hosted_seed").first()
                                 seed_val = int(setting_seed.value) if (setting_seed and setting_seed.value and setting_seed.value.strip()) else None
-                                
                                 if seed_val is None:
                                     import hashlib
                                     seed_val = int(hashlib.md5(f"job_seed_{job.id}".encode()).hexdigest(), 16) % 1000000000
@@ -793,8 +800,12 @@ class QueueManager:
                                         except Exception as upload_error:
                                             print(f"[{worker_name}] storage register error for DOCX output: {upload_error}")
 
-                                        # Äiá»u chá»‰nh tá»‘c Ä‘á»™ audio náº¿u cáº§n
-                                        setting_speed = db.query(Settings).filter(Settings.key == "output_speed").first()
+                                        # Điều chỉnh tốc độ audio nếu cần
+                                        setting_speed = None
+                                        if job_obj.owner_id:
+                                            setting_speed = db.query(Settings).filter(Settings.key == f"{job_obj.owner_id}_output_speed").first()
+                                        if not setting_speed:
+                                            setting_speed = db.query(Settings).filter(Settings.key == "output_speed").first()
                                         output_speed = float(setting_speed.value) if setting_speed else 1.0
                                         if output_speed != 1.0:
                                             print(f"[{worker_name}] Adjusting speed to {output_speed}x using FFmpeg...")

@@ -19,6 +19,7 @@ from services.queue_manager import queue_manager, fpt_key_rotator, adjust_audio_
 from services.tts_provider import TTSProvider
 from services.storage_service import get_storage_provider, delete_audio_file
 from auth import create_jwt, decode_jwt, hash_password, verify_password
+from routers.auth import _current_user_from_request
 from services.docx_helper import split_docx_to_txt
 import hashlib
 
@@ -267,7 +268,12 @@ class SettingsRequest(BaseModel):
 
 
 @router.post("/api/settings")
-def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
+def update_settings(req: SettingsRequest, request: Request, db: Session = Depends(get_db)):
+    user = _current_user_from_request(request, db)
+    user_id = user.id if user else None
+
+    user_specific_keys = {"output_speed", "self_hosted_voice", "self_hosted_seed"}
+
     for k, v in [
         ("api_key", req.api_key),
         ("model_name", req.model_name),
@@ -281,9 +287,10 @@ def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
         ("self_hosted_keep_voice", req.self_hosted_keep_voice),
         ("output_speed", str(req.output_speed))
     ]:
-        setting = db.query(models.Settings).filter(models.Settings.key == k).first()
+        db_key = f"{user_id}_{k}" if (k in user_specific_keys and user_id) else k
+        setting = db.query(models.Settings).filter(models.Settings.key == db_key).first()
         if not setting:
-            setting = models.Settings(key=k, value=v)
+            setting = models.Settings(key=db_key, value=v, owner_id=user_id if k in user_specific_keys else None)
             db.add(setting)
         else:
             setting.value = v
@@ -306,7 +313,10 @@ def update_settings(req: SettingsRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/api/settings")
-def get_settings(db: Session = Depends(get_db)):
+def get_settings(request: Request, db: Session = Depends(get_db)):
+    user = _current_user_from_request(request, db)
+    user_id = user.id if user else None
+
     api_key_setting = db.query(models.Settings).filter(models.Settings.key == "api_key").first()
     model_name_setting = db.query(models.Settings).filter(models.Settings.key == "model_name").first()
     provider_setting = db.query(models.Settings).filter(models.Settings.key == "provider").first()
@@ -314,15 +324,25 @@ def get_settings(db: Session = Depends(get_db)):
     fpt_speed_setting = db.query(models.Settings).filter(models.Settings.key == "fpt_speed").first()
     max_workers_setting = db.query(models.Settings).filter(models.Settings.key == "max_workers").first()
     self_hosted_url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
-    self_hosted_voice_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_voice").first()
-    self_hosted_seed_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_seed").first()
     self_hosted_keep_voice_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_keep_voice").first()
-    output_speed_setting = db.query(models.Settings).filter(models.Settings.key == "output_speed").first()
+    
+    # Query user-specific settings first
+    def get_user_setting(key, fallback_val=""):
+        res = None
+        if user_id:
+            res = db.query(models.Settings).filter(models.Settings.key == f"{user_id}_{key}").first()
+        if not res:
+            res = db.query(models.Settings).filter(models.Settings.key == key).first()
+        return res.value if res else fallback_val
+    
+    self_hosted_voice_val = get_user_setting("self_hosted_voice", "female")
+    self_hosted_seed_val = get_user_setting("self_hosted_seed", "")
+    output_speed_val = float(get_user_setting("output_speed", "1.0"))
     
     provider_val = provider_setting.value if provider_setting else "self_hosted"
     if provider_val == "vieneu":
         provider_val = "self_hosted"
-        
+                
     return {
         "api_key": api_key_setting.value if api_key_setting else "",
         "model_name": model_name_setting.value if model_name_setting else "gemini-2.5-flash-preview-tts",
@@ -331,13 +351,11 @@ def get_settings(db: Session = Depends(get_db)):
         "fpt_speed": float(fpt_speed_setting.value) if fpt_speed_setting else 0.8,
         "max_workers": int(max_workers_setting.value) if max_workers_setting else 3,
         "self_hosted_url": self_hosted_url_setting.value if self_hosted_url_setting else "http://localhost:7860",
-        "self_hosted_voice": self_hosted_voice_setting.value if self_hosted_voice_setting else "female",
-        "self_hosted_seed": self_hosted_seed_setting.value if self_hosted_seed_setting else "",
+        "self_hosted_voice": self_hosted_voice_val,
+        "self_hosted_seed": self_hosted_seed_val,
         "self_hosted_keep_voice": self_hosted_keep_voice_setting.value if self_hosted_keep_voice_setting else "false",
-        "output_speed": float(output_speed_setting.value) if output_speed_setting else 1.0
+        "output_speed": output_speed_val
     }
-
-
 @router.get("/api/self-hosted/config")
 def get_self_hosted_config(db: Session = Depends(get_db)):
     url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
