@@ -1,9 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const NAV_ITEMS = ['dashboard', 'create', 'batch', 'voices', 'library', 'profile', 'admin'];
 
-export default function Sidebar({ t, i18n, onLogout, isOpen, onClose }) {
+export default function Sidebar({ t, i18n, onLogout, isOpen, onClose, currentUser }) {
   const navigate = useNavigate();
   const location = useLocation();
   const activePage = location.pathname === '/' ? 'dashboard' : location.pathname.slice(1);
@@ -12,6 +11,11 @@ export default function Sidebar({ t, i18n, onLogout, isOpen, onClose }) {
   useEffect(() => {
     if (onClose) onClose();
   }, [location.pathname]);
+
+  const navItems = ['dashboard', 'create', 'batch', 'voices', 'library', 'profile'];
+  if (currentUser?.role === 'admin') {
+    navItems.push('admin');
+  }
 
   return (
     <aside className={`saas-sidebar ${isOpen ? 'open' : ''}`}>
@@ -24,7 +28,7 @@ export default function Sidebar({ t, i18n, onLogout, isOpen, onClose }) {
         <button className="sidebar-close-btn" onClick={onClose} aria-label="Close sidebar">✕</button>
       </div>
       <nav className="saas-nav">
-        {NAV_ITEMS.map(item => (
+        {navItems.map(item => (
           <button key={item} className={activePage === item ? 'active' : ''} onClick={() => navigate('/' + item)}>
             {t(`nav.${item}`)}
           </button>

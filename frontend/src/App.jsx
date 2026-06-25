@@ -63,7 +63,7 @@ function App() {
         <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)} />
       )}
 
-      <Sidebar t={t} i18n={i18n} onLogout={handleLogout} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Sidebar t={t} i18n={i18n} onLogout={handleLogout} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentUser={currentUser} />
 
       <main className="saas-main">
         <Routes>
