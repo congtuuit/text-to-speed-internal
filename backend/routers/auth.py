@@ -56,6 +56,68 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
     token = create_jwt({"sub": str(user.id), "email": user.email, "role": user.role, "workspace_id": workspace.id})
     return {"token": token, "user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role, "workspace_id": workspace.id}}
 
+@router.post("/api/auth/google")
+def google_auth(req: GoogleLoginRequest, db: Session = Depends(get_db)):
+    import secrets
+    credential = req.credential
+    if not credential:
+        raise HTTPException(status_code=400, detail="Google credential token is required")
+    
+    # Verify Google token using tokeninfo API
+    try:
+        res = requests.get(f"https://oauth2.googleapis.com/tokeninfo?id_token={credential}", timeout=5)
+        if res.status_code != 200:
+            raise HTTPException(status_code=400, detail="Invalid Google token")
+        info = res.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to verify Google token: {str(e)}")
+    
+    # Validate payload details
+    email = info.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email not provided by Google account")
+        
+    email = email.strip().lower()
+    full_name = info.get("name") or email.split("@")[0]
+    
+    # Check if user already exists
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        # Create a new user with Google login
+        # Hash a secure random password since they won't use email/password login unless they reset it
+        random_pwd = secrets.token_hex(16)
+        user = models.User(
+            email=email,
+            password_hash=hash_password(random_pwd),
+            full_name=full_name,
+            role="user",
+            is_active=1
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        
+    # Get or create workspace
+    workspace = db.query(models.Workspace).filter(models.Workspace.user_id == user.id).first()
+    if not workspace:
+        workspace = models.Workspace(user_id=user.id, name=user.full_name or email.split('@')[0], slug=f"ws-{user.id}")
+        db.add(workspace)
+        db.commit()
+        db.refresh(workspace)
+        
+    # Create JWT session token
+    token = create_jwt({"sub": str(user.id), "email": user.email, "role": user.role, "workspace_id": workspace.id})
+    return {
+        "token": token,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "workspace_id": workspace.id
+        }
+    }
+
 
 
 def _current_user_from_request(request: Request, db: Session):

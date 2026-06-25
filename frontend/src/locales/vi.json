@@ -5,7 +5,7 @@
     "logout": "Đăng xuất"
   },
   "auth": {
-    "title": "Đăng nhập để tiếp tục",
+    "title": "Đăng nhập",
     "subtitle": "Tạo audio, quản lý thư viện và theo dõi hạn mức trong workspace của bạn.",
     "email": "Email",
     "password": "Mật khẩu",
@@ -14,7 +14,9 @@
     "createAccount": "Tạo tài khoản",
     "needAccount": "Chưa có tài khoản?",
     "haveAccount": "Đã có tài khoản?",
-    "loading": "Đang xử lý..."
+    "loading": "Đang xử lý...",
+    "createTitle": "Tạo tài khoản",
+    "orContinueWith": "hoặc tiếp tục bằng email"
   },
   "nav": {
     "dashboard": "Tổng quan",
@@ -132,7 +134,7 @@
     "testConnection": "Kiểm tra kết nối",
     "fptKeys": "FPT API Keys (mỗi dòng 1 key)",
     "fptSpeed": "Tốc độ FPT",
-    "maxWorkers": "Số luồng tối đa",
+    "maxWorkers": "Số lượng tối đa",
     "save": "Lưu cấu hình",
     "connectionSuccess": "Kết nối thành công!",
     "connectionFailed": "Kết nối thất bại",

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import './index.css';
@@ -25,7 +25,7 @@ function App() {
   const {
     authToken, currentUser, authMode, setAuthMode, authEmail, setAuthEmail,
     authPassword, setAuthPassword, authName, setAuthName, authError, authLoading,
-    handleAuthSubmit, handleLogout
+    handleAuthSubmit, handleLogout, handleGoogleLogin
   } = useAuth();
 
   const {
@@ -45,7 +45,7 @@ function App() {
   } = useBatchConvert(authToken, selfHostedUrl, fetchJobs, t);
 
   if (!authToken) {
-    return <AuthScreen t={t} authMode={authMode} setAuthMode={setAuthMode} authEmail={authEmail} setAuthEmail={setAuthEmail} authPassword={authPassword} setAuthPassword={setAuthPassword} authName={authName} setAuthName={setAuthName} authError={authError} authLoading={authLoading} onSubmit={handleAuthSubmit} />;
+    return <AuthScreen t={t} authMode={authMode} setAuthMode={setAuthMode} authEmail={authEmail} setAuthEmail={setAuthEmail} authPassword={authPassword} setAuthPassword={setAuthPassword} authName={authName} setAuthName={setAuthName} authError={authError} authLoading={authLoading} onSubmit={handleAuthSubmit} onGoogleSubmit={handleGoogleLogin} />;
   }
 
   return (
@@ -53,7 +53,7 @@ function App() {
       {/* Mobile Top Bar */}
       <header className="mobile-header">
         <button className="menu-toggle" onClick={() => setIsSidebarOpen(true)}>
-          ☰
+          â˜°
         </button>
         <span className="mobile-brand-name">{t('app.name')}</span>
       </header>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL } from '../config';
 
 export function useAuth() {
@@ -50,9 +50,31 @@ export function useAuth() {
     setCurrentUser(null);
   };
 
+  const handleGoogleLogin = useCallback(async (credential) => {
+    setAuthLoading(true);
+    setAuthError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Google Login failed');
+      localStorage.setItem('tts_auth_token', data.token);
+      localStorage.setItem('tts_current_user', JSON.stringify(data.user));
+      setAuthToken(data.token);
+      setCurrentUser(data.user);
+    } catch (err) {
+      setAuthError(err.message || 'Google Login failed');
+    } finally {
+      setAuthLoading(false);
+    }
+  }, []);
+
   return {
     authToken, currentUser, authMode, setAuthMode, authEmail, setAuthEmail,
     authPassword, setAuthPassword, authName, setAuthName, authError, authLoading,
-    handleAuthSubmit, handleLogout
+    handleAuthSubmit, handleLogout, handleGoogleLogin
   };
 }
