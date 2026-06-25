@@ -40,9 +40,9 @@ function App() {
   } = useCreateAudio(t, handlePreviewVoice, selfHostedUrl);
 
   const {
-    inputDir, setInputDir, outputDir, setOutputDir, fileCount,
-    batchVoice, setBatchVoice, batchSpeed, setBatchSpeed, handleScan, handleStartBatch
-  } = useBatchConvert(jsonHeaders, selfHostedUrl, fetchJobs, t);
+    selectedFiles, setSelectedFiles,
+    batchVoice, setBatchVoice, batchSpeed, setBatchSpeed, handleStartBatch
+  } = useBatchConvert(authToken, selfHostedUrl, fetchJobs, t);
 
   if (!authToken) {
     return <AuthScreen t={t} authMode={authMode} setAuthMode={setAuthMode} authEmail={authEmail} setAuthEmail={setAuthEmail} authPassword={authPassword} setAuthPassword={setAuthPassword} authName={authName} setAuthName={setAuthName} authError={authError} authLoading={authLoading} onSubmit={handleAuthSubmit} />;
@@ -70,7 +70,7 @@ function App() {
           <Route path="/" element={<Dashboard t={t} jobs={jobs} library={library} />} />
           <Route path="/dashboard" element={<Dashboard t={t} jobs={jobs} library={library} />} />
           <Route path="/create" element={<CreateAudio t={t} text={text} setText={setText} voice={voice} setVoice={setVoice} createVoiceSeed={createVoiceSeed} setCreateVoiceSeed={setCreateVoiceSeed} speed={speed} setSpeed={setSpeed} audioUrl={audioUrl} isGenerating={isGenerating} onGenerate={handleGenerate} voices={voices} savedVoices={savedVoices} onPreview={handlePreviewVoice} progressState={progressState} />} />
-          <Route path="/batch" element={<BatchConvert t={t} inputDir={inputDir} setInputDir={setInputDir} outputDir={outputDir} setOutputDir={setOutputDir} fileCount={fileCount} onScan={handleScan} onStart={handleStartBatch} voices={voices} batchVoice={batchVoice} setBatchVoice={setBatchVoice} batchSpeed={batchSpeed} setBatchSpeed={setBatchSpeed} savedVoices={savedVoices} onPreview={handlePreviewVoice} jobs={jobs} fetchJobs={fetchJobs} authToken={authToken} />} />
+          <Route path="/batch" element={<BatchConvert t={t} selectedFiles={selectedFiles} setSelectedFiles={setSelectedFiles} onStart={handleStartBatch} voices={voices} batchVoice={batchVoice} setBatchVoice={setBatchVoice} batchSpeed={batchSpeed} setBatchSpeed={setBatchSpeed} savedVoices={savedVoices} onPreview={handlePreviewVoice} jobs={jobs} fetchJobs={fetchJobs} authToken={authToken} />} />
           <Route path="/voices" element={<Voices t={t} voice={voice} setVoice={setVoice} voices={voices} savedVoices={savedVoices} onPreview={handlePreviewVoice} onSave={handleSaveSavedVoice} onDelete={handleDeleteSavedVoice} />} />
           <Route path="/library" element={<AudioLibrary t={t} library={library} onRefresh={fetchLibrary} onCopy={handleCopyAudio} onDelete={handleDeleteAudio} />} />
 

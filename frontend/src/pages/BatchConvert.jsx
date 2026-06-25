@@ -5,13 +5,10 @@ import { API_BASE_URL } from '../config'
 
 export default function BatchConvert({
   t,
-  inputDir,
-  setInputDir,
-  outputDir,
-  setOutputDir,
-  fileCount,
-  onScan,
+  selectedFiles = [],
+  setSelectedFiles,
   onStart,
+  voices,
   batchVoice,
   setBatchVoice,
   batchSpeed,
@@ -28,6 +25,8 @@ export default function BatchConvert({
   const [jobTasks, setJobTasks] = useState({})
   const [loadingTasks, setLoadingTasks] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
+  const [isSavingConfig, setIsSavingConfig] = useState(false)
+  const [playingJobId, setPlayingJobId] = useState(null)
 
   // Auth Headers
   const authHeaders = { Authorization: `Bearer ${authToken}` }
@@ -160,6 +159,92 @@ export default function BatchConvert({
     }
   }
 
+  const handleSaveAndWarmup = async (e) => {
+    e.preventDefault();
+    setIsSavingConfig(true);
+    try {
+      // 1. Fetch current settings
+      const settingsRes = await fetch(`${API_BASE_URL}/api/settings`, { headers: { Authorization: `Bearer ${authToken}` } });
+      if (!settingsRes.ok) throw new Error("Không thể tải cấu hình hiện tại");
+      const currentSettings = await settingsRes.json();
+
+      // Find selected voice details
+      const sv = savedVoices.find(s => s.voice_type === batchVoice);
+      const seed = sv ? sv.seed : "";
+
+      // 2. Update settings object
+      const updatedSettings = {
+        ...currentSettings,
+        self_hosted_voice: batchVoice,
+        self_hosted_seed: seed,
+        output_speed: Number(batchSpeed),
+        self_hosted_keep_voice: "true"
+      };
+
+      // 3. Save settings
+      const saveRes = await fetch(`${API_BASE_URL}/api/settings`, {
+        method: 'POST',
+        headers: jsonHeaders,
+        body: JSON.stringify(updatedSettings)
+      });
+      if (!saveRes.ok) throw new Error("Không thể lưu cấu hình");
+
+      // 4. Trigger warmup on backend
+      const selfHostedUrl = currentSettings.self_hosted_url || "http://localhost:7860";
+      const warmupRes = await fetch(`${API_BASE_URL}/api/self-hosted/warmup`, {
+        method: 'POST',
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          voice: batchVoice,
+          seed: seed,
+          self_hosted_url: selfHostedUrl,
+          keep_voice: "true",
+          text: "Xin chào, đây là giọng đọc ấm cấu hình cho hàng đợi."
+        })
+      });
+      if (!warmupRes.ok) throw new Error("Không thể warmup giọng đọc");
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Thành công',
+        text: 'Đã lưu cấu hình mặc định cho queue và gửi yêu cầu Warmup giọng đọc!',
+        background: '#1e293b',
+        color: '#fff',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: t('common.error'),
+        text: err.message,
+        background: '#1e293b',
+        color: '#fff'
+      });
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
+  const onFileDrop = (e) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.txt') || f.name.endsWith('.docx'));
+    if (files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...files]);
+    }
+  };
+
+  const onFileSelect = (e) => {
+    const files = Array.from(e.target.files).filter(f => f.name.endsWith('.txt') || f.name.endsWith('.docx'));
+    if (files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...files]);
+    }
+  };
+
+  const removeFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <>
       <PageHeader title={t('batch.title')} subtitle={t('batch.subtitle')} />
@@ -169,33 +254,73 @@ export default function BatchConvert({
         <section className="glass-panel form-stack">
           <h3>Cấu hình Job</h3>
 
-          <label>{t('batch.input')}</label>
-          <input type="text" value={inputDir} onChange={e => setInputDir(e.target.value)} placeholder="D:\input-files" />
+          <label>Tập tin đầu vào (.txt hoặc .docx)</label>
+          <div
+            onDragOver={e => e.preventDefault()}
+            onDrop={onFileDrop}
+            style={{
+              border: '2px dashed var(--border-glass)',
+              borderRadius: 'var(--radius-md)',
+              padding: '1.5rem',
+              textAlign: 'center',
+              cursor: 'pointer',
+              background: 'rgba(255,255,255,0.01)',
+              transition: 'all 0.2s',
+              marginBottom: '1rem'
+            }}
+            onClick={() => document.getElementById('file-input-batch').click()}
+          >
+            <input
+              id="file-input-batch"
+              type="file"
+              multiple
+              accept=".txt,.docx"
+              onChange={onFileSelect}
+              style={{ display: 'none' }}
+            />
+            <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📤</span>
+            <span style={{ fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: 600 }}>Kéo thả file vào đây</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.2rem' }}>Hoặc click để chọn file từ máy tính</span>
+          </div>
 
-          <label>{t('batch.output')}</label>
-          <input type="text" value={outputDir} onChange={e => setOutputDir(e.target.value)} placeholder="D:\output-files" />
+          {selectedFiles.length > 0 && (
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 'var(--radius-sm)', padding: '0.5rem 0.75rem', marginBottom: '1rem', maxHeight: '150px', overflowY: 'auto' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Danh sách file đã chọn ({selectedFiles.length}):</div>
+              {selectedFiles.map((file, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', padding: '0.25rem 0', borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }} title={file.name}>📄 {file.name}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.8rem' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Saved voices dropdown & preview section */}
           {savedVoices.length > 0 && (
-            <div style={{ 
-              marginTop: "0.5rem", 
-              marginBottom: "1rem", 
-              background: 'rgba(255,255,255,0.01)', 
-              padding: '0.75rem', 
-              borderRadius: 'var(--radius-md)', 
-              border: '1px solid rgba(255,255,255,0.04)' 
+            <div style={{
+              marginTop: "0.5rem",
+              marginBottom: "1rem",
+              background: 'rgba(255,255,255,0.01)',
+              padding: '0.75rem',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid rgba(255,255,255,0.04)'
             }}>
               <label style={{ fontSize: "0.85rem", color: "#94a3b8", display: "block", marginBottom: "0.4rem" }}>
                 {t("batch.selectedVoice")}:
               </label>
-              
+
               <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                 <select
                   value={batchVoice}
                   onChange={async (e) => {
                     const selectedVal = e.target.value;
                     setBatchVoice(selectedVal);
-                    
+
                     const sv = savedVoices.find(s => s.voice_type === selectedVal);
                     if (sv) {
                       setBatchSavedPreviewId(sv.id);
@@ -304,21 +429,45 @@ export default function BatchConvert({
             </div>
           </div>
 
-          <div className="button-row" style={{ marginTop: '0.5rem' }}>
-            <button className="btn ghost" onClick={onScan}>{t('batch.scan')}</button>
-            <button className="btn" onClick={onStart}>{t('batch.start')}</button>
+          <div className="button-row" style={{ marginTop: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <button
+              className="btn ghost"
+              onClick={handleSaveAndWarmup}
+              disabled={isSavingConfig}
+              style={{ display: 'inline-flex', gap: '0.25rem' }}
+              title="Lưu mặc định & Khởi tạo giọng nói trên máy chủ"
+            >
+              {isSavingConfig ? "⏳" : "💾 Lưu cấu hình"}
+            </button>
+            {selectedFiles.length > 0 && (
+              <button className="btn ghost" onClick={() => setSelectedFiles([])}>Xóa tất cả</button>
+            )}
+            <button className="btn" onClick={onStart} disabled={selectedFiles.length === 0}>{t('batch.start')}</button>
           </div>
-
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0.5rem 0 0 0' }}>
-            {fileCount ? t('batch.found', { count: fileCount }) : t('batch.empty')}
-          </p>
         </section>
 
         {/* Right Side: Jobs Monitor */}
         <section className="glass-panel jobs-monitor-panel">
-          <div className="jobs-monitor-header">
-            <h3>{t('batch.jobsList')}</h3>
-
+          <div className="jobs-monitor-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '1rem' }}>
+            <h3 style={{ margin: 0 }}>{t('batch.jobsList')}</h3>
+            <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+              <button
+                className="btn ghost btn-sm"
+                onClick={handleResetStuck}
+                disabled={isResetting}
+                title={t('batch.resetQueue')}
+                style={{ flex: 1, padding: '0.4rem 0.5rem' }}
+              >
+                {isResetting ? t('common.processing') : t('batch.resetQueue')}
+              </button>
+              <button
+                className="btn ghost btn-sm"
+                onClick={() => fetchJobs && fetchJobs()}
+                style={{ flex: 1, padding: '0.4rem 0.5rem' }}
+              >
+                🔄 {t('common.refresh')}
+              </button>
+            </div>
           </div>
 
           {jobs.length === 0 ? (
@@ -327,22 +476,6 @@ export default function BatchConvert({
             </div>
           ) : (
             <div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button
-                  className="btn ghost btn-sm"
-                  onClick={handleResetStuck}
-                  disabled={isResetting}
-                  title={t('batch.resetQueue')}
-                >
-                  {isResetting ? t('common.processing') : t('batch.resetQueue')}
-                </button>
-                <button
-                  className="btn ghost btn-sm"
-                  onClick={() => fetchJobs && fetchJobs()}
-                >
-                  🔄 {t('common.refresh')}
-                </button>
-              </div>
               {jobs.map(job => {
                 const isExpanded = expandedJobId === job.job_id
                 const total = job.total || 0
@@ -366,7 +499,7 @@ export default function BatchConvert({
                           <span className="job-id-badge">#{job.job_id}</span>
                           <span className="job-name-text" title={job.job_name}>{job.job_name}</span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                           <span className={`status-badge ${statusClass}`}>{job.status}</span>
                           <button
                             className="btn ghost btn-sm"
@@ -395,6 +528,58 @@ export default function BatchConvert({
                           {error > 0 && <span className="stat-item error">⚠ {error}</span>}
                         </div>
                       </div>
+
+                      {/* Actions row for completed jobs */}
+                      {job.status === "Completed" && (
+                        <div 
+                          style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', justifyContent: 'flex-end' }} 
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            className="btn ghost btn-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPlayingJobId(playingJobId === job.job_id ? null : job.job_id);
+                            }}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.3rem 0.6rem' }}
+                          >
+                            {playingJobId === job.job_id ? "⏹️ Dừng" : "▶️ Nghe thử"}
+                          </button>
+                          <a
+                            href={`${API_BASE_URL}/api/jobs/${job.job_id}/download-result`}
+                            download
+                            className="btn btn-sm"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              padding: '0.3rem 0.6rem',
+                              textDecoration: 'none',
+                              fontSize: '0.8rem',
+                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                              border: 'none',
+                              color: '#fff',
+                              boxShadow: 'none'
+                            }}
+                          >
+                            ⬇️ Tải về
+                          </a>
+                        </div>
+                      )}
+
+                      {playingJobId === job.job_id && (
+                        <div 
+                          onClick={(e) => e.stopPropagation()} 
+                          style={{ marginTop: '0.5rem', background: 'rgba(0,0,0,0.15)', padding: '0.35rem', borderRadius: 'var(--radius-sm)' }}
+                        >
+                          <audio 
+                            controls 
+                            autoPlay 
+                            src={`${API_BASE_URL}/api/jobs/${job.job_id}/download-result`} 
+                            style={{ width: '100%', height: '28px' }} 
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Details view for this job */}
