@@ -9,8 +9,13 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0;3c' # No Color
-NC='\033[0m'
+NC='\033[0m' # No Color
+
+# Xác định user thực tế chạy script (tránh chạy service bằng root nếu dùng sudo)
+SERVICE_USER=$USER
+if [ ! -z "$SUDO_USER" ]; then
+    SERVICE_USER=$SUDO_USER
+fi
 
 # Lấy thư mục chứa script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -130,19 +135,12 @@ npm run build
 echo -e "${GREEN}[OK] Frontend đã được build thành công tại frontend/dist${NC}"
 
 # ------------------------------------------------------------------------------
-# 5. Phân quyền SQLite
+# 5. Phân quyền thư mục và file
 # ------------------------------------------------------------------------------
-echo -e "\n${YELLOW}[4/6] Thiết lập phân quyền thư mục cho SQLite...${NC}"
-# Đảm bảo www-data (hoặc user hiện tại) ghi được vào folder backend (nơi chứa db file)
-if [ "$IS_ROOT" = true ]; then
-    echo "Đang cấp quyền ghi thư mục backend cho www-data..."
-    chown -R www-data:www-data "$SCRIPT_DIR/backend"
-    chmod -R 775 "$SCRIPT_DIR/backend"
-    echo -e "${GREEN}[OK] Đã phân quyền thành công.${NC}"
-else
-    echo -e "${YELLOW}[WARNING] Không chạy dưới quyền root, bỏ qua bước phân quyền www-data cho SQLite.${NC}"
-    echo -e "Hãy đảm bảo user chạy ứng dụng có quyền ghi vào thư mục: $SCRIPT_DIR/backend"
-fi
+echo -e "\n${YELLOW}[4/6] Thiết lập phân quyền thư mục...${NC}"
+# Đảm bảo Nginx có thể truy cập đọc file tĩnh của frontend/dist
+chmod -R 755 "$SCRIPT_DIR/frontend/dist" 2>/dev/null || true
+echo -e "${GREEN}[OK] Đã phân quyền truy cập đọc cho Nginx đối với thư mục frontend/dist.${NC}"
 
 # ------------------------------------------------------------------------------
 # 6. Tạo File cấu hình Systemd & Nginx (Tùy chọn)
@@ -156,7 +154,7 @@ Description=FastAPI Text-to-Speed Backend
 After=network.target
 
 [Service]
-User=$(whoami)
+User=$SERVICE_USER
 WorkingDirectory=$SCRIPT_DIR/backend
 ExecStart=$SCRIPT_DIR/backend/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --workers 4
 Restart=always
