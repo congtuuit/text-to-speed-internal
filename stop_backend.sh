@@ -1,0 +1,1 @@
+ sudo systemctl stop tts-backend.service
