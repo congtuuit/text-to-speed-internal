@@ -1,5 +1,5 @@
-from routers.auth import _current_user_from_request
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+﻿from routers.auth import _current_user_from_request
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request, File, Form, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from database import get_db
@@ -9,18 +9,12 @@ from schemas import *
 import os
 import tempfile
 import time
-
+from typing import List
 
 router = APIRouter()
 
-import json
-import requests
-import asyncio
 from services.queue_manager import queue_manager, fpt_key_rotator, adjust_audio_speed_ffmpeg
-from services.tts_provider import TTSProvider
 from services.storage_service import get_storage_provider, delete_audio_file
-from auth import create_jwt, decode_jwt, hash_password, verify_password
-from services.docx_helper import split_docx_to_txt
 
 @router.post("/api/scan")
 def scan_directory(req: ScanRequest):
@@ -36,130 +30,9 @@ def create_job(req: JobRequest, request: Request, db: Session = Depends(get_db))
     user = _current_user_from_request(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Chua dang nhap")
-    if not os.path.exists(req.input_dir):
-        raise HTTPException(status_code=400, detail="Input directory not found")
-        
-    if not os.path.exists(req.output_dir):
-        try:
-            os.makedirs(req.output_dir)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Cannot create output directory: {e}")
-
-    files = [f for f in os.listdir(req.input_dir) if f.endswith('.txt')]
-    if not files:
-        raise HTTPException(status_code=400, detail="No .txt files found in input directory")
     
-    from routers.billing import check_quota, check_batch_quota, record_usage
-    check_batch_quota(user, len(files), db)
-    
-    # Calculate total characters to check quota
-    total_chars = 0
-    for file_name in files:
-        file_path = os.path.join(req.input_dir, file_name)
-        try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                total_chars += len(f.read())
-        except:
-            pass
-            
-    check_quota(user, total_chars, db)
-
-    is_docx_job = 1 if req.input_dir.endswith('_chunks') else 0
-    final_output_path = ""
-    actual_output_dir = req.output_dir
-    
-    
-    if is_docx_job:
-        base_name = os.path.basename(req.input_dir).replace("_chunks", "")
-        final_output_path = os.path.join(req.output_dir, f"{base_name}.wav")
-        actual_output_dir = req.input_dir
-        
-        job = models.BatchJob(
-            input_dir=req.input_dir, 
-            output_dir=actual_output_dir, 
-            voice=req.voice, 
-            model_name=req.model_name, 
-            provider=req.provider,
-            is_docx_job=is_docx_job,
-            final_output_path=final_output_path
-        )
-        db.add(job)
-        db.commit()
-        db.refresh(job)
-
-        for file_name in files:
-            file_path = os.path.join(req.input_dir, file_name)
-            task = models.FileTask(job_id=job.id, file_name=file_name, file_path=file_path)
-            db.add(task)
-        
-        db.commit()
-        queue_manager.resume()
-        queue_manager.ensure_workers()
-        return {"job_id": job.id, "total_files": len(files)}
-    else:
-        from services.docx_helper import split_txt_to_chunks
-        created_jobs = []
-        total_chunks_across_all = 0
-        
-        max_length = 200 if req.provider in ['fpt', 'self_hosted'] else 2800
-
-        for file_name in files:
-            txt_path = os.path.join(req.input_dir, file_name)
-            base_name = os.path.splitext(file_name)[0]
-            chunks_dir = os.path.join(req.output_dir, f"{base_name}_chunks")
-            
-            chunk_files = split_txt_to_chunks(txt_path, chunks_dir, max_chars=max_length)
-            if not chunk_files:
-                continue
-                
-            final_output_path = os.path.join(req.output_dir, f"{base_name}.wav")
-            
-            job = models.BatchJob(
-                input_dir=chunks_dir,
-                output_dir=chunks_dir,
-                voice=req.voice,
-                model_name=req.model_name,
-                provider=req.provider,
-                is_docx_job=2,
-                final_output_path=final_output_path
-            )
-            db.add(job)
-            db.commit()
-            db.refresh(job)
-            
-            for chunk_file in chunk_files:
-                chunk_path = os.path.join(chunks_dir, chunk_file)
-                task = models.FileTask(job_id=job.id, file_name=chunk_file, file_path=chunk_path)
-                db.add(task)
-                
-            total_chunks_across_all += len(chunk_files)
-            created_jobs.append(job.id)
-            
-        db.commit()
-        queue_manager.resume()
-        queue_manager.ensure_workers()
-        
-        return {
-            "job_ids": created_jobs,
-            "total_files": total_chunks_across_all,
-            "is_batch": True
-        }
-
-
-
-class TestVoiceRequest(BaseModel):
-    voice: str
-    text: str = "Xin chào, đây là giọng đọc thử."
-    api_key: str = ""
-    model_name: str = "gemini-2.5-flash-preview-tts"
-    provider: str = "self_hosted"
-    fpt_api_keys: str = ""
-    fpt_speed: float = 0.8
-    self_hosted_url: str = "http://localhost:7860"
-    seed: str = ""
-    keep_voice: str = "false"
-    output_speed: float = 1.0
-    is_sample: bool = False
+    from services.job_service import create_batch_job
+    return create_batch_job(req, user, db)
 
 
 @router.get("/api/jobs/latest/progress")
@@ -200,7 +73,7 @@ def get_active_jobs_progress(db: Session = Depends(get_db)):
         error = sum(1 for t in tasks if t.status == "Error")
         processing = sum(1 for t in tasks if t.status == "Processing")
         
-        # Láº¥y tÃªn file gá»‘c tá»« input_dir (náº¿u lÃ  docx, input_dir sáº½ cÃ³ tÃªn dáº¡ng filename_chunks)
+        # Lấy tên file gốc từ input_dir (nếu là docx, input_dir sẽ có tên dạng filename_chunks)
         job_name = os.path.basename(job.input_dir)
         if job.is_docx_job == 1 and job_name.endswith("_chunks"):
             job_name = job_name.replace("_chunks", ".docx")
@@ -271,7 +144,7 @@ def delete_job(job_id: int, db: Session = Depends(get_db)):
 
 @router.post("/api/jobs/reset-stuck")
 def reset_stuck_tasks(db: Session = Depends(get_db)):
-    """Reset task káº¹t á»Ÿ 'Processing' vá» 'Pending' vÃ  Ä‘áº£m báº£o workers Ä‘ang cháº¡y."""
+    """Reset task kẹt ở 'Processing' về 'Pending' và đảm bảo workers đang chạy."""
     stuck = db.query(models.FileTask).filter(models.FileTask.status == "Processing").all()
     count = len(stuck)
     for t in stuck:
@@ -286,26 +159,26 @@ def reset_stuck_tasks(db: Session = Depends(get_db)):
 
     db.commit()
 
-    # Giáº£i phÃ³ng táº¥t cáº£ FPT key Ä‘ang bá»‹ giá»¯ (worker Ä‘ang poll giá»¯a chá»«ng sáº½ bá» káº¿t quáº£ do ownership check)
+    # Giải phóng tất cả FPT key đang bị giữ (worker đang poll giữa chừng sẽ bỏ kết quả do ownership check)
     fpt_key_rotator.clear_in_use()
 
     queue_manager.resume()
-    restarted = queue_manager.ensure_workers()  # Restart worker náº¿u thread Ä‘Ã£ cháº¿t
+    restarted = queue_manager.ensure_workers()  # Restart worker nếu thread đã chết
     return {"status": "ok", "reset_count": count, "workers_restarted": restarted}
 
 
 @router.get("/api/debug/queue")
 def debug_queue(db: Session = Depends(get_db)):
-    """Debug: tráº¡ng thÃ¡i chi tiáº¿t cá»§a QueueManager vÃ  sá»‘ task theo status."""
+    """Debug: trạng thái chi tiết của QueueManager và số task theo status."""
     qs = queue_manager.status()
 
-    # Äáº¿m tasks theo status (táº¥t cáº£ jobs)
+    # Đếm tasks theo status (tất cả jobs)
     from sqlalchemy import func
     task_counts = db.query(models.FileTask.status, func.count(models.FileTask.id))\
         .group_by(models.FileTask.status).all()
     tasks_by_status = {s: c for s, c in task_counts}
 
-    # Äáº¿m jobs theo status
+    # Đếm jobs theo status
     job_counts = db.query(models.BatchJob.status, func.count(models.BatchJob.id))\
         .group_by(models.BatchJob.status).all()
     jobs_by_status = {s: c for s, c in job_counts}
@@ -321,11 +194,6 @@ def debug_queue(db: Session = Depends(get_db)):
         "jobs": jobs_by_status
     }
 
-from fastapi import UploadFile, File, Form
-from typing import List
-import uuid
-import shutil
-from services.docx_helper import split_txt_to_chunks
 
 @router.post("/api/jobs/upload-run")
 def upload_and_run_jobs(
@@ -340,137 +208,18 @@ def upload_and_run_jobs(
     user = _current_user_from_request(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Chua dang nhap")
-    
-    from routers.billing import check_quota, check_batch_quota, record_usage
-    check_batch_quota(user, len(files), db)
-    if not files:
-        raise HTTPException(status_code=400, detail="No files uploaded")
         
-    max_length = 200 if provider in ['fpt', 'self_hosted'] else 2800
-    temp_root = os.path.join("backend", "storage", "temp_batch")
-    os.makedirs(temp_root, exist_ok=True)
-    
-    # Phase 1: Process files locally, count total characters, and check quota
-    temp_dirs_to_clean = []
-    job_preps = []
-    total_chars = 0
-    
-    try:
-        for file in files:
-            if not (file.filename.endswith('.txt') or file.filename.endswith('.docx')):
-                continue
-                
-            job_uuid = str(uuid.uuid4())
-            file_input_dir = os.path.join(temp_root, f"input_{job_uuid}")
-            chunks_dir = os.path.join(temp_root, f"chunks_{job_uuid}")
-            os.makedirs(file_input_dir, exist_ok=True)
-            os.makedirs(chunks_dir, exist_ok=True)
-            
-            temp_dirs_to_clean.append(file_input_dir)
-            temp_dirs_to_clean.append(chunks_dir)
-            
-            # Save the file
-            file_path = os.path.join(file_input_dir, file.filename)
-            with open(file_path, "wb") as f_out:
-                shutil.copyfileobj(file.file, f_out)
-                
-            base_name = os.path.splitext(file.filename)[0]
-            final_output_path = os.path.join(temp_root, f"output_{job_uuid}_{base_name}.wav")
-            
-            # Split
-            if file.filename.endswith('.docx'):
-                chunk_files = split_docx_to_txt(file_path, chunks_dir, max_chars=max_length)
-                is_docx_job = 1
-            else:
-                chunk_files = split_txt_to_chunks(file_path, chunks_dir, max_chars=max_length)
-                is_docx_job = 2
-                
-            if not chunk_files:
-                continue
-                
-            # Count chars
-            file_chars = 0
-            for chunk_file in chunk_files:
-                chunk_path = os.path.join(chunks_dir, chunk_file)
-                if os.path.exists(chunk_path):
-                    with open(chunk_path, "r", encoding="utf-8", errors="ignore") as f_in:
-                        file_chars += len(f_in.read())
-                        
-            total_chars += file_chars
-            
-            # Keep configuration for phase 2
-            job_preps.append({
-                "chunks_dir": chunks_dir,
-                "voice": voice,
-                "model_name": model_name,
-                "provider": provider,
-                "is_docx_job": is_docx_job,
-                "final_output_path": final_output_path,
-                "chunk_files": chunk_files
-            })
-            
-        # Check overall character quota
-        check_quota(user, total_chars, db)
-        
-    except HTTPException as he:
-        # Clean up temp directories immediately
-        for d in temp_dirs_to_clean:
-            if os.path.exists(d):
-                try:
-                    shutil.rmtree(d)
-                except:
-                    pass
-        raise he
-    except Exception as e:
-        for d in temp_dirs_to_clean:
-            if os.path.exists(d):
-                try:
-                    shutil.rmtree(d)
-                except:
-                    pass
-        raise HTTPException(status_code=500, detail=f"Loi phan tich file: {str(e)}")
-        
-    # Phase 2: Save to database only if quota verification passed
-    created_jobs = []
-    total_chunks_across_all = 0
-    
-    try:
-        for prep in job_preps:
-            job = models.BatchJob(
-                input_dir=prep["chunks_dir"],
-                output_dir=prep["chunks_dir"],
-                voice=prep["voice"],
-                model_name=prep["model_name"],
-                provider=prep["provider"],
-                is_docx_job=prep["is_docx_job"],
-                final_output_path=prep["final_output_path"]
-            )
-            db.add(job)
-            db.commit()
-            db.refresh(job)
-            
-            for chunk_file in prep["chunk_files"]:
-                chunk_path = os.path.join(prep["chunks_dir"], chunk_file)
-                task = models.FileTask(job_id=job.id, file_name=chunk_file, file_path=chunk_path)
-                db.add(task)
-                
-            total_chunks_across_all += len(prep["chunk_files"])
-            created_jobs.append(job.id)
-            
-        db.commit()
-        record_usage(user.id, total_chars, "batch", db)
-        queue_manager.resume()
-        queue_manager.ensure_workers()
-        
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Loi ghi database: {str(e)}")
-        
-    return {
-        "job_ids": created_jobs,
-        "total_files": total_chunks_across_all,
-        "is_batch": True
-    }
+    from services.job_service import upload_and_run_batch_jobs
+    return upload_and_run_batch_jobs(
+        files=files,
+        voice=voice,
+        model_name=model_name,
+        provider=provider,
+        output_speed=output_speed,
+        user=user,
+        db=db
+    )
+
 
 def download_job_result(job_id: int, db: Session = Depends(get_db)):
     job = db.query(models.BatchJob).filter(models.BatchJob.id == job_id).first()
@@ -479,6 +228,7 @@ def download_job_result(job_id: int, db: Session = Depends(get_db)):
     if not job.final_output_path or not os.path.exists(job.final_output_path):
         raise HTTPException(status_code=404, detail="Result file not found or not finished yet")
     return FileResponse(job.final_output_path, media_type="audio/wav", filename=os.path.basename(job.final_output_path))
+
 
 class SavedVoiceRequest(BaseModel):
     name: str
