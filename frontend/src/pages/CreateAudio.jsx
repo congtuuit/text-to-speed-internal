@@ -127,7 +127,14 @@ export default function CreateAudio({ t, text, setText, voice, setVoice, createV
                       >
                         <span className="voice-pick-dot" style={{ color: isSelected ? "#22d3ee" : "#94a3b8" }}>{isSelected ? "●" : "○"}</span>
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <strong style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sv.name}</strong>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <strong style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sv.name}</strong>
+                            {sv.tag && (
+                              <span style={{ padding: "0.1rem 0.4rem", fontSize: "0.7rem", borderRadius: "4px", background: "rgba(99, 102, 241, 0.2)", color: "#818cf8", fontWeight: 600 }}>
+                                {sv.tag}
+                              </span>
+                            )}
+                          </div>
                           <span style={{ color: "#94a3b8", fontSize: "0.8rem" }}>{t("voices.seed")}: {sv.seed || "-"}</span>
                         </div>
                         <Button

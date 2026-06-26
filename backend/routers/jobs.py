@@ -36,8 +36,11 @@ def create_job(req: JobRequest, request: Request, db: Session = Depends(get_db))
 
 
 @router.get("/api/jobs/latest/progress")
-def get_latest_job_progress(db: Session = Depends(get_db)):
-    job = db.query(models.BatchJob).filter(models.BatchJob.status != "Cancelled").order_by(models.BatchJob.id.desc()).first()
+def get_latest_job_progress(request: Request, db: Session = Depends(get_db)):
+    user = _current_user_from_request(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Chua dang nhap")
+    job = db.query(models.BatchJob).filter(models.BatchJob.owner_id == user.id, models.BatchJob.status != "Cancelled").order_by(models.BatchJob.id.desc()).first()
     if not job:
         return {"status": "No jobs found"}
         
@@ -60,8 +63,11 @@ def get_latest_job_progress(db: Session = Depends(get_db)):
 
 
 @router.get("/api/jobs/active/progress")
-def get_active_jobs_progress(db: Session = Depends(get_db)):
-    jobs = db.query(models.BatchJob).order_by(models.BatchJob.id.desc()).all()
+def get_active_jobs_progress(request: Request, db: Session = Depends(get_db)):
+    user = _current_user_from_request(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Chua dang nhap")
+    jobs = db.query(models.BatchJob).filter(models.BatchJob.owner_id == user.id).order_by(models.BatchJob.id.desc()).all()
     if not jobs:
         return {"jobs": []}
         
@@ -221,6 +227,7 @@ def upload_and_run_jobs(
     )
 
 
+@router.get("/api/jobs/{job_id}/download-result")
 def download_job_result(job_id: int, db: Session = Depends(get_db)):
     job = db.query(models.BatchJob).filter(models.BatchJob.id == job_id).first()
     if not job:

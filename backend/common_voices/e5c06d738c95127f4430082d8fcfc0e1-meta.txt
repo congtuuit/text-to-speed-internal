@@ -1,0 +1,10 @@
+{
+    "name": "Nam, giọng mặc định #9140",
+    "text": "Xin chào, đây là giọng đọc thử tiếng Việt.",
+    "voice": "male",
+    "provider": "self_hosted",
+    "output_speed": 1,
+    "seed": "9140",
+    "is_sample": true,
+    "keep_voice": "true"
+}

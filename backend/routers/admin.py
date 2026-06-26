@@ -176,3 +176,79 @@ def get_request_stats(request: Request, group_by: str = "hour", db: Session = De
     
     return [{"time": row.time_bucket, "count": row.count} for row in stats]
 
+
+
+from pydantic import BaseModel
+import hashlib
+import json
+
+class CommonVoiceCreateRequest(BaseModel):
+    name: str
+    voice: str
+    seed: str
+    provider: str = "self_hosted"
+    text: str = "Xin chào, đây là giọng đọc thử tiếng Việt."
+    output_speed: float = 1.0
+    is_sample: bool = True
+    keep_voice: str = "true"
+
+@router.post("/common-voices")
+def create_common_voice(req: CommonVoiceCreateRequest, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    
+    # 1. Generate unique file name key
+    # Use MD5 hash of voice and seed to make it consistent and unique
+    raw_str = f"{req.provider}_{req.voice}_{req.seed}"
+    voice_key = hashlib.md5(raw_str.encode('utf-8')).hexdigest()
+    
+    dir_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "common_voices")
+    os.makedirs(dir_path, exist_ok=True)
+    
+    audio_path = os.path.join(dir_path, f"{voice_key}.wav")
+    meta_path = os.path.join(dir_path, f"{voice_key}-meta.txt")
+    
+    # 2. Get Self-hosted URL from settings
+    url_setting = db.query(Settings).filter(Settings.key == "self_hosted_url").first()
+    self_hosted_url = url_setting.value if url_setting else "http://localhost:7860"
+    url = f"{self_hosted_url.rstrip('/')}/api/tts"
+    
+    # 3. Call self-hosted TTS synthesis
+    from services.queue_manager import process_self_hosted_tts
+    
+    try:
+        success = process_self_hosted_tts(
+            text=req.text,
+            output_path=audio_path,
+            voice=req.voice,
+            url=url,
+            seed_val=int(req.seed) if req.seed else None,
+            keep_voice_val=(req.keep_voice.lower() == "true"),
+            worker_name="AdminCommonVoice"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Inference error: {e}")
+        
+    if not success or not os.path.exists(audio_path):
+        raise HTTPException(status_code=500, detail="Failed to synthesize voice from provider.")
+        
+    # 4. Save metadata json
+    meta_data = {
+        "name": req.name,
+        "text": req.text,
+        "voice": req.voice,
+        "provider": req.provider,
+        "output_speed": req.output_speed,
+        "seed": req.seed,
+        "is_sample": req.is_sample,
+        "keep_voice": req.keep_voice
+    }
+    
+    try:
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta_data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+        raise HTTPException(status_code=500, detail=f"Failed to write metadata: {e}")
+        
+    return {"status": "ok", "id": voice_key}

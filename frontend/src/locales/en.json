@@ -108,7 +108,9 @@
     "delete": "Delete",
     "empty": "No audio in your library yet.",
     "deleteConfirm": "Are you sure you want to delete this file?",
-    "copied": "Link copied"
+    "copied": "Link copied",
+    "play": "Play",
+    "pause": "Pause"
   },
   "billing": {
     "title": "Billing",

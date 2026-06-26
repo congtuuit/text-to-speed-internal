@@ -301,7 +301,7 @@ export default function BatchConvert({
           )}
 
           {/* Saved voices dropdown & preview section */}
-          {savedVoices.length > 0 && (
+          {(
             <div style={{
               marginTop: "0.5rem",
               marginBottom: "1rem",
@@ -357,7 +357,7 @@ export default function BatchConvert({
                   )}
                   {savedVoices.map(sv => (
                     <option key={sv.id} value={sv.voice_type}>
-                      {sv.name} [{sv.seed}]
+                      {sv.name} {sv.tag ? `(${sv.tag})` : ''} [{sv.seed}]
                     </option>
                   ))}
                 </select>

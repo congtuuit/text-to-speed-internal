@@ -405,7 +405,7 @@ class QueueManager:
                                                 output_wav.writeframes(d)
                                         print(f"[{worker_name}] joined DOCX audio Ã¢â€ â€™ {job_obj.final_output_path}")
                                         try:
-                                            register_audio_file(job_obj.final_output_path, file_name=os.path.basename(job_obj.final_output_path), db=db)
+                                            register_audio_file(job_obj.final_output_path, file_name=os.path.basename(job_obj.final_output_path), db=db, owner_id=job_obj.owner_id)
                                         except Exception as upload_error:
                                             print(f"[{worker_name}] storage register error for DOCX output: {upload_error}")
 

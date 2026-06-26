@@ -102,7 +102,7 @@ def get_storage_provider() -> StorageProvider:
     return _storage_provider
 
 
-def register_audio_file(source_path: str, file_name: Optional[str] = None, db: Session | None = None) -> GeneratedAudio:
+def register_audio_file(source_path: str, file_name: Optional[str] = None, db: Session | None = None, owner_id: Optional[int] = None) -> GeneratedAudio:
     provider = get_storage_provider()
     saved = provider.save(source_path, file_name=file_name)
     session = db or SessionLocal()
@@ -113,9 +113,11 @@ def register_audio_file(source_path: str, file_name: Optional[str] = None, db: S
             existing.storage_provider = saved.storage_provider
             existing.audio_url = saved.audio_url
             existing.created_at = datetime.utcnow()
+            if owner_id is not None:
+                existing.owner_id = owner_id
             audio = existing
         else:
-            audio = GeneratedAudio(file_name=saved.file_name, file_path=saved.file_path, storage_provider=saved.storage_provider, audio_url=saved.audio_url)
+            audio = GeneratedAudio(file_name=saved.file_name, file_path=saved.file_path, storage_provider=saved.storage_provider, audio_url=saved.audio_url, owner_id=owner_id)
             session.add(audio)
         session.commit()
         session.refresh(audio)

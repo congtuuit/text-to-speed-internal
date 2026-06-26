@@ -108,7 +108,9 @@
     "delete": "Xóa",
     "empty": "Chưa có audio nào trong thư viện.",
     "deleteConfirm": "Bạn có chắc muốn xóa file này?",
-    "copied": "Đã sao chép link"
+    "copied": "Đã sao chép link",
+    "play": "Phát",
+    "pause": "Tạm dừng"
   },
   "billing": {
     "title": "Thanh toán",

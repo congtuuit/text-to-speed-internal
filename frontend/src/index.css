@@ -1749,3 +1749,233 @@ input:checked + .toggle-slider:before {
 .pricing-usage-bar {
   padding: 1rem 1.25rem;
 }
+
+/* Floating Audio Player */
+.floating-audio-player {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 4rem);
+  max-width: 900px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), var(--shadow-glow);
+  padding: 1rem 1.5rem;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fap-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 150px;
+  max-width: 220px;
+}
+
+.fap-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fap-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.fap-controls {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.fap-play-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.fap-play-btn:hover {
+  background: var(--primary-hover);
+  transform: scale(1.05);
+}
+
+.fap-progress-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.fap-time {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.fap-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+  cursor: pointer;
+  min-width: 50px;
+}
+
+.fap-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.fap-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.fap-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  border: none;
+  transition: transform 0.1s ease;
+}
+
+.fap-slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+
+.fap-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.fap-volume {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fap-vol-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  transition: color 0.2s ease;
+}
+
+.fap-vol-btn:hover {
+  color: var(--text-main);
+}
+
+.fap-vol-slider {
+  width: 70px;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+  cursor: pointer;
+}
+
+.fap-vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  cursor: pointer;
+}
+
+.fap-vol-slider::-webkit-slider-thumb:hover {
+  background: var(--text-main);
+}
+
+.fap-close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.fap-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+/* Responsive adjustments for player */
+@media (max-width: 768px) {
+  .floating-audio-player {
+    bottom: 1rem;
+    width: calc(100% - 2rem);
+    padding: 0.75rem 1rem;
+    gap: 0.75rem;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .fap-info {
+    max-width: none;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .fap-right {
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 0.25rem;
+  }
+}

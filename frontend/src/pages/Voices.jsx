@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Swal from 'sweetalert2'
 import PageHeader from '../components/PageHeader'
 
-export default function Voices({ t, voice, setVoice, voices, savedVoices, onPreview, onSave, onDelete }) {
+export default function Voices({ t, voice, setVoice, voices, savedVoices, onPreview, onSave, onDelete, currentUser, authToken }) {
   const [cardPreviewingId, setCardPreviewingId] = useState(null)
   const [cardPreviewUrl, setCardPreviewUrl] = useState(null)
 
@@ -60,6 +60,85 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
 
     if (voiceName) {
       onSave(voiceId, voiceName, currentSeed)
+    }
+  }
+
+  const handleSaveToCommonPrompt = async (voiceId, defaultName) => {
+    const currentSeed = voiceSeeds[voiceId] || ""
+    const { value: voiceName } = await Swal.fire({
+      title: '<span style="font-size: 1.5rem; font-weight: 700;">💾 Lưu vào Common</span>',
+      html: '<p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.5rem; margin-bottom: 1.5rem;">Thêm giọng đọc này làm giọng mặc định hệ thống cho tất cả người dùng.</p>',
+      input: 'text',
+      inputLabel: 'Tên hiển thị mặc định',
+      inputPlaceholder: 'Ví dụ: Nam, giọng mặc định...',
+      inputValue: `${defaultName} ${currentSeed ? `(ID ${currentSeed})` : `#${Math.floor(1000 + Math.random() * 9000)}`}`,
+      showCancelButton: true,
+      confirmButtonText: 'Lưu vào Common',
+      cancelButtonText: 'Hủy bỏ',
+      background: 'transparent',
+      color: 'var(--text-main)',
+      customClass: {
+        popup: 'glass-panel',
+        confirmButton: 'btn success',
+        cancelButton: 'btn ghost',
+        actions: 'swal2-actions-custom',
+        input: 'swal2-input-custom',
+        inputLabel: 'swal2-label-custom'
+      },
+      buttonsStyling: false,
+      inputValidator: (value) => {
+        if (!value) return 'Tên không được để trống!'
+      }
+    })
+
+    if (voiceName) {
+      try {
+        Swal.fire({
+          title: 'Đang xử lý...',
+          didOpen: () => { Swal.showLoading() },
+          background: 'transparent',
+          color: 'var(--text-main)',
+          customClass: { popup: 'glass-panel' },
+          showConfirmButton: false,
+          allowOutsideClick: false
+        })
+
+        const res = await fetch(`${API_BASE_URL}/api/admin/common-voices`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            name: voiceName,
+            voice: voiceId,
+            seed: currentSeed
+          })
+        })
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.detail || 'Failed to save common voice')
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Thành công',
+          text: 'Đã lưu giọng đọc vào common_voices thành công!',
+          background: '#1e293b',
+          color: '#fff',
+          timer: 2000,
+          showConfirmButton: false
+        })
+      } catch (err) {
+        Swal.fire({
+          icon: 'error',
+          title: t('common.error'),
+          text: err.message,
+          background: '#1e293b',
+          color: '#fff'
+        })
+      }
     }
   }
 
@@ -156,6 +235,15 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
                   >
                     💾 Lưu vào thư viện
                   </button>
+                  {currentUser?.role === 'admin' && (
+                    <button
+                      className="btn secondary btn-sm"
+                      style={{ whiteSpace: 'nowrap', padding: '0.4rem', fontSize: '0.8rem' }}
+                      onClick={(e) => { e.stopPropagation(); handleSaveToCommonPrompt(item.id, item.name); }}
+                    >
+                      📁 Lưu vào common
+                    </button>
+                  )}
                 </div>
               </article>
             )

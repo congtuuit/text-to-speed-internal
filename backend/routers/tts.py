@@ -39,11 +39,46 @@ def generate_customer_voice_params(seed_input: str, keep_voice_input: str, custo
         
     return seed_val, keep_voice_val
 
+def find_matching_system_voice(text: str, voice: str, seed: str) -> str | None:
+    dir_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "common_voices")
+    if not os.path.exists(dir_path):
+        dir_path = "backend/common_voices"
+        if not os.path.exists(dir_path):
+            return None
+            
+    text_norm = "".join(text.split()).lower()
+    
+    for file_name in os.listdir(dir_path):
+        if file_name.endswith("-meta.txt"):
+            meta_path = os.path.join(dir_path, file_name)
+            try:
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                
+                meta_text = data.get("text", "")
+                meta_text_norm = "".join(meta_text.split()).lower()
+                
+                if (data.get("voice") == voice and 
+                    str(data.get("seed")) == str(seed) and 
+                    text_norm == meta_text_norm):
+                    audio_filename = file_name.replace("-meta.txt", ".wav")
+                    audio_path = os.path.join(dir_path, audio_filename)
+                    if os.path.exists(audio_path):
+                        return audio_path
+            except:
+                pass
+    return None
+
+
 @router.post("/api/test-voice")
 def test_voice(req: TestVoiceRequest, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = _current_user_from_request(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Chua dang nhap")
+        
+    matching_audio = find_matching_system_voice(req.text, req.voice, req.seed)
+    if matching_audio:
+        return FileResponse(matching_audio, media_type="audio/wav")
     if len(req.text) > 2000:
         raise HTTPException(status_code=400, detail="Văn bản vượt quá giới hạn 2000 ký tự.")
         

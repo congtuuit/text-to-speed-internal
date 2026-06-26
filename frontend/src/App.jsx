@@ -103,14 +103,14 @@ function App() {
 
               <main className="saas-main">
                 <Routes>
-                  <Route path="/" element={<Dashboard t={t} jobs={jobs} library={library} authToken={authToken} />} />
-                  <Route path="/dashboard" element={<Dashboard t={t} jobs={jobs} library={library} authToken={authToken} />} />
+                  <Route path="/" element={<Dashboard t={t} jobs={jobs} library={library} authToken={authToken} currentUser={currentUser} onCopy={handleCopyAudio} onDelete={handleDeleteAudio} />} />
+                  <Route path="/dashboard" element={<Dashboard t={t} jobs={jobs} library={library} authToken={authToken} currentUser={currentUser} onCopy={handleCopyAudio} onDelete={handleDeleteAudio} />} />
                   <Route path="/create" element={<CreateAudio t={t} text={text} setText={setText} voice={voice} setVoice={setVoice} createVoiceSeed={createVoiceSeed} setCreateVoiceSeed={setCreateVoiceSeed} speed={speed} setSpeed={setSpeed} audioUrl={audioUrl} isGenerating={isGenerating} onGenerate={handleGenerate} voices={voices} savedVoices={savedVoices} onPreview={handlePreviewVoice} progressState={progressState} />} />
                   <Route path="/batch" element={<BatchConvert t={t} selectedFiles={selectedFiles} setSelectedFiles={setSelectedFiles} onStart={handleStartBatch} voices={voices} batchVoice={batchVoice} setBatchVoice={setBatchVoice} batchSpeed={batchSpeed} setBatchSpeed={setBatchSpeed} savedVoices={savedVoices} onPreview={handlePreviewVoice} jobs={jobs} fetchJobs={fetchJobs} authToken={authToken} />} />
-                  <Route path="/voices" element={<Voices t={t} voice={voice} setVoice={setVoice} voices={voices} savedVoices={savedVoices} onPreview={handlePreviewVoice} onSave={handleSaveSavedVoice} onDelete={handleDeleteSavedVoice} />} />
+                  <Route path="/voices" element={<Voices t={t} voice={voice} setVoice={setVoice} voices={voices} savedVoices={savedVoices} onPreview={handlePreviewVoice} onSave={handleSaveSavedVoice} onDelete={handleDeleteSavedVoice} currentUser={currentUser} authToken={authToken} />} />
                   <Route path="/library" element={<AudioLibrary t={t} library={library} onRefresh={fetchLibrary} onCopy={handleCopyAudio} onDelete={handleDeleteAudio} />} />
                   <Route path="/profile" element={<Profile t={t} user={currentUser} authToken={authToken} />} />
-                  <Route path="/pricing" element={<PricingPlans authToken={authToken} currentUser={currentUser} />} />
+                  <Route path="/pricing" element={<PricingPlans authToken={authToken} currentUser={currentUser} onCopy={handleCopyAudio} onDelete={handleDeleteAudio} />} />
                   <Route path="/admin" element={<AdminSettings authToken={authToken} onSettingsSaved={fetchAdminSettings} />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

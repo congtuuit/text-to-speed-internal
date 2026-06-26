@@ -55,7 +55,8 @@ def create_batch_job(req: JobRequest, user: models.User, db: Session) -> dict:
             model_name=req.model_name, 
             provider=req.provider,
             is_docx_job=is_docx_job,
-            final_output_path=final_output_path
+            final_output_path=final_output_path,
+            owner_id=user.id
         )
         db.add(job)
         db.commit()
@@ -63,7 +64,7 @@ def create_batch_job(req: JobRequest, user: models.User, db: Session) -> dict:
 
         for file_name in files:
             file_path = os.path.join(req.input_dir, file_name)
-            task = models.FileTask(job_id=job.id, file_name=file_name, file_path=file_path)
+            task = models.FileTask(job_id=job.id, file_name=file_name, file_path=file_path, owner_id=user.id)
             db.add(task)
         
         db.commit()
@@ -94,7 +95,8 @@ def create_batch_job(req: JobRequest, user: models.User, db: Session) -> dict:
                 model_name=req.model_name,
                 provider=req.provider,
                 is_docx_job=2,
-                final_output_path=final_output_path
+                final_output_path=final_output_path,
+                owner_id=user.id
             )
             db.add(job)
             db.commit()
@@ -102,7 +104,7 @@ def create_batch_job(req: JobRequest, user: models.User, db: Session) -> dict:
             
             for chunk_file in chunk_files:
                 chunk_path = os.path.join(chunks_dir, chunk_file)
-                task = models.FileTask(job_id=job.id, file_name=chunk_file, file_path=chunk_path)
+                task = models.FileTask(job_id=job.id, file_name=chunk_file, file_path=chunk_path, owner_id=user.id)
                 db.add(task)
                 
             total_chunks_across_all += len(chunk_files)
@@ -229,7 +231,8 @@ def upload_and_run_batch_jobs(
                 model_name=prep["model_name"],
                 provider=prep["provider"],
                 is_docx_job=prep["is_docx_job"],
-                final_output_path=prep["final_output_path"]
+                final_output_path=prep["final_output_path"],
+                owner_id=user.id
             )
             db.add(job)
             db.commit()
@@ -237,7 +240,7 @@ def upload_and_run_batch_jobs(
             
             for chunk_file in prep["chunk_files"]:
                 chunk_path = os.path.join(prep["chunks_dir"], chunk_file)
-                task = models.FileTask(job_id=job.id, file_name=chunk_file, file_path=chunk_path)
+                task = models.FileTask(job_id=job.id, file_name=chunk_file, file_path=chunk_path, owner_id=user.id)
                 db.add(task)
                 
             total_chunks_across_all += len(prep["chunk_files"])
