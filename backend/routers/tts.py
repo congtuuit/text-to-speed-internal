@@ -40,7 +40,13 @@ def generate_customer_voice_params(seed_input: str, keep_voice_input: str, custo
     return seed_val, keep_voice_val
 
 @router.post("/api/test-voice")
-def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
+def test_voice(req: TestVoiceRequest, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    user = _current_user_from_request(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Chua dang nhap")
+    
+    from routers.billing import check_quota, record_usage
+    check_quota(user, len(req.text), db)
     if len(req.text) > 2000:
         raise HTTPException(status_code=400, detail="Văn bản vượt quá giới hạn 2000 ký tự.")
         
@@ -128,6 +134,7 @@ def test_voice(req: TestVoiceRequest, background_tasks: BackgroundTasks):
         except Exception as e:
             print(f"Cache save error: {e}")
         
+    record_usage(user.id, len(req.text), "generate", db)
     background_tasks.add_task(cleanup)
     return FileResponse(temp_file, media_type="audio/wav")
 
@@ -141,7 +148,13 @@ class MergeSessionRequest(BaseModel):
 
 
 @router.post("/api/tts/chunk")
-def tts_chunk(req: ChunkSessionRequest, background_tasks: BackgroundTasks):
+def tts_chunk(req: ChunkSessionRequest, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    user = _current_user_from_request(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Chua dang nhap")
+        
+    from routers.billing import check_quota, record_usage
+    check_quota(user, len(req.text), db)
     if len(req.text) > 2000:
         raise HTTPException(status_code=400, detail="Chunk vượt quá giới hạn.")
         
@@ -196,6 +209,7 @@ def tts_chunk(req: ChunkSessionRequest, background_tasks: BackgroundTasks):
             if os.path.exists(temp_speed_file):
                 os.remove(temp_speed_file)
                 
+        record_usage(user.id, len(req.text), "generate", db)
     return {"status": "ok"}
 
 
@@ -309,6 +323,7 @@ def update_settings(req: SettingsRequest, request: Request, db: Session = Depend
     # Resume queue in case it was paused due to quota/api key error
     queue_manager.resume()
 
+        record_usage(user.id, len(req.text), "generate", db)
     return {"status": "ok"}
 
 
@@ -405,6 +420,7 @@ def warmup_self_hosted_voice(req: WarmupRequest, background_tasks: BackgroundTas
             print(f"Warmup voice error: {e}")
 
     background_tasks.add_task(do_warmup)
+        record_usage(user.id, len(req.text), "generate", db)
     return {"status": "ok"}
 
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+﻿from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -80,6 +80,9 @@ class User(Base):
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    subscription = relationship("UserSubscription", back_populates="user", uselist=False)
+    usage_logs = relationship("UsageLog", back_populates="user")
+
 
 class Workspace(Base):
     __tablename__ = "workspaces"
@@ -101,3 +104,37 @@ class RequestLog(Base):
     method = Column(String)
     status_code = Column(Integer)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ── Pricing / Subscription models ─────────────────────────────────────────────
+
+class UserSubscription(Base):
+    """Tracks each user's active subscription plan."""
+    __tablename__ = "user_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    plan_id = Column(String, nullable=False, default="free")   # free | starter | pro | enterprise
+    status = Column(String, nullable=False, default="active")  # active | cancelled | past_due
+    chars_limit = Column(Integer, nullable=False, default=10000)
+    batch_files_limit = Column(Integer, nullable=False, default=5)
+    audio_storage_limit = Column(Integer, nullable=False, default=50)  # number of stored audios
+    concurrent_jobs = Column(Integer, nullable=False, default=1)
+    started_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+    payment_ref = Column(String, nullable=True)   # external payment ID (Stripe, PayOS, etc.)
+
+    user = relationship("User", back_populates="subscription")
+
+
+class UsageLog(Base):
+    """Records each TTS generation event so we can aggregate monthly usage."""
+    __tablename__ = "usage_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    chars_used = Column(Integer, nullable=False, default=0)
+    action = Column(String, nullable=False, default="generate")  # generate | batch
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="usage_logs")

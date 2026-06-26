@@ -1,18 +1,16 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-
 
 export default function Sidebar({ t, i18n, onLogout, isOpen, onClose, currentUser }) {
   const navigate = useNavigate();
   const location = useLocation();
   const activePage = location.pathname === '/' ? 'dashboard' : location.pathname.slice(1);
 
-  // Automatically close sidebar when navigation path changes
   useEffect(() => {
     if (onClose) onClose();
   }, [location.pathname]);
 
-  const navItems = ['dashboard', 'create', 'batch', 'voices', 'library', 'profile'];
+  const navItems = ['dashboard', 'create', 'batch', 'voices', 'library', 'pricing', 'profile'];
   if (currentUser?.role === 'admin') {
     navItems.push('admin');
   }
@@ -44,4 +42,3 @@ export default function Sidebar({ t, i18n, onLogout, isOpen, onClose, currentUse
     </aside>
   );
 }
-

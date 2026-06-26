@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import './index.css';
 
@@ -16,7 +16,25 @@ import BatchConvert from './pages/BatchConvert';
 import Voices from './pages/Voices';
 import AudioLibrary from './pages/AudioLibrary';
 import Profile from './pages/Profile';
+import PricingPlans from './pages/PricingPlans';
 import AdminSettings from './AdminSettings';
+
+function RequireAuth({ children, authToken }) {
+  const location = useLocation();
+  if (!authToken) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  return children;
+}
+
+function RedirectIfAuth({ children, authToken }) {
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/';
+  if (authToken) {
+    return <Navigate to={from} replace />;
+  }
+  return children;
+}
 
 function App() {
   const { t, i18n } = useTranslation();
@@ -44,41 +62,64 @@ function App() {
     batchVoice, setBatchVoice, batchSpeed, setBatchSpeed, handleStartBatch
   } = useBatchConvert(authToken, selfHostedUrl, fetchJobs, t);
 
-  if (!authToken) {
-    return <AuthScreen t={t} authMode={authMode} setAuthMode={setAuthMode} authEmail={authEmail} setAuthEmail={setAuthEmail} authPassword={authPassword} setAuthPassword={setAuthPassword} authName={authName} setAuthName={setAuthName} authError={authError} authLoading={authLoading} onSubmit={handleAuthSubmit} onGoogleSubmit={handleGoogleLogin} />;
-  }
+  const authScreenProps = {
+    t, authMode, setAuthMode,
+    authEmail, setAuthEmail,
+    authPassword, setAuthPassword,
+    authName, setAuthName,
+    authError, authLoading,
+    onSubmit: handleAuthSubmit,
+    onGoogleSubmit: handleGoogleLogin,
+  };
 
   return (
-    <div className="saas-shell">
-      {/* Mobile Top Bar */}
-      <header className="mobile-header">
-        <button className="menu-toggle" onClick={() => setIsSidebarOpen(true)}>
-          â˜°
-        </button>
-        <span className="mobile-brand-name">{t('app.name')}</span>
-      </header>
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          <RedirectIfAuth authToken={authToken}>
+            <AuthScreen {...authScreenProps} />
+          </RedirectIfAuth>
+        }
+      />
 
-      {/* Sidebar Overlay on Mobile */}
-      {isSidebarOpen && (
-        <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)} />
-      )}
+      <Route
+        path="/*"
+        element={
+          <RequireAuth authToken={authToken}>
+            <div className="saas-shell">
+              <header className="mobile-header">
+                <button className="menu-toggle" onClick={() => setIsSidebarOpen(true)}>
+                  ☰
+                </button>
+                <span className="mobile-brand-name">{t('app.name')}</span>
+              </header>
 
-      <Sidebar t={t} i18n={i18n} onLogout={handleLogout} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentUser={currentUser} />
+              {isSidebarOpen && (
+                <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)} />
+              )}
 
-      <main className="saas-main">
-        <Routes>
-          <Route path="/" element={<Dashboard t={t} jobs={jobs} library={library} />} />
-          <Route path="/dashboard" element={<Dashboard t={t} jobs={jobs} library={library} />} />
-          <Route path="/create" element={<CreateAudio t={t} text={text} setText={setText} voice={voice} setVoice={setVoice} createVoiceSeed={createVoiceSeed} setCreateVoiceSeed={setCreateVoiceSeed} speed={speed} setSpeed={setSpeed} audioUrl={audioUrl} isGenerating={isGenerating} onGenerate={handleGenerate} voices={voices} savedVoices={savedVoices} onPreview={handlePreviewVoice} progressState={progressState} />} />
-          <Route path="/batch" element={<BatchConvert t={t} selectedFiles={selectedFiles} setSelectedFiles={setSelectedFiles} onStart={handleStartBatch} voices={voices} batchVoice={batchVoice} setBatchVoice={setBatchVoice} batchSpeed={batchSpeed} setBatchSpeed={setBatchSpeed} savedVoices={savedVoices} onPreview={handlePreviewVoice} jobs={jobs} fetchJobs={fetchJobs} authToken={authToken} />} />
-          <Route path="/voices" element={<Voices t={t} voice={voice} setVoice={setVoice} voices={voices} savedVoices={savedVoices} onPreview={handlePreviewVoice} onSave={handleSaveSavedVoice} onDelete={handleDeleteSavedVoice} />} />
-          <Route path="/library" element={<AudioLibrary t={t} library={library} onRefresh={fetchLibrary} onCopy={handleCopyAudio} onDelete={handleDeleteAudio} />} />
+              <Sidebar t={t} i18n={i18n} onLogout={handleLogout} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentUser={currentUser} />
 
-          <Route path="/profile" element={<Profile t={t} user={currentUser} />} />
-          <Route path="/admin" element={<AdminSettings authToken={authToken} onSettingsSaved={fetchAdminSettings} />} />
-        </Routes>
-      </main>
-    </div>
+              <main className="saas-main">
+                <Routes>
+                  <Route path="/" element={<Dashboard t={t} jobs={jobs} library={library} authToken={authToken} />} />
+                  <Route path="/dashboard" element={<Dashboard t={t} jobs={jobs} library={library} authToken={authToken} />} />
+                  <Route path="/create" element={<CreateAudio t={t} text={text} setText={setText} voice={voice} setVoice={setVoice} createVoiceSeed={createVoiceSeed} setCreateVoiceSeed={setCreateVoiceSeed} speed={speed} setSpeed={setSpeed} audioUrl={audioUrl} isGenerating={isGenerating} onGenerate={handleGenerate} voices={voices} savedVoices={savedVoices} onPreview={handlePreviewVoice} progressState={progressState} />} />
+                  <Route path="/batch" element={<BatchConvert t={t} selectedFiles={selectedFiles} setSelectedFiles={setSelectedFiles} onStart={handleStartBatch} voices={voices} batchVoice={batchVoice} setBatchVoice={setBatchVoice} batchSpeed={batchSpeed} setBatchSpeed={setBatchSpeed} savedVoices={savedVoices} onPreview={handlePreviewVoice} jobs={jobs} fetchJobs={fetchJobs} authToken={authToken} />} />
+                  <Route path="/voices" element={<Voices t={t} voice={voice} setVoice={setVoice} voices={voices} savedVoices={savedVoices} onPreview={handlePreviewVoice} onSave={handleSaveSavedVoice} onDelete={handleDeleteSavedVoice} />} />
+                  <Route path="/library" element={<AudioLibrary t={t} library={library} onRefresh={fetchLibrary} onCopy={handleCopyAudio} onDelete={handleDeleteAudio} />} />
+                  <Route path="/profile" element={<Profile t={t} user={currentUser} authToken={authToken} />} />
+                  <Route path="/pricing" element={<PricingPlans authToken={authToken} currentUser={currentUser} />} />
+                  <Route path="/admin" element={<AdminSettings authToken={authToken} onSettingsSaved={fetchAdminSettings} />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </main>
+            </div>
+          </RequireAuth>
+        }
+      />
+    </Routes>
   );
 }
 
