@@ -61,6 +61,16 @@ cd ..
 
 echo.
 echo ==============================================
+echo CONFIGURING ENVIRONMENT VARIABLES
+echo ==============================================
+set /p CONFIGURE="Do you want to configure environment variables now? (y/n) [y]: "
+if "%CONFIGURE%"=="" set CONFIGURE=y
+if /i "%CONFIGURE%"=="y" (
+    python setup_env.py
+)
+
+echo.
+echo ==============================================
 echo INSTALLATION COMPLETE!
 echo Please read SETUP_GUIDE.md to learn how to run the application.
 echo ==============================================

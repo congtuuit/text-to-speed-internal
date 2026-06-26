@@ -69,6 +69,16 @@ cd ..
 
 echo ""
 echo "=============================================="
+echo "CONFIGURING ENVIRONMENT VARIABLES"
+echo "=============================================="
+read -p "Do you want to configure environment variables now? (y/n) [y]: " CONFIGURE
+CONFIGURE=${CONFIGURE:-y}
+if [ "$CONFIGURE" = "y" ] || [ "$CONFIGURE" = "Y" ]; then
+    python3 setup_env.py
+fi
+
+echo ""
+echo "=============================================="
 echo "INSTALLATION COMPLETE!"
 echo "Please read SETUP_GUIDE.md to learn how to run the application."
 echo "=============================================="
