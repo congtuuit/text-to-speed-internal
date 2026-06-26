@@ -41,6 +41,10 @@ echo "=============================================="
 echo "INSTALLING TEXT-TO-SPEECH (BACKEND)"
 echo "=============================================="
 cd backend
+if [ ! -f ".env" ]; then
+    echo "Creating backend .env file from .env.example..."
+    cp .env.example .env
+fi
 if [ ! -d "venv" ]; then
     echo "Creating Python virtual environment venv..."
     python3 -m venv venv
@@ -56,8 +60,8 @@ echo "INSTALLING TEXT-TO-SPEECH (FRONTEND)"
 echo "=============================================="
 cd frontend
 if [ ! -f ".env" ]; then
-    echo "Creating default .env file..."
-    echo "VITE_API_BASE_URL=http://localhost:8000" > .env
+    echo "Creating frontend .env file from .env.example..."
+    cp .env.example .env
 fi
 echo "Installing Node.js libraries..."
 npm install

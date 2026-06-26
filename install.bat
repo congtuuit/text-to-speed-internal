@@ -33,6 +33,10 @@ echo ==============================================
 echo INSTALLING TEXT-TO-SPEECH (BACKEND)
 echo ==============================================
 cd backend
+if not exist ".env" (
+    echo Creating backend .env file from .env.example...
+    copy .env.example .env
+)
 if not exist "venv" (
     echo Creating Python virtual environment venv...
     python -m venv venv
@@ -48,8 +52,8 @@ echo INSTALLING TEXT-TO-SPEECH (FRONTEND)
 echo ==============================================
 cd frontend
 if not exist ".env" (
-    echo Creating default .env file...
-    echo VITE_API_BASE_URL=http://localhost:8000> .env
+    echo Creating frontend .env file from .env.example...
+    copy .env.example .env
 )
 echo Installing Node.js libraries...
 call npm install
