@@ -30,6 +30,11 @@ def list_users(request: Request, db: Session = Depends(get_db)):
         # Count stats for each user
         jobs_count = db.query(BatchJob).filter(models.BatchJob.owner_id == u.id).count()
         audios_count = db.query(GeneratedAudio).filter(GeneratedAudio.owner_id == u.id).count()
+        from datetime import datetime
+        is_online = False
+        if u.last_active_at:
+            is_online = (datetime.utcnow() - u.last_active_at).total_seconds() < 300 # 5 minutes
+
         result.append({
             "id": u.id,
             "email": u.email,
@@ -37,6 +42,9 @@ def list_users(request: Request, db: Session = Depends(get_db)):
             "role": u.role,
             "is_active": u.is_active,
             "created_at": u.created_at.isoformat() if u.created_at else None,
+            "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
+            "last_active_at": u.last_active_at.isoformat() if u.last_active_at else None,
+            "is_online": is_online,
             "jobs_count": jobs_count,
             "audios_count": audios_count
         })

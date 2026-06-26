@@ -1,4 +1,4 @@
-﻿from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -79,6 +79,8 @@ class User(Base):
     role = Column(String, default="user")
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
+    last_login_at = Column(DateTime, nullable=True)
+    last_active_at = Column(DateTime, nullable=True)
 
     subscription = relationship("UserSubscription", back_populates="user", uselist=False)
     usage_logs = relationship("UsageLog", back_populates="user")

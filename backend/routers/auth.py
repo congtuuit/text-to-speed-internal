@@ -29,7 +29,15 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
     existing = db.query(models.User).filter(models.User.email == email).first()
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
-    user = models.User(email=email, password_hash=hash_password(req.password), full_name=req.full_name, role="user")
+    from datetime import datetime
+    user = models.User(
+        email=email,
+        password_hash=hash_password(req.password),
+        full_name=req.full_name,
+        role="user",
+        last_login_at=datetime.utcnow(),
+        last_active_at=datetime.utcnow()
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -48,6 +56,10 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    from datetime import datetime
+    user.last_login_at = datetime.utcnow()
+    user.last_active_at = datetime.utcnow()
+    db.commit()
     workspace = db.query(models.Workspace).filter(models.Workspace.user_id == user.id).first()
     if not workspace:
         _ts = int(time.time())
@@ -100,6 +112,10 @@ def google_auth(req: GoogleLoginRequest, db: Session = Depends(get_db)):
         db.refresh(user)
         
     # Get or create workspace
+    from datetime import datetime
+    user.last_login_at = datetime.utcnow()
+    user.last_active_at = datetime.utcnow()
+    db.commit()
     workspace = db.query(models.Workspace).filter(models.Workspace.user_id == user.id).first()
     if not workspace:
         _ts = int(time.time())
@@ -139,7 +155,17 @@ def _current_user_from_request(request: Request, db: Session):
     user_id = payload.get("sub")
     if not user_id:
         return None
-    return db.query(models.User).filter(models.User.id == int(user_id)).first()
+    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
+    if user:
+        from datetime import datetime
+        now = datetime.utcnow()
+        if not user.last_active_at or (now - user.last_active_at).total_seconds() > 60:
+            user.last_active_at = now
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+    return user
 
 @router.get("/api/auth/me")
 def me(request: Request, db: Session = Depends(get_db)):
