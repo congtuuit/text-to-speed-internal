@@ -91,15 +91,9 @@ pip install -r requirements.txt
 
 # Tạo file .env nếu chưa có
 if [ ! -f ".env" ]; then
-    echo "Khởi tạo file backend .env mặc định..."
-    cat <<EOT > .env
-DATABASE_URL=sqlite:///./tts_batch.db
-PORT=8000
-# Thêm API Keys của bạn vào đây:
-# FPT_API_KEYS=key1,key2
-# GEMINI_API_KEY=your_gemini_key
-EOT
-    echo -e "${GREEN}[OK] Đã tạo file backend/.env${NC}"
+    echo "Khởi tạo file backend .env từ .env.example..."
+    cp .env.example .env
+    echo -e "${GREEN}[OK] Đã tạo file backend/.env từ template mẫu.${NC}"
 fi
 
 # ------------------------------------------------------------------------------
@@ -110,7 +104,7 @@ cd "$SCRIPT_DIR/frontend"
 
 # Prompt cấu hình địa chỉ Backend API
 echo -e "${BLUE}Nhập Domain hoặc IP của VPS (Ví dụ: tts.example.com hoặc 123.45.67.89).${NC}"
-echo -e "${BLUE}Nếu để trống, sẽ mặc định sử dụng đường dẫn tương đối '/api' (Rất tốt khi cấu hình Nginx reverse proxy):${NC}"
+echo -e "${BLUE}Nếu để trống, sẽ mặc định sử dụng đường dẫn tương đối '/api' (Khuyên dùng khi cấu hình Nginx reverse proxy):${NC}"
 read -p "Domain/IP: " USER_DOMAIN
 
 API_URL="/api"
@@ -123,9 +117,14 @@ if [ ! -z "$USER_DOMAIN" ]; then
     fi
 fi
 
+# Prompt cấu hình Google Client ID (cần thiết tại thời điểm build frontend)
+echo -e "${BLUE}Nhập VITE_GOOGLE_CLIENT_ID (Để trống nếu không cấu hình Google Login):${NC}"
+read -p "Google Client ID: " GOOGLE_CLIENT_ID
+
 # Tạo hoặc cập nhật .env.production cho frontend
-echo "Tạo file frontend/.env.production với VITE_API_BASE_URL=$API_URL"
+echo "Tạo file frontend/.env.production..."
 echo "VITE_API_BASE_URL=$API_URL" > .env.production
+echo "VITE_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" >> .env.production
 
 echo "Đang cài đặt các thư viện Node.js..."
 npm install
