@@ -32,6 +32,18 @@ def _get_or_create_subscription(user: User, db: Session) -> UserSubscription:
         db.add(sub)
         db.commit()
         db.refresh(sub)
+    else:
+        plan = get_plan(sub.plan_id)
+        if (sub.chars_limit != plan["chars_limit"] or 
+            sub.batch_files_limit != plan["batch_files_limit"] or 
+            sub.audio_storage_limit != plan["audio_storage_limit"] or 
+            sub.concurrent_jobs != plan["concurrent_jobs"]):
+            sub.chars_limit = plan["chars_limit"]
+            sub.batch_files_limit = plan["batch_files_limit"]
+            sub.audio_storage_limit = plan["audio_storage_limit"]
+            sub.concurrent_jobs = plan["concurrent_jobs"]
+            db.commit()
+            db.refresh(sub)
     return sub
 
 
@@ -101,6 +113,7 @@ def get_my_billing(request: Request, db: Session = Depends(get_db)):
         "subscription": {
             "plan_id": sub.plan_id,
             "plan_name": plan_meta["name"],
+            "plan_name_vi": plan_meta.get("name_vi", plan_meta["name"]),
             "status": sub.status,
             "chars_limit": sub.chars_limit,
             "batch_files_limit": sub.batch_files_limit,

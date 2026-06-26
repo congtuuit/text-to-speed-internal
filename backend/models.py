@@ -116,9 +116,9 @@ class UserSubscription(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
     plan_id = Column(String, nullable=False, default="free")   # free | starter | pro | enterprise
     status = Column(String, nullable=False, default="active")  # active | cancelled | past_due
-    chars_limit = Column(Integer, nullable=False, default=10000)
-    batch_files_limit = Column(Integer, nullable=False, default=5)
-    audio_storage_limit = Column(Integer, nullable=False, default=50)  # number of stored audios
+    chars_limit = Column(Integer, nullable=False, default=50000)
+    batch_files_limit = Column(Integer, nullable=False, default=3)
+    audio_storage_limit = Column(Integer, nullable=False, default=30)  # number of stored audios
     concurrent_jobs = Column(Integer, nullable=False, default=1)
     started_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=True)

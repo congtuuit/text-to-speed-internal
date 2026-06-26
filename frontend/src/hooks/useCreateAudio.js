@@ -19,7 +19,7 @@ function splitText(text, maxLength = 150) {
 }
 
 export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
-  const [text, setText] = useState("Xin chÃ o, Ä‘Ã¢y lÃ  báº£n Ä‘á»c thá»­ tiáº¿ng Viá»‡t cho sáº£n pháº©m TTS Studio.");
+  const [text, setText] = useState("Xin chào, đây là bản đọc thử tiếng Việt cho sản phẩm TTS Studio.");
   const [voice, setVoice] = useState('female');
   const [createVoiceSeed, setCreateVoiceSeed] = useState('');
   const [speed, setSpeed] = useState(1);

@@ -25,7 +25,7 @@ export default function Profile({ t, user, authToken }) {
   const usage = billing?.usage
 
   const charsUsed = usage?.chars_used_this_month ?? 0
-  const charsLimit = sub?.chars_limit ?? 10000
+  const charsLimit = sub?.chars_limit ?? 50000
   const usageLabel =
     charsLimit === -1
       ? `${charsUsed.toLocaleString()} / ∞`
@@ -63,7 +63,10 @@ export default function Profile({ t, user, authToken }) {
             {t('profile.billingInfo')}
           </h2>
           <div className="metric-grid">
-            <Metric title={t('billing.currentPlan')} value={sub?.plan_name || 'Free'} />
+            <Metric
+              title={t('billing.currentPlan')}
+              value={lang === 'vi' ? (sub?.plan_name_vi || 'Miễn phí') : (sub?.plan_name || 'Free')}
+            />
             <Metric title={t('billing.status')} value={sub?.status || 'active'} />
             <Metric title={t('billing.usage')} value={usageLabel} />
             <Metric
