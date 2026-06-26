@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 
 # Fix Windows encoding: force stdout/stderr sang UTF-8
 if hasattr(sys.stdout, 'reconfigure'):
@@ -15,6 +15,11 @@ import models
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Batch TTS Tool API")
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "message": "Backend is running smoothly"}
+
 
 app.add_middleware(
     CORSMiddleware,
