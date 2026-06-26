@@ -45,6 +45,10 @@ export default function AudioLibrary({ t, library, onRefresh, onCopy, onDelete }
     }
   }, [volume, isMuted])
 
+  useEffect(() => {
+    onRefresh && onRefresh();
+  }, [])
+
   const handleTimeUpdate = () => {
     if (audioRef.current) {
       setCurrentTime(audioRef.current.currentTime)

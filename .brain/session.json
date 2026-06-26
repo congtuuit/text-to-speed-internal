@@ -1,17 +1,22 @@
 {
-  "updated_at": "2026-06-25T10:19:47.844467Z",
+  "updated_at": "2026-06-26T03:18:14.757654Z",
   "working_on": {
-    "feature": "Backend Refactoring",
-    "task": "Tách main.py thành nhiều file routers",
+    "feature": "Dynamic Worker Concurrency Limit & Common Stats Helper",
+    "task": "Tạo hàm chung tính toán worker, áp dụng giới hạn gói động cho QueueManager, cập nhật APIs",
     "status": "completed",
     "files": [
-      "backend/main.py",
-      "backend/schemas.py",
-      "backend/routers/*"
+      "backend/services/queue_manager.py",
+      "backend/routers/jobs.py",
+      "backend/routers/admin.py"
     ],
-    "notes": "Đã chia API thành auth, tts, jobs, library, documents"
+    "notes": "Đã đổi logic hàng đợi cũ từ gán cứng giới hạn đồng thời sang kiểm tra động từ database subscription của user"
   },
   "recent_changes": [
+    {
+      "timestamp": "2026-06-26T03:18:14.757654Z",
+      "type": "feature",
+      "description": "Implemented get_worker_stats helper on QueueManager to return dynamic system and user-specific worker capacities, and updated QueueManager check loop, admin system-stats API, and user active-jobs-progress API."
+    },
     {
       "timestamp": "2026-06-25T10:19:47.844504Z",
       "type": "refactor",

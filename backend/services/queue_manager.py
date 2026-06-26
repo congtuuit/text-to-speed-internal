@@ -12,7 +12,7 @@ import shutil
 import wave
 
 from database import SessionLocal
-from models import FileTask, BatchJob, Settings
+from models import FileTask, BatchJob, Settings, UserSubscription
 from services.tts_provider import TTSProvider
 from services.storage_service import register_audio_file
 
@@ -130,6 +130,43 @@ class QueueManager:
             ]
         }
 
+    def get_worker_stats(self, user_id: int = None, db = None) -> dict:
+        """Calculate worker statistics for the system and optionally a specific user."""
+        from models import UserSubscription, FileTask, BatchJob
+        
+        # System-level stats
+        system_max = self.max_workers
+        system_active = db.query(FileTask).filter(FileTask.status == "Processing").count() if db else 0
+        system_available = max(0, system_max - system_active)
+        
+        stats = {
+            "system_max": system_max,
+            "system_active": system_active,
+            "system_available": system_available
+        }
+        
+        if user_id is not None and db is not None:
+            # User-level stats
+            sub = db.query(UserSubscription).filter(UserSubscription.user_id == user_id).first()
+            user_limit = sub.concurrent_jobs if sub else 1 # Default to 1 (Free plan)
+            
+            user_active = db.query(FileTask).join(BatchJob).filter(
+                BatchJob.owner_id == user_id,
+                FileTask.status == "Processing"
+            ).count()
+            
+            if user_limit == -1:
+                user_available = system_available
+            else:
+                user_available = max(0, min(user_limit - user_active, system_available))
+                
+            stats.update({
+                "user_limit": user_limit,
+                "user_active": user_active,
+                "user_available": user_available
+            })
+            
+        return stats
 
     def _worker_loop(self):
         worker_name = threading.current_thread().name
@@ -159,22 +196,32 @@ class QueueManager:
 
                 with self.db_lock:
                     from sqlalchemy import func
-                    # 1. Count active jobs per user
-                    active_job_counts = db.query(
+                    from models import UserSubscription
+
+                    # 1. Count active processing tasks per user
+                    active_task_counts = db.query(
                         BatchJob.owner_id,
-                        func.count(BatchJob.id).label("count")
+                        func.count(FileTask.id).label("count")
+                    ).join(
+                        FileTask, FileTask.job_id == BatchJob.id
                     ).filter(
-                        BatchJob.status == "Processing"
+                        FileTask.status == "Processing"
                     ).group_by(
                         BatchJob.owner_id
                     ).all()
 
-                    # Find users who have reached the limit of 2 concurrent jobs
-                    MAX_CONCURRENT_JOBS = 2
-                    overlimit_users = [
-                        row.owner_id for row in active_job_counts
-                        if row.owner_id is not None and row.count >= MAX_CONCURRENT_JOBS
-                    ]
+                    # Query all user subscription limits to apply dynamic limits
+                    subscriptions = db.query(UserSubscription.user_id, UserSubscription.concurrent_jobs).all()
+                    user_limits = {sub.user_id: sub.concurrent_jobs for sub in subscriptions if sub.user_id is not None}
+
+                    # Find users who have reached their concurrent jobs limit
+                    overlimit_users = []
+                    for row in active_task_counts:
+                        owner_id = row.owner_id
+                        if owner_id is not None:
+                            limit = user_limits.get(owner_id, 1)  # Default to 1 (Free tier limit)
+                            if limit != -1 and row.count >= limit:
+                                overlimit_users.append(owner_id)
 
                     # 2. Query pending tasks where the job owner is not overlimit
                     query = db.query(FileTask).join(BatchJob)

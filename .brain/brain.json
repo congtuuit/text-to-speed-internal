@@ -74,6 +74,32 @@
           "file_name",
           "status"
         ]
+      },
+      {
+        "name": "user_subscriptions",
+        "columns": [
+          "id",
+          "user_id",
+          "plan_id",
+          "status",
+          "chars_limit",
+          "batch_files_limit",
+          "audio_storage_limit",
+          "concurrent_jobs",
+          "started_at",
+          "expires_at",
+          "payment_ref"
+        ]
+      },
+      {
+        "name": "usage_logs",
+        "columns": [
+          "id",
+          "user_id",
+          "chars_used",
+          "action",
+          "created_at"
+        ]
       }
     ],
     "relationships_explained": "Mỗi batch job có nhiều file tasks."
@@ -94,6 +120,14 @@
     {
       "path": "/api/jobs",
       "explained": "Quản lý quá trình chuyển đổi hàng loạt"
+    },
+    {
+      "path": "/api/jobs/active/progress",
+      "explained": "Lấy tiến trình công việc đang chạy và thông tin thống kê worker khả dụng của người dùng"
+    },
+    {
+      "path": "/system-stats",
+      "explained": "Lấy thống kê hệ thống (CPU, RAM, DB) và chi tiết số lượng worker đang bận"
     }
   ],
   "business_rules": [

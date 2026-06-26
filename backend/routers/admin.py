@@ -104,9 +104,9 @@ def get_system_stats(request: Request, db: Session = Depends(get_db)):
     total_tasks = db.query(FileTask).count()
     total_audios = db.query(GeneratedAudio).count()
     
+    stats = queue_manager.get_worker_stats(db=db)
     active_workers = len([t for t in queue_manager.threads if t.is_alive()])
-    max_workers_setting = db.query(Settings).filter(Settings.key == "max_workers").first()
-    max_workers = int(max_workers_setting.value) if max_workers_setting else 3
+    max_workers = stats["system_max"]
     
     # 3. Query Self-Hosted TTS Server Health if configured
     self_hosted_health = None
@@ -138,6 +138,7 @@ def get_system_stats(request: Request, db: Session = Depends(get_db)):
         },
         "queue": {
             "active_workers": active_workers,
+            "busy_workers": stats["system_active"],
             "max_workers": max_workers,
             "is_paused": queue_manager.is_paused
         },

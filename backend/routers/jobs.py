@@ -67,9 +67,10 @@ def get_active_jobs_progress(request: Request, db: Session = Depends(get_db)):
     user = _current_user_from_request(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Chua dang nhap")
+    worker_stats = queue_manager.get_worker_stats(user.id, db)
     jobs = db.query(models.BatchJob).filter(models.BatchJob.owner_id == user.id).order_by(models.BatchJob.id.desc()).all()
     if not jobs:
-        return {"jobs": []}
+        return {"jobs": [], "worker_stats": worker_stats}
         
     result = []
     for job in jobs:
@@ -98,7 +99,7 @@ def get_active_jobs_progress(request: Request, db: Session = Depends(get_db)):
             "is_paused": queue_manager.is_paused
         })
         
-    return {"jobs": result}
+    return {"jobs": result, "worker_stats": worker_stats}
 
 
 @router.get("/api/jobs/{job_id}/tasks")

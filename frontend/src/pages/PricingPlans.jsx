@@ -9,14 +9,14 @@ function CompareTable({ lang }) {
     {
       name: 'TTS Studio Free',
       chars: '50,000',
-      price: lang === 'vi' ? 'Mien phi' : 'Free',
+      price: lang === 'vi' ? 'Free' : 'Free',
       note: lang === 'vi' ? '5x ElevenLabs' : '5x ElevenLabs free',
       highlight: true,
     },
     {
       name: 'ElevenLabs Free',
       chars: '10,000',
-      price: lang === 'vi' ? 'Mien phi' : 'Free',
+      price: lang === 'vi' ? 'Free' : 'Free',
       note: '',
       highlight: false,
     },
@@ -51,7 +51,7 @@ function CompareTable({ lang }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-            {['Platform', lang === 'vi' ? 'Chars/thang' : 'Chars/month', lang === 'vi' ? 'Gia' : 'Price', ''].map((h, i) => (
+            {['Platform', lang === 'vi' ? 'Chars/tháng' : 'Chars/month', lang === 'vi' ? 'Gia' : 'Price', ''].map((h, i) => (
               <th key={i} style={{ textAlign: 'left', padding: '0.5rem 0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{h}</th>
             ))}
           </tr>
@@ -87,11 +87,11 @@ function PlanCard({ plan, currentPlanId, onUpgrade, lang }) {
 
   const priceLabel =
     price === null
-      ? (lang === 'vi' ? 'Lien he' : 'Contact us')
+      ? (lang === 'vi' ? 'Liên hệ' : 'Contact us')
       : price === 0
-      ? (lang === 'vi' ? 'Mien phi' : 'Free')
+      ? (lang === 'vi' ? 'Free' : 'Free')
       : lang === 'vi'
-      ? price.toLocaleString('vi-VN') + 'd / thang'
+      ? price.toLocaleString('vi-VN') + 'đ / tháng'
       : '$' + price + ' / month'
 
   return (
