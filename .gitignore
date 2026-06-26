@@ -13,3 +13,5 @@ cache/*
 backend/cache/*
 backend/backend/storage/temp_batch/*
 backend/storage/audio_library/*
+venv/
+backend/venv/
