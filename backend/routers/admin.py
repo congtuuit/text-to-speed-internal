@@ -35,11 +35,16 @@ def list_users(request: Request, db: Session = Depends(get_db)):
         if u.last_active_at:
             is_online = (datetime.utcnow() - u.last_active_at).total_seconds() < 300 # 5 minutes
 
+        # Get subscription
+        sub = db.query(models.UserSubscription).filter(models.UserSubscription.user_id == u.id).first()
+        plan_id = sub.plan_id if sub else "free"
+
         result.append({
             "id": u.id,
             "email": u.email,
             "full_name": u.full_name,
             "role": u.role,
+            "plan_id": plan_id,
             "is_active": u.is_active,
             "created_at": u.created_at.isoformat() if u.created_at else None,
             "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
@@ -261,3 +266,52 @@ def create_common_voice(req: CommonVoiceCreateRequest, request: Request, db: Ses
         raise HTTPException(status_code=500, detail=f"Failed to write metadata: {e}")
         
     return {"status": "ok", "id": voice_key}
+
+
+@router.get("/cache-files")
+def list_cache_files(request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    audios = db.query(GeneratedAudio).order_by(GeneratedAudio.id.desc()).all()
+    
+    result = []
+    for a in audios:
+        creator = "Hệ thống / Vô danh"
+        if a.owner_id:
+            user = db.query(User).filter(User.id == a.owner_id).first()
+            if user:
+                creator = user.email
+        
+        size_bytes = 0
+        if a.storage_provider == "local" and a.file_path and os.path.exists(a.file_path):
+            try:
+                size_bytes = os.path.getsize(a.file_path)
+            except Exception:
+                pass
+                
+        result.append({
+            "id": a.id,
+            "file_name": a.file_name,
+            "audio_url": a.audio_url,
+            "storage_provider": a.storage_provider,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+            "creator": creator,
+            "size_bytes": size_bytes
+        })
+    return {"files": result}
+
+
+@router.delete("/cache-files/{file_id}")
+def delete_cache_file(file_id: int, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    audio = db.query(GeneratedAudio).filter(GeneratedAudio.id == file_id).first()
+    if not audio:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tệp cache")
+        
+    try:
+        from services.storage_service import delete_audio_file
+        delete_audio_file(audio, db)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi xóa tệp: {str(e)}")
+        
+    return {"status": "ok", "message": "Xóa tệp cache thành công"}
+

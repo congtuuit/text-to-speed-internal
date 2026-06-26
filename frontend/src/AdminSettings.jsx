@@ -8,6 +8,7 @@ import SettingsTab from "./components/admin/SettingsTab";
 import UsersTab from "./components/admin/UsersTab";
 import QueuesTab from "./components/admin/QueuesTab";
 import MonitorTab from "./components/admin/MonitorTab";
+import CacheTab from "./components/admin/CacheTab";
 
 export default function AdminSettings({ authToken, onSettingsSaved }) {
   const { t } = useTranslation();
@@ -76,6 +77,81 @@ export default function AdminSettings({ authToken, onSettingsSaved }) {
         .catch(() => setLoadingUsers(false));
     }
   }, [activeTab, authToken, authHeaders]);
+
+  const handleAssignPlan = async (userId, email, currentPlanId) => {
+    const { value: planId } = await Swal.fire({
+      title: "Thay đổi gói dịch vụ",
+      text: `Chọn gói dịch vụ mới cho tài khoản: ${email}`,
+      input: "select",
+      inputOptions: {
+        free: "Free (Miễn phí)",
+        starter: "Starter",
+        pro: "Pro",
+        studio: "Studio",
+        enterprise: "Enterprise (Doanh nghiệp)"
+      },
+      inputValue: currentPlanId,
+      showCancelButton: true,
+      confirmButtonText: "Xác nhận",
+      cancelButtonText: "Hủy",
+      background: "transparent",
+      color: "var(--text-main)",
+      customClass: {
+        popup: 'glass-panel',
+        confirmButton: 'btn success',
+        cancelButton: 'btn ghost',
+        actions: 'swal2-actions-custom',
+        input: 'swal2-input-custom'
+      },
+      buttonsStyling: false,
+      inputValidator: (value) => {
+        if (!value) {
+          return "Bạn phải chọn một gói dịch vụ!";
+        }
+      }
+    });
+
+    if (planId) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/billing/admin/assign`, {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({ user_id: userId, plan_id: planId }),
+        });
+        if (res.ok) {
+          Swal.fire({
+            icon: "success",
+            title: "Cập nhật thành công!",
+            text: `Đã thay đổi gói dịch vụ của ${email} sang ${planId.toUpperCase()}`,
+            timer: 1500,
+            showConfirmButton: false,
+            background: "#1e293b",
+            color: "#fff"
+          });
+          // Re-fetch users
+          setLoadingUsers(true);
+          fetch(`${API_BASE_URL}/api/admin/users`, { headers: authHeaders })
+            .then((res) => res.json())
+            .then((data) => {
+              setUsers(data.users || []);
+              setLoadingUsers(false);
+            })
+            .catch(() => setLoadingUsers(false));
+        } else {
+          const data = await res.json();
+          throw new Error(data.detail || "Không thể cập nhật gói");
+        }
+      } catch (err) {
+        Swal.fire({
+          icon: "error",
+          title: "Lỗi",
+          text: err.message,
+          background: "#1e293b",
+          color: "#fff"
+        });
+      }
+    }
+  };
 
   // Fetch job queue
   const fetchAllJobs = () => {
@@ -215,6 +291,12 @@ export default function AdminSettings({ authToken, onSettingsSaved }) {
         >
           🖥️ Theo dõi tài nguyên
         </button>
+        <button 
+          className={`tab-btn ${activeTab === "cache" ? "active" : ""}`}
+          onClick={() => setActiveTab("cache")}
+        >
+          📁 Quản lý Cache
+        </button>
       </div>
 
       {/* TAB CONTENT Rendering */}
@@ -237,7 +319,7 @@ export default function AdminSettings({ authToken, onSettingsSaved }) {
           <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "1.25rem" }}>
             Danh sách tất cả các tài khoản đăng ký trong hệ thống và thống kê tổng số lượng yêu cầu của họ.
           </p>
-          <UsersTab users={users} loading={loadingUsers} />
+          <UsersTab users={users} loading={loadingUsers} onAssignPlan={handleAssignPlan} />
         </section>
       )}
 
@@ -260,6 +342,16 @@ export default function AdminSettings({ authToken, onSettingsSaved }) {
         <MonitorTab
           authToken={authToken}
         />
+      )}
+
+      {activeTab === "cache" && (
+        <section className="glass-panel">
+          <h3 style={{ marginBottom: "0.25rem" }}>Quản lý Cache Tệp Tin</h3>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "1.25rem" }}>
+            Xem danh sách các file audio đã được sinh ra trên đĩa hệ thống, dung lượng chiếm dụng và thực hiện dọn dẹp khi cần thiết.
+          </p>
+          <CacheTab authToken={authToken} />
+        </section>
       )}
     </>
   );

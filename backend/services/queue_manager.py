@@ -475,6 +475,10 @@ class QueueManager:
                                                     os.remove(temp_speed_path)
 
                                         shutil.rmtree(job_obj.output_dir, ignore_errors=True)
+                                        # Clean up original input directory if it exists under temp_batch
+                                        if "chunks_" in job_obj.output_dir:
+                                            input_dir = job_obj.output_dir.replace("chunks_", "input_")
+                                            shutil.rmtree(input_dir, ignore_errors=True)
                                     except Exception as e:
                                         print(f"[{worker_name}] error joining audio: {e}")
                 except Exception as e:

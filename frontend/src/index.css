@@ -1,4 +1,4 @@
-﻿html {
+html {
   scrollbar-gutter: stable;
 }
 
@@ -912,6 +912,11 @@ audio::-webkit-media-controls-panel {
   font-size: 1rem !important;
   margin: 0 !important;
   font-family: inherit !important;
+}
+
+select.swal2-input-custom option {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
 }
 
 .swal2-input-custom:focus {
