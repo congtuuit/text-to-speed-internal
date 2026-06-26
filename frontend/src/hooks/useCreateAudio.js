@@ -61,7 +61,7 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
           setProgressState({ current: i + 1, total: chunks.length, merging: false });
 
           const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
-          const token = localStorage.getItem('access_token');
+          const token = localStorage.getItem('tts_auth_token');
           const headers = { 'Content-Type': 'application/json' };
           if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -90,7 +90,7 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
         // Merge
         setProgressState(prev => ({ ...prev, merging: true }));
         const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
-        const token = localStorage.getItem('access_token');
+        const token = localStorage.getItem('tts_auth_token');
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 

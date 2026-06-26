@@ -44,9 +44,6 @@ def test_voice(req: TestVoiceRequest, request: Request, background_tasks: Backgr
     user = _current_user_from_request(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Chua dang nhap")
-    
-    from routers.billing import check_quota, record_usage
-    check_quota(user, len(req.text), db)
     if len(req.text) > 2000:
         raise HTTPException(status_code=400, detail="Văn bản vượt quá giới hạn 2000 ký tự.")
         
@@ -134,7 +131,6 @@ def test_voice(req: TestVoiceRequest, request: Request, background_tasks: Backgr
         except Exception as e:
             print(f"Cache save error: {e}")
         
-    record_usage(user.id, len(req.text), "generate", db)
     background_tasks.add_task(cleanup)
     return FileResponse(temp_file, media_type="audio/wav")
 
@@ -323,7 +319,6 @@ def update_settings(req: SettingsRequest, request: Request, db: Session = Depend
     # Resume queue in case it was paused due to quota/api key error
     queue_manager.resume()
 
-        record_usage(user.id, len(req.text), "generate", db)
     return {"status": "ok"}
 
 
@@ -420,7 +415,6 @@ def warmup_self_hosted_voice(req: WarmupRequest, background_tasks: BackgroundTas
             print(f"Warmup voice error: {e}")
 
     background_tasks.add_task(do_warmup)
-        record_usage(user.id, len(req.text), "generate", db)
     return {"status": "ok"}
 
 
