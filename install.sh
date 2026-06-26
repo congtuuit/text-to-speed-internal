@@ -1,14 +1,14 @@
 #!/bin/bash
 
 echo "Checking environment..."
-if ! command -v python3 &> /dev/null; then
-    echo "[WARNING] Python3 not found! Attempting automatic installation..."
+if ! command -v python3 &> /dev/null || ! python3 -c "import venv" &> /dev/null; then
+    echo "[WARNING] Python3 or python3-venv not found! Attempting automatic installation..."
     if command -v apt &> /dev/null; then
         sudo apt update && sudo apt install -y python3 python3-venv python3-pip
     elif command -v brew &> /dev/null; then
         brew install python
     else
-        echo "[ERROR] Cannot install automatically. Please install Python 3.9+ manually."
+        echo "[ERROR] Cannot install automatically. Please install Python 3.9+ and python3-venv manually."
         exit 1
     fi
 fi

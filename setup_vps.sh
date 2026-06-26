@@ -61,8 +61,25 @@ check_and_install() {
     fi
 }
 
-# Kiểm tra Python 3
-check_and_install "python3" "python3 python3-pip python3-venv"
+# Kiểm tra Python 3 và module venv
+if ! command -v python3 &> /dev/null || ! python3 -c "import venv" &> /dev/null; then
+    echo -e "${YELLOW}[WARNING] Python3 hoặc python3-venv chưa đầy đủ. Đang tiến hành cài đặt...${NC}"
+    if [ "$IS_ROOT" = true ]; then
+        if command -v apt &> /dev/null; then
+            apt update && apt install -y python3 python3-pip python3-venv
+        elif command -v yum &> /dev/null; then
+            yum install -y python3 python3-pip
+        else
+            echo -e "${RED}[ERROR] Không hỗ trợ cài đặt tự động. Vui lòng cài đặt python3 và python3-venv thủ công.${NC}"
+            exit 1
+        fi
+    else
+        echo -e "${RED}[ERROR] Cần quyền root (sudo) để cài đặt python3-venv. Vui lòng chạy lại script bằng lệnh: sudo $0${NC}"
+        exit 1
+    fi
+else
+    echo -e "${GREEN}[OK] Python3 và python3-venv đã sẵn sàng.${NC}"
+fi
 
 # Kiểm tra Node.js & NPM
 check_and_install "npm" "nodejs npm"
