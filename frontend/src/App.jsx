@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import './index.css';
@@ -18,6 +18,7 @@ import AudioLibrary from './pages/AudioLibrary';
 import Profile from './pages/Profile';
 import PricingPlans from './pages/PricingPlans';
 import AdminSettings from './AdminSettings';
+import LandingPage from './pages/LandingPage';
 
 function RequireAuth({ children, authToken }) {
   const location = useLocation();
@@ -29,7 +30,10 @@ function RequireAuth({ children, authToken }) {
 
 function RedirectIfAuth({ children, authToken }) {
   const location = useLocation();
-  const from = location.state?.from?.pathname || '/';
+  let from = location.state?.from?.pathname || '/dashboard';
+  if (from === '/') {
+    from = '/dashboard';
+  }
   if (authToken) {
     return <Navigate to={from} replace />;
   }
@@ -74,6 +78,7 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/" element={<LandingPage authToken={authToken} />} />
       <Route
         path="/login"
         element={
