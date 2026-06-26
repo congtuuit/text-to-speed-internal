@@ -79,13 +79,14 @@ check_and_install "nginx" "nginx"
 echo -e "\n${YELLOW}[2/6] Thiết lập Backend (FastAPI)...${NC}"
 cd "$SCRIPT_DIR/backend"
 
-if [ ! -d "venv" ]; then
+if [ ! -d "venv" ] || [ ! -f "venv/bin/activate" ]; then
     echo "Đang tạo môi trường ảo Python (venv)..."
+    rm -rf venv
     python3 -m venv venv
 fi
 
 echo "Đang kích hoạt venv và cài đặt dependencies..."
-source venv/bin/activate
+. venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 

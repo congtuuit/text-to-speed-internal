@@ -45,12 +45,13 @@ if [ ! -f ".env" ]; then
     echo "Creating backend .env file from .env.example..."
     cp .env.example .env
 fi
-if [ ! -d "venv" ]; then
+if [ ! -d "venv" ] || [ ! -f "venv/bin/activate" ]; then
     echo "Creating Python virtual environment venv..."
+    rm -rf venv
     python3 -m venv venv
 fi
 echo "Installing Python libraries..."
-source venv/bin/activate
+. venv/bin/activate
 pip install -r requirements.txt
 cd ..
 
