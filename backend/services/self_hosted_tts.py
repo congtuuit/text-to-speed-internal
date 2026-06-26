@@ -6,7 +6,7 @@ import tempfile
 import wave
 from services.fpt_tts import _chunk_text_fpt
 
-self_hosted_semaphore = threading.Semaphore(2)
+self_hosted_semaphore = threading.Semaphore(20)
 
 LAST_SELF_HOSTED_SEED = None
 
