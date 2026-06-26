@@ -1,37 +1,38 @@
 {
-  "updated_at": "2026-06-26T03:18:14.757654Z",
+  "updated_at": "2026-06-26T16:28:00.000000Z",
   "working_on": {
-    "feature": "Dynamic Worker Concurrency Limit & Common Stats Helper",
-    "task": "Tạo hàm chung tính toán worker, áp dụng giới hạn gói động cho QueueManager, cập nhật APIs",
+    "feature": "PM2 Deployment & Performance Tuning for Mac Mini M4 Self-hosted TTS",
+    "task": "Cấu hình PM2, tối ưu Nginx proxy, thêm API /health và tăng luồng xử lý self-hosted lên 20",
     "status": "completed",
     "files": [
-      "backend/services/queue_manager.py",
-      "backend/routers/jobs.py",
-      "backend/routers/admin.py"
+      "ecosystem.config.js",
+      "backend/main.py",
+      "backend/services/self_hosted_tts.py",
+      "D:/git/MacMini-TTS/OmniVoice/api/main.py"
     ],
-    "notes": "Đã đổi logic hàng đợi cũ từ gán cứng giới hạn đồng thời sang kiểm tra động từ database subscription của user"
+    "notes": "Đã nâng concurrency semaphore ở cả hai đầu dự án (client và server) lên 20 để stress test hiệu suất chịu tải của Mac Mini M4."
   },
   "recent_changes": [
+    {
+      "timestamp": "2026-06-26T16:28:00.000000Z",
+      "type": "feature",
+      "description": "Created ecosystem.config.js for PM2 configuration, updated Nginx reverse proxy configuration for port 80/443 pointing to backend and frontend under same domain, added /health check endpoint to main.py, and increased concurrent request limits to 20 on both the client side and the self-hosted OmniVoice server."
+    },
     {
       "timestamp": "2026-06-26T03:18:14.757654Z",
       "type": "feature",
       "description": "Implemented get_worker_stats helper on QueueManager to return dynamic system and user-specific worker capacities, and updated QueueManager check loop, admin system-stats API, and user active-jobs-progress API."
-    },
-    {
-      "timestamp": "2026-06-25T10:19:47.844504Z",
-      "type": "refactor",
-      "description": "Refactored backend to use FastAPI APIRouter"
     }
   ],
   "errors_encountered": [
     {
-      "error": "NameError: name models is not defined",
-      "solution": "Thêm import models vào các file routers",
+      "error": "Lỗi đường dẫn API bị nhân đôi thành /api/api/auth/login khi chạy Nginx reverse proxy",
+      "solution": "Bỏ dấu gạch chéo '/' ở cuối địa chỉ proxy_pass trong cấu hình Nginx (proxy_pass http://127.0.0.1:8000;)",
       "resolved": true
     },
     {
-      "error": "CORS policy do lỗi 500",
-      "solution": "Sửa lỗi 500 (NameError) sẽ tự động hết lỗi CORS",
+      "error": "NameError: name models is not defined",
+      "solution": "Thêm import models vào các file routers",
       "resolved": true
     }
   ]

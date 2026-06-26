@@ -20,6 +20,10 @@
     "database": {
       "type": "SQLite",
       "orm": "SQLAlchemy"
+    },
+    "deployment": {
+      "process_manager": "PM2",
+      "reverse_proxy": "Nginx"
     }
   },
   "database_schema": {
@@ -106,6 +110,10 @@
   },
   "api_endpoints": [
     {
+      "path": "/health",
+      "explained": "Kiểm tra trạng thái hoạt động của backend"
+    },
+    {
       "path": "/api/auth/login",
       "explained": "Đăng nhập"
     },
@@ -133,6 +141,7 @@
   "business_rules": [
     "Nếu văn bản > 150 ký tự, frontend tự động chia nhỏ và gọi /api/tts/chunk",
     "Nếu văn bản > 2000 ký tự bị từ chối ở API bảo vệ",
-    "Thư mục session chứa các file tạm sẽ tự động bị xoá sau 60 phút"
+    "Thư mục session chứa các file tạm sẽ tự động bị xoá sau 60 phút",
+    "Hỗ trợ phân phối song song tối đa 20 luồng đồng thời tới server Self-hosted OmniVoice (Mac Mini M4)"
   ]
 }
