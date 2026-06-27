@@ -191,7 +191,10 @@ export default function BatchConvert({
           setBatchSpeed={setBatchSpeed}
           savedVoices={savedVoices}
           onPreview={onPreview}
-          onStart={onStart}
+          onStart={(e) => {
+            setPlayingJobId(null);
+            if (onStart) onStart(e);
+          }}
           autoRetry={autoRetry}
           setAutoRetry={setAutoRetry}
         />

@@ -20,6 +20,7 @@ export default function BatchSetupForm({
   const [batchSavedPreviewId, setBatchSavedPreviewId] = useState(null);
   const [batchSavedPreviewUrl, setBatchSavedPreviewUrl] = useState(null);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const authHeaders = { Authorization: `Bearer ${authToken}` };
   const jsonHeaders = { ...authHeaders, 'Content-Type': 'application/json' };
@@ -109,12 +110,13 @@ export default function BatchSetupForm({
       Swal.fire({
         icon: 'success',
         title: 'Thành công',
-        text: 'Đã lưu cấu hình mặc định cho queue và gửi yêu cầu Warmup giọng đọc!',
+        text: 'Đã lưu cấu hình giọng đọc!',
         background: '#1e293b',
         color: '#fff',
         timer: 2000,
         showConfirmButton: false
       });
+      setHasUnsavedChanges(false);
     } catch (err) {
       Swal.fire({
         icon: 'error',
@@ -218,6 +220,7 @@ export default function BatchSetupForm({
               onChange={async (e) => {
                 const selectedVal = e.target.value;
                 setBatchVoice(selectedVal);
+                setHasUnsavedChanges(true);
                 if (!selectedVal) {
                   setBatchSavedPreviewUrl(null);
                   return;
@@ -322,7 +325,10 @@ export default function BatchSetupForm({
           max="2"
           step="0.1"
           value={batchSpeed}
-          onChange={e => setBatchSpeed(Number(e.target.value))}
+          onChange={e => {
+            setBatchSpeed(Number(e.target.value));
+            setHasUnsavedChanges(true);
+          }}
           style={{ width: '100%', accentColor: 'var(--primary)' }}
         />
         <div className="speed-slider-labels">
@@ -381,9 +387,12 @@ export default function BatchSetupForm({
           {isSavingConfig ? "⏳" : "💾 Lưu cấu hình"}
         </button>
         {selectedFiles.length > 0 && (
-          <button className="btn ghost" onClick={() => setSelectedFiles([])}>Xóa tất cả</button>
+          <button className="btn ghost" onClick={() => { setSelectedFiles([]); }}>Xóa tất cả</button>
         )}
-        <button className="btn" onClick={onStart} disabled={selectedFiles.length === 0}>{t('batch.start')}</button>
+        <button className="btn" onClick={(e) => {
+          setBatchSavedPreviewUrl(null);
+          onStart(e);
+        }} disabled={selectedFiles.length === 0 || hasUnsavedChanges}>{t('batch.start')}</button>
       </div>
     </section>
   );

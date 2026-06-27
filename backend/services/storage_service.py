@@ -61,7 +61,10 @@ class LocalStorageProvider(StorageProvider):
         user_subdir = f"user_{owner_id}" if owner_id else ""
         destination = self.base_dir / user_subdir / file_name
         if destination.exists():
-            destination.unlink()
+            try:
+                destination.unlink()
+            except Exception as e:
+                print(f"Warning: Could not delete physical file {destination}: {e}")
 
 
 class R2AwsStorageProvider(StorageProvider):
