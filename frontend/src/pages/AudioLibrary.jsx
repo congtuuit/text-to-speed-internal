@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import PageHeader from '../components/PageHeader'
 import { API_BASE_URL } from '../config'
 
@@ -122,6 +122,10 @@ export default function AudioLibrary({ t, library, onRefresh, onCopy, onDelete }
         ) : library.map(item => {
           const src = item.audio_url?.startsWith('http') ? item.audio_url : `${API_BASE_URL}${item.audio_url}`
           const isCurrent = playingTrack?.id === item.id
+          const createdAt = new Date(item.created_at)
+          const daysSinceCreation = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+          const daysLeft = Math.max(0, 30 - daysSinceCreation)
+          
           return (
             <article 
               key={item.id} 
@@ -137,12 +141,25 @@ export default function AudioLibrary({ t, library, onRefresh, onCopy, onDelete }
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <div className="audio-card__meta">
-                  <strong>{item.file_name}</strong>
-                  <span>
-                    {item.storage_provider === 'local' ? 'TTS Studio' : item.storage_provider} 
-                    {' • '} 
-                    {new Date(item.created_at).toLocaleString()}
+                <div className="audio-card__meta" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <strong>{item.file_name}</strong>
+                    <span>
+                      {item.storage_provider === 'local' ? 'TTS Studio' : item.storage_provider} 
+                      {' • '} 
+                      {createdAt.toLocaleString()}
+                    </span>
+                  </div>
+                  <span style={{ 
+                    fontSize: '0.75rem', 
+                    padding: '0.2rem 0.5rem', 
+                    borderRadius: '4px', 
+                    background: daysLeft <= 3 ? 'var(--danger, #ef4444)' : 'var(--warning, #f59e0b)', 
+                    color: '#fff', 
+                    whiteSpace: 'nowrap',
+                    fontWeight: '500'
+                  }}>
+                    {daysLeft <= 0 ? 'Sắp xóa' : `⏳ Xóa sau ${daysLeft} ngày`}
                   </span>
                 </div>
                 <div className="audio-actions" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>

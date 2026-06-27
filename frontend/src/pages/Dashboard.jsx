@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
@@ -126,12 +126,28 @@ export default function Dashboard({ t, jobs, library, authToken, currentUser, on
             ) : (
               recentAudios.map(item => {
                 const src = item.audio_url?.startsWith('http') ? item.audio_url : `${API_BASE_URL}${item.audio_url}`
+                const createdAt = new Date(item.created_at)
+                const daysSinceCreation = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+                const daysLeft = Math.max(0, 30 - daysSinceCreation)
                 return (
                   <article key={item.id} className="audio-card" style={{ padding: '1rem', background: 'var(--bg-glass)', gridTemplateColumns: '1fr' }}>
-                    <div className="audio-card__meta">
-                      <strong style={{ fontSize: '0.95rem' }}>{item.file_name}</strong>
-                      <span style={{ fontSize: '0.8rem' }}>
-                        {item.storage_provider} • {new Date(item.created_at).toLocaleString()}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div className="audio-card__meta">
+                        <strong style={{ fontSize: '0.95rem' }}>{item.file_name}</strong>
+                        <span style={{ fontSize: '0.8rem' }}>
+                          {item.storage_provider} • {createdAt.toLocaleString()}
+                        </span>
+                      </div>
+                      <span style={{ 
+                        fontSize: '0.7rem', 
+                        padding: '0.15rem 0.4rem', 
+                        borderRadius: '4px', 
+                        background: daysLeft <= 3 ? 'var(--danger, #ef4444)' : 'var(--warning, #f59e0b)', 
+                        color: '#fff', 
+                        whiteSpace: 'nowrap',
+                        fontWeight: '500'
+                      }}>
+                        {daysLeft <= 0 ? 'Sắp xóa' : `⏳ Xóa sau ${daysLeft} ngày`}
                       </span>
                     </div>
                     <audio controls src={src} style={{ width: '100%', margin: '0.5rem 0' }} />
