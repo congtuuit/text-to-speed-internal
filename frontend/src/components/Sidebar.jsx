@@ -1,5 +1,6 @@
-﻿import { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import packageJson from '../../package.json';
 
 export default function Sidebar({ t, i18n, onLogout, isOpen, onClose, currentUser }) {
   const navigate = useNavigate();
@@ -20,7 +21,12 @@ export default function Sidebar({ t, i18n, onLogout, isOpen, onClose, currentUse
       <div className="brand-card">
         <div className="brand-mark">T</div>
         <div style={{ flexGrow: 1, minWidth: 0 }}>
-          <strong>{t('app.name')}</strong>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <strong>{t('app.name')}</strong>
+            <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.35rem', background: 'rgba(34, 211, 238, 0.15)', color: '#22d3ee', borderRadius: '4px', fontWeight: 600, letterSpacing: '0.05em' }}>
+              v{packageJson.version}
+            </span>
+          </div>
           <span className="brand-tagline">{t('app.tagline')}</span>
         </div>
         <button className="sidebar-close-btn" onClick={onClose} aria-label="Close sidebar">✕</button>
