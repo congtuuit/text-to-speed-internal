@@ -1,0 +1,10 @@
+{
+    "name": "Nữ, giọng trầm (ID 1002)",
+    "text": "Xin chào, đây là giọng đọc thử tiếng Việt.",
+    "voice": "female, low pitch",
+    "provider": "self_hosted",
+    "output_speed": 1.0,
+    "seed": "1002",
+    "is_sample": true,
+    "keep_voice": "true"
+}

@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import Swal from 'sweetalert2'
 import PageHeader from '../components/PageHeader'
+import { API_BASE_URL } from '../config'
+import { useQueryClient } from '@tanstack/react-query'
 
 export default function Voices({ t, voice, setVoice, voices, savedVoices, onPreview, onSave, onDelete, currentUser, authToken }) {
+  const queryClient = useQueryClient()
   const [cardPreviewingId, setCardPreviewingId] = useState(null)
   const [cardPreviewUrl, setCardPreviewUrl] = useState(null)
 
@@ -30,8 +33,7 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
     handleCardPreview(voiceId, newSeed, "false")
   }
 
-  const handleSavePrompt = async (voiceId, defaultName) => {
-    const currentSeed = voiceSeeds[voiceId] || ""
+  const handleSavePrompt = async (voiceId, defaultName, currentSeed) => {
     const { value: voiceName } = await Swal.fire({
       title: '<span style="font-size: 1.5rem; font-weight: 700;">💾 Lưu Giọng Đọc</span>',
       html: '<p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.5rem; margin-bottom: 1.5rem;">Thêm giọng đọc này vào thư viện để sử dụng lại sau này.</p>',
@@ -63,8 +65,7 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
     }
   }
 
-  const handleSaveToCommonPrompt = async (voiceId, defaultName) => {
-    const currentSeed = voiceSeeds[voiceId] || ""
+  const handleSaveToCommonPrompt = async (voiceId, defaultName, currentSeed) => {
     const { value: voiceName } = await Swal.fire({
       title: '<span style="font-size: 1.5rem; font-weight: 700;">💾 Lưu vào Common</span>',
       html: '<p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.5rem; margin-bottom: 1.5rem;">Thêm giọng đọc này làm giọng mặc định hệ thống cho tất cả người dùng.</p>',
@@ -130,6 +131,7 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
           timer: 2000,
           showConfirmButton: false
         })
+        queryClient.invalidateQueries(['savedVoices'])
       } catch (err) {
         Swal.fire({
           icon: 'error',
@@ -174,14 +176,30 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
         ) : (
           <div className="voice-grid">
             {savedVoices.map(sv => (
-              <article key={sv.id} className="voice-card saved-card" style={{ padding: "1rem", gap: "0.5rem", minHeight: "auto" }}>
-                <h3 style={{ minHeight: "50px", margin: "0.5rem 0", fontSize: "1.1rem", color: "var(--text-main)" }}>{sv.name}</h3>
+              <article key={sv.id} className="voice-card saved-card" style={{ padding: "1rem", gap: "0.5rem", minHeight: "auto", position: "relative" }}>
+                <h3 style={{ minHeight: "50px", margin: "0.5rem 0", fontSize: "1.1rem", color: "var(--text-main)", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "0.4rem" }}>
+                  {sv.name}
+                  {sv.is_default && (
+                    <span style={{
+                      fontSize: "0.6rem", padding: "0.15rem 0.35rem",
+                      background: "rgba(16, 185, 129, 0.2)", color: "#10b981",
+                      border: "1px solid rgba(16, 185, 129, 0.3)",
+                      borderRadius: "var(--radius-sm)"
+                    }}>Hệ thống</span>
+                  )}
+                </h3>
 
                 <div className="button-grid" style={{ marginTop: "0" }}>
                   <button className="btn ghost btn-sm" style={{ minWidth: "90px" }} onClick={() => handleCardPreview(sv.voice_type, sv.seed)} disabled={cardPreviewingId === sv.voice_type}>
                     {cardPreviewingId === sv.voice_type ? '…' : '🎧 Nghe'}
                   </button>
-                  <button className="btn danger-soft btn-sm" onClick={() => onDelete(sv.id)}>
+                  <button
+                    className="btn danger-soft btn-sm"
+                    onClick={() => onDelete(sv.id)}
+                    disabled={sv.is_default}
+                    style={{ opacity: sv.is_default ? 0.3 : 1, cursor: sv.is_default ? 'not-allowed' : 'pointer' }}
+                    title={sv.is_default ? "Không thể xóa giọng mặc định của hệ thống" : "Xóa giọng đọc"}
+                  >
                     🗑️
                   </button>
                 </div>
@@ -199,10 +217,9 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
         <p style={{ color: "var(--text-muted)", marginBottom: "1.5rem" }}>Đổi giọng ngẫu nhiên dựa trên các mẫu giọng gốc</p>
 
         <div className="voice-grid">
-          {voices.map(item => {
-            const currentSeed = voiceSeeds[item.id] || ""
+          {voices.map((item, index) => {
+            const currentSeed = voiceSeeds[item.id] || `${1000 + index}`
             const isSelected = voice === item.id && !currentSeed
-
             return (
               <article
                 key={item.id}
@@ -231,7 +248,7 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
                   <button
                     className="btn btn-sm"
                     style={{ whiteSpace: 'nowrap', padding: '0.4rem', fontSize: '0.8rem' }}
-                    onClick={(e) => { e.stopPropagation(); handleSavePrompt(item.id, item.name); }}
+                    onClick={(e) => { e.stopPropagation(); handleSavePrompt(item.id, item.name, currentSeed); }}
                   >
                     💾 Lưu vào thư viện
                   </button>
@@ -239,7 +256,7 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
                     <button
                       className="btn secondary btn-sm"
                       style={{ whiteSpace: 'nowrap', padding: '0.4rem', fontSize: '0.8rem' }}
-                      onClick={(e) => { e.stopPropagation(); handleSaveToCommonPrompt(item.id, item.name); }}
+                      onClick={(e) => { e.stopPropagation(); handleSaveToCommonPrompt(item.id, item.name, currentSeed); }}
                     >
                       📁 Lưu vào common
                     </button>

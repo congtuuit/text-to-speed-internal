@@ -1,10 +1,10 @@
 {
-    "name": "Nam, giọng mặc định #9140",
+    "name": "Nam, giọng cao (ID 42606)",
     "text": "Xin chào, đây là giọng đọc thử tiếng Việt.",
-    "voice": "male",
+    "voice": "male, high pitch",
     "provider": "self_hosted",
-    "output_speed": 1,
-    "seed": "9140",
+    "output_speed": 1.0,
+    "seed": "42606",
     "is_sample": true,
     "keep_voice": "true"
 }

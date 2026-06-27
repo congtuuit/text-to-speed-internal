@@ -75,6 +75,10 @@ export function useAppData(authToken, t) {
   };
 
   const handleDeleteSavedVoice = async (id) => {
+    if (String(id).startsWith('common_')) {
+      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Không thể xóa giọng mặc định của hệ thống', timer: 3000, showConfirmButton: false, background: '#1e293b', color: '#fff' });
+      return;
+    }
     const res = await fetch(`${API_BASE_URL}/api/saved-voices/${id}`, { method: 'DELETE', headers: authHeaders });
     if (!res.ok) throw new Error('Failed to delete voice');
     await fetchSavedVoices();

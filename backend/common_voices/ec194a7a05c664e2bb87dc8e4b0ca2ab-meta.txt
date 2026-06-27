@@ -1,0 +1,10 @@
+{
+    "name": "Nữ, giọng mặc định (ID 1000)",
+    "text": "Xin chào, đây là giọng đọc thử tiếng Việt.",
+    "voice": "female",
+    "provider": "self_hosted",
+    "output_speed": 1.0,
+    "seed": "1000",
+    "is_sample": true,
+    "keep_voice": "true"
+}

@@ -1,10 +1,10 @@
 {
-    "name": "Nữ, giọng mặc định #1330",
+    "name": "Nam, giọng trầm (ID 82709)",
     "text": "Xin chào, đây là giọng đọc thử tiếng Việt.",
-    "voice": "female",
+    "voice": "male, low pitch",
     "provider": "self_hosted",
-    "output_speed": 1,
-    "seed": "1330",
+    "output_speed": 1.0,
+    "seed": "82709",
     "is_sample": true,
     "keep_voice": "true"
 }
