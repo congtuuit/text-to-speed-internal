@@ -142,6 +142,7 @@
     "Nếu văn bản > 150 ký tự, frontend tự động chia nhỏ và gọi /api/tts/chunk",
     "Nếu văn bản > 2000 ký tự bị từ chối ở API bảo vệ",
     "Thư mục session chứa các file tạm sẽ tự động bị xoá sau 60 phút",
+    "Các file audio trong Library sẽ tự động bị xóa sau 30 ngày (TTL) bằng background job library_cleaner",
     "Hỗ trợ phân phối song song tối đa 20 luồng đồng thời tới server Self-hosted OmniVoice (Mac Mini M4)"
   ]
 }

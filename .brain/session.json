@@ -1,30 +1,42 @@
 {
-  "updated_at": "2026-06-26T16:28:00.000000Z",
+  "updated_at": "2026-06-27T14:55:00.000000Z",
   "working_on": {
-    "feature": "PM2 Deployment & Performance Tuning for Mac Mini M4 Self-hosted TTS",
-    "task": "Cấu hình PM2, tối ưu Nginx proxy, thêm API /health và tăng luồng xử lý self-hosted lên 20",
+    "feature": "30-Day TTL Audio Cleanup & Google Login Fix",
+    "task": "Implemented automatic cleanup for old audios and fixed login 422 error",
     "status": "completed",
     "files": [
-      "ecosystem.config.js",
+      "backend/schemas.py",
+      "backend/routers/auth.py",
+      "backend/services/library_cleaner.py",
       "backend/main.py",
-      "backend/services/self_hosted_tts.py",
-      "D:/git/MacMini-TTS/OmniVoice/api/main.py"
+      "frontend/src/pages/AudioLibrary.jsx",
+      "frontend/src/pages/Dashboard.jsx"
     ],
-    "notes": "Đã nâng concurrency semaphore ở cả hai đầu dự án (client và server) lên 20 để stress test hiệu suất chịu tải của Mac Mini M4."
+    "notes": "Added a background thread that runs every 24h to delete files older than 30 days. Updated frontend Library and Dashboard to show an expiration countdown badge."
   },
   "recent_changes": [
     {
+      "timestamp": "2026-06-27T14:55:00.000000Z",
+      "type": "feature",
+      "description": "Fixed Google Login 422 error by changing 'credential' to 'token' in schema. Implemented TTL cleanup job (30 days) for local audio files and updated frontend UI to show expiration countdown badges."
+    },
+    {
       "timestamp": "2026-06-26T16:28:00.000000Z",
       "type": "feature",
-      "description": "Created ecosystem.config.js for PM2 configuration, updated Nginx reverse proxy configuration for port 80/443 pointing to backend and frontend under same domain, added /health check endpoint to main.py, and increased concurrent request limits to 20 on both the client side and the self-hosted OmniVoice server."
+      "description": "Created ecosystem.config.js for PM2 configuration, updated Nginx reverse proxy configuration, added /health check endpoint, and increased concurrent request limits."
     },
     {
       "timestamp": "2026-06-26T03:18:14.757654Z",
       "type": "feature",
-      "description": "Implemented get_worker_stats helper on QueueManager to return dynamic system and user-specific worker capacities, and updated QueueManager check loop, admin system-stats API, and user active-jobs-progress API."
+      "description": "Implemented get_worker_stats helper on QueueManager to return dynamic system and user-specific worker capacities."
     }
   ],
   "errors_encountered": [
+    {
+      "error": "Google login failed with 422 Unprocessable Content",
+      "solution": "Changed 'credential' to 'token' in GoogleLoginRequest schema (backend/schemas.py) and auth router to match frontend payload.",
+      "resolved": true
+    },
     {
       "error": "Lỗi đường dẫn API bị nhân đôi thành /api/api/auth/login khi chạy Nginx reverse proxy",
       "solution": "Bỏ dấu gạch chéo '/' ở cuối địa chỉ proxy_pass trong cấu hình Nginx (proxy_pass http://127.0.0.1:8000;)",
