@@ -25,13 +25,13 @@ class StorageResult:
 class StorageProvider:
     name = 'base'
 
-    def save(self, source_path: str, file_name: Optional[str] = None) -> StorageResult:
+    def save(self, source_path: str, file_name: Optional[str] = None, owner_id: Optional[int] = None) -> StorageResult:
         raise NotImplementedError
 
     def get_url(self, file_name: str) -> str:
         raise NotImplementedError
 
-    def delete(self, file_name: str) -> None:
+    def delete(self, file_name: str, owner_id: Optional[int] = None) -> None:
         raise NotImplementedError
 
 
@@ -43,12 +43,12 @@ class LocalStorageProvider(StorageProvider):
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self.public_base_url = public_base_url or os.getenv('STORAGE_PUBLIC_BASE_URL', '').rstrip('/')
 
-    def _destination(self, file_name: str) -> Path:
-        return self.base_dir / file_name
-
-    def save(self, source_path: str, file_name: Optional[str] = None) -> StorageResult:
+    def save(self, source_path: str, file_name: Optional[str] = None, owner_id: Optional[int] = None) -> StorageResult:
         file_name = file_name or Path(source_path).name
-        destination = self._destination(file_name)
+        user_subdir = f"user_{owner_id}" if owner_id else ""
+        destination_dir = self.base_dir / user_subdir
+        destination_dir.mkdir(parents=True, exist_ok=True)
+        destination = destination_dir / file_name
         shutil.copy2(source_path, destination)
         return StorageResult(file_name=file_name, file_path=str(destination), storage_provider=self.name, audio_url=self.get_url(file_name))
 
@@ -57,8 +57,9 @@ class LocalStorageProvider(StorageProvider):
             return f'{self.public_base_url}/api/audio/{quote(file_name)}'
         return f'/api/audio/{quote(file_name)}'
 
-    def delete(self, file_name: str) -> None:
-        destination = self._destination(file_name)
+    def delete(self, file_name: str, owner_id: Optional[int] = None) -> None:
+        user_subdir = f"user_{owner_id}" if owner_id else ""
+        destination = self.base_dir / user_subdir / file_name
         if destination.exists():
             destination.unlink()
 
@@ -76,17 +77,18 @@ class R2AwsStorageProvider(StorageProvider):
             raise RuntimeError('Missing R2/S3 storage configuration')
         self.client = boto3.client('s3', endpoint_url=self.endpoint_url, aws_access_key_id=self.access_key_id, aws_secret_access_key=self.secret_access_key)
 
-    def save(self, source_path: str, file_name: Optional[str] = None) -> StorageResult:
+    def save(self, source_path: str, file_name: Optional[str] = None, owner_id: Optional[int] = None) -> StorageResult:
         file_name = file_name or Path(source_path).name
-        self.client.upload_file(source_path, self.bucket_name, file_name)
-        return StorageResult(file_name=file_name, file_path=file_name, storage_provider=self.name, audio_url=self.get_url(file_name))
+        key = f"user_{owner_id}/{file_name}" if owner_id else file_name
+        self.client.upload_file(source_path, self.bucket_name, key)
+        return StorageResult(file_name=file_name, file_path=key, storage_provider=self.name, audio_url=self.get_url(key))
 
     def get_url(self, file_name: str) -> str:
         if self.public_base_url:
             return f'{self.public_base_url}/{quote(file_name)}'
         return self.client.generate_presigned_url('get_object', Params={'Bucket': self.bucket_name, 'Key': file_name}, ExpiresIn=86400)
 
-    def delete(self, file_name: str) -> None:
+    def delete(self, file_name: str, owner_id: Optional[int] = None) -> None:
         self.client.delete_object(Bucket=self.bucket_name, Key=file_name)
 
 
@@ -104,7 +106,7 @@ def get_storage_provider() -> StorageProvider:
 
 def register_audio_file(source_path: str, file_name: Optional[str] = None, db: Session | None = None, owner_id: Optional[int] = None) -> GeneratedAudio:
     provider = get_storage_provider()
-    saved = provider.save(source_path, file_name=file_name)
+    saved = provider.save(source_path, file_name=file_name, owner_id=owner_id)
     session = db or SessionLocal()
     try:
         existing = session.query(GeneratedAudio).filter(GeneratedAudio.file_name == saved.file_name).first()
@@ -130,6 +132,9 @@ def register_audio_file(source_path: str, file_name: Optional[str] = None, db: S
 def delete_audio_file(audio: GeneratedAudio, session: Session) -> None:
     provider_name = (audio.storage_provider or 'local').lower()
     provider = R2AwsStorageProvider() if provider_name == 'r2' else LocalStorageProvider()
-    provider.delete(audio.file_name)
+    if provider_name == 'r2':
+        provider.delete(audio.file_path)
+    else:
+        provider.delete(audio.file_name, owner_id=audio.owner_id)
     session.delete(audio)
     session.commit()

@@ -409,12 +409,11 @@ class QueueManager:
                         if final_output:
                             task_obj.output_path = final_output
                         db.commit()
-                        print(f"[{worker_name}] task {task_id} saved Ã¢â€ â€™ {final_status}")
+                        print(f"[{worker_name}] task {task_id} saved -> {final_status}")
                 except Exception as e:
                     print(f"[{worker_name}] DB commit error for task {task_id}: {e}")
 
-
-                # --- BÃ†Â°Ã¡Â»â€ºc 5: kiÃ¡Â»Æ’m tra job hoÃƒÂ n thÃƒÂ nh ---
+                # --- Bước 5: kiểm tra job hoàn thành ---
                 try:
                     pending_count = db.query(FileTask).filter(
                         FileTask.job_id == task_job_id,
@@ -422,65 +421,95 @@ class QueueManager:
                     ).count()
                     if pending_count == 0:
                         job_obj = db.query(BatchJob).filter(BatchJob.id == task_job_id).first()
-                        if job_obj and job_obj.status != "Completed":
-                            job_obj.status = "Completed"
-                            db.commit()
-                            print(f"[{worker_name}] job {task_job_id} COMPLETED.")
+                        
+                        # Check if auto_retry is enabled and we have failed tasks
+                        has_errors_and_retry = False
+                        if job_obj and job_obj.owner_id:
+                            setting_auto = db.query(Settings).filter(Settings.key == f"{job_obj.owner_id}_auto_retry").first()
+                            if setting_auto and setting_auto.value == "true":
+                                failed_tasks = db.query(FileTask).filter(
+                                    FileTask.job_id == task_job_id,
+                                    FileTask.status == "Error"
+                                ).all()
+                                if failed_tasks:
+                                    has_errors_and_retry = True
+                                    # Wait a short delay to avoid rapid loops
+                                    time.sleep(5)
+                                    for ft in failed_tasks:
+                                        ft.status = "Pending"
+                                        ft.error_message = None
+                                    job_obj.status = "Processing"
+                                    db.commit()
+                                    print(f"[{worker_name}] job {task_job_id} auto-retry: reset {len(failed_tasks)} failed task(s) to Pending.")
 
-                            if job_obj.is_docx_job in (1, 2) and job_obj.final_output_path:
-                                import wave
-                                import shutil
-                                all_tasks = db.query(FileTask).filter(
-                                    FileTask.job_id == task_job_id
-                                ).order_by(FileTask.file_name).all()
-                                valid_audios = [
-                                    t.output_path for t in all_tasks
-                                    if t.output_path and os.path.exists(t.output_path)
-                                ]
-                                if valid_audios:
-                                    try:
-                                        data = []
-                                        params = None
-                                        for audio_file in valid_audios:
-                                            with wave.open(audio_file, 'rb') as w:
-                                                if not params:
-                                                    params = w.getparams()
-                                                data.append(w.readframes(w.getnframes()))
-                                        with wave.open(job_obj.final_output_path, 'wb') as output_wav:
-                                            output_wav.setparams(params)
-                                            for d in data:
-                                                output_wav.writeframes(d)
-                                        print(f"[{worker_name}] joined DOCX audio Ã¢â€ â€™ {job_obj.final_output_path}")
+                        if not has_errors_and_retry:
+                            if job_obj and job_obj.status != "Completed":
+                                job_obj.status = "Completed"
+                                db.commit()
+                                print(f"[{worker_name}] job {task_job_id} COMPLETED.")
+
+                                if job_obj.is_docx_job in (1, 2) and job_obj.final_output_path:
+                                    import wave
+                                    import shutil
+                                    all_tasks = db.query(FileTask).filter(
+                                        FileTask.job_id == task_job_id
+                                    ).order_by(FileTask.file_name).all()
+                                    valid_audios = [
+                                        t.output_path for t in all_tasks
+                                        if t.output_path and os.path.exists(t.output_path)
+                                    ]
+                                    if valid_audios:
                                         try:
-                                            register_audio_file(job_obj.final_output_path, file_name=os.path.basename(job_obj.final_output_path), db=db, owner_id=job_obj.owner_id)
-                                        except Exception as upload_error:
-                                            print(f"[{worker_name}] storage register error for DOCX output: {upload_error}")
+                                            data = []
+                                            params = None
+                                            for audio_file in valid_audios:
+                                                with wave.open(audio_file, 'rb') as w:
+                                                    if not params:
+                                                        params = w.getparams()
+                                                    data.append(w.readframes(w.getnframes()))
+                                            with wave.open(job_obj.final_output_path, 'wb') as output_wav:
+                                                output_wav.setparams(params)
+                                                for d in data:
+                                                    output_wav.writeframes(d)
+                                            print(f"[{worker_name}] joined DOCX audio -> {job_obj.final_output_path}")
+                                            try:
+                                                register_audio_file(job_obj.final_output_path, file_name=os.path.basename(job_obj.final_output_path), db=db, owner_id=job_obj.owner_id)
+                                            except Exception as upload_error:
+                                                print(f"[{worker_name}] storage register error for DOCX output: {upload_error}")
 
-                                        # Äiá»u chá»‰nh tá»‘c Ä‘á»™ audio náº¿u cáº§n
-                                        setting_speed = None
-                                        if job_obj.owner_id:
-                                            setting_speed = db.query(Settings).filter(Settings.key == f"{job_obj.owner_id}_output_speed").first()
-                                        if not setting_speed:
-                                            setting_speed = db.query(Settings).filter(Settings.key == "output_speed").first()
-                                        output_speed = float(setting_speed.value) if setting_speed else 1.0
-                                        if output_speed != 1.0:
-                                            print(f"[{worker_name}] Adjusting speed to {output_speed}x using FFmpeg...")
-                                            temp_speed_path = job_obj.final_output_path + ".temp.wav"
-                                            if adjust_audio_speed_ffmpeg(job_obj.final_output_path, temp_speed_path, output_speed):
-                                                shutil.move(temp_speed_path, job_obj.final_output_path)
-                                                print(f"[{worker_name}] Speed adjusted successfully.")
+                                            # Điều chỉnh tốc độ audio nếu cần
+                                            setting_speed = None
+                                            if job_obj.owner_id:
+                                                setting_speed = db.query(Settings).filter(Settings.key == f"{job_obj.owner_id}_output_speed").first()
+                                            if not setting_speed:
+                                                setting_speed = db.query(Settings).filter(Settings.key == "output_speed").first()
+                                            output_speed = float(setting_speed.value) if setting_speed else 1.0
+                                            if output_speed != 1.0:
+                                                print(f"[{worker_name}] Adjusting speed to {output_speed}x using FFmpeg...")
+                                                temp_speed_path = job_obj.final_output_path + ".temp.wav"
+                                                if adjust_audio_speed_ffmpeg(job_obj.final_output_path, temp_speed_path, output_speed):
+                                                    shutil.move(temp_speed_path, job_obj.final_output_path)
+                                                    print(f"[{worker_name}] Speed adjusted successfully.")
+                                                else:
+                                                    print(f"[{worker_name}] Speed adjustment failed. Using original file.")
+                                                    if os.path.exists(temp_speed_path):
+                                                        os.remove(temp_speed_path)
+
+                                            has_any_errors = db.query(FileTask).filter(
+                                                FileTask.job_id == task_job_id,
+                                                FileTask.status == "Error"
+                                            ).count() > 0
+
+                                            if not has_any_errors:
+                                                shutil.rmtree(job_obj.output_dir, ignore_errors=True)
+                                                # Clean up original input directory if it exists under temp_batch
+                                                if "chunks_" in job_obj.output_dir:
+                                                    input_dir = job_obj.output_dir.replace("chunks_", "input_")
+                                                    shutil.rmtree(input_dir, ignore_errors=True)
                                             else:
-                                                print(f"[{worker_name}] Speed adjustment failed. Using original file.")
-                                                if os.path.exists(temp_speed_path):
-                                                    os.remove(temp_speed_path)
-
-                                        shutil.rmtree(job_obj.output_dir, ignore_errors=True)
-                                        # Clean up original input directory if it exists under temp_batch
-                                        if "chunks_" in job_obj.output_dir:
-                                            input_dir = job_obj.output_dir.replace("chunks_", "input_")
-                                            shutil.rmtree(input_dir, ignore_errors=True)
-                                    except Exception as e:
-                                        print(f"[{worker_name}] error joining audio: {e}")
+                                                print(f"[{worker_name}] job {task_job_id} has failed tasks. Keeping temp files for manual retry/60-min cleanup.")
+                                        except Exception as e:
+                                            print(f"[{worker_name}] error joining audio: {e}")
                 except Exception as e:
                     print(f"[{worker_name}] job-completion check error: {e}")
 

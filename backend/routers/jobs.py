@@ -1,4 +1,4 @@
-﻿from routers.auth import _current_user_from_request
+from routers.auth import _current_user_from_request
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request, File, Form, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
@@ -87,6 +87,8 @@ def get_active_jobs_progress(request: Request, db: Session = Depends(get_db)):
         elif job.is_docx_job == 2 and job_name.endswith("_chunks"):
             job_name = job_name.replace("_chunks", ".txt")
             
+        temp_files_exist = os.path.exists(job.input_dir) if job.input_dir else False
+            
         result.append({
             "job_id": job.id,
             "job_name": job_name,
@@ -96,7 +98,8 @@ def get_active_jobs_progress(request: Request, db: Session = Depends(get_db)):
             "done": done,
             "error": error,
             "processing": processing,
-            "is_paused": queue_manager.is_paused
+            "is_paused": queue_manager.is_paused,
+            "temp_files_exist": temp_files_exist
         })
         
     return {"jobs": result, "worker_stats": worker_stats}
@@ -139,6 +142,32 @@ def retry_task(task_id: int, db: Session = Depends(get_db)):
     db.commit()
     queue_manager.resume()
     return {"status": "ok"}
+
+
+@router.post("/api/jobs/{job_id}/retry")
+def retry_job(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(models.BatchJob).filter(models.BatchJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+        
+    if not job.input_dir or not os.path.exists(job.input_dir):
+        raise HTTPException(status_code=400, detail="Thư mục tạm đã bị dọn dẹp sau 60 phút (hết hạn session)")
+        
+    failed_tasks = db.query(models.FileTask).filter(models.FileTask.job_id == job_id, models.FileTask.status == "Error").all()
+    if not failed_tasks:
+        return {"status": "ok", "message": "Không có task lỗi nào để chạy lại"}
+        
+    for task in failed_tasks:
+        task.status = "Pending"
+        task.error_message = None
+        
+    if job.status in ["Completed", "Error", "Cancelled", "Paused"]:
+        job.status = "Processing"
+        
+    db.commit()
+    queue_manager.resume()
+    queue_manager.ensure_workers()
+    return {"status": "ok", "retried_count": len(failed_tasks)}
 
 
 @router.delete("/api/jobs/{job_id}")

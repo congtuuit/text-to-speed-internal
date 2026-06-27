@@ -27,10 +27,56 @@ export default function BatchConvert({
   const [isResetting, setIsResetting] = useState(false)
   const [isSavingConfig, setIsSavingConfig] = useState(false)
   const [playingJobId, setPlayingJobId] = useState(null)
+  const [autoRetry, setAutoRetry] = useState(false)
 
   // Auth Headers
   const authHeaders = { Authorization: `Bearer ${authToken}` }
   const jsonHeaders = { ...authHeaders, 'Content-Type': 'application/json' }
+
+  // Load auto-retry setting on mount
+  useEffect(() => {
+    if (!authToken) return
+    const loadSettings = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/settings`, { headers: authHeaders })
+        if (res.ok) {
+          const data = await res.json()
+          setAutoRetry(data.auto_retry === 'true')
+          if (data.self_hosted_voice) {
+            setBatchVoice(data.self_hosted_voice)
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load settings", err)
+      }
+    }
+    loadSettings()
+  }, [authToken])
+
+  // Handle auto-retry toggle
+  const handleToggleAutoRetry = async (e) => {
+    const newVal = e.target.checked
+    setAutoRetry(newVal)
+    try {
+      const settingsRes = await fetch(`${API_BASE_URL}/api/settings`, { headers: authHeaders })
+      if (!settingsRes.ok) throw new Error("Không thể tải cấu hình hiện tại")
+      const currentSettings = await settingsRes.json()
+
+      const updatedSettings = {
+        ...currentSettings,
+        auto_retry: newVal ? "true" : "false"
+      }
+      const saveRes = await fetch(`${API_BASE_URL}/api/settings`, {
+        method: 'POST',
+        headers: jsonHeaders,
+        body: JSON.stringify(updatedSettings)
+      })
+      if (!saveRes.ok) throw new Error("Không thể lưu cấu hình")
+    } catch (err) {
+      console.error("Failed to toggle auto_retry", err)
+      setAutoRetry(!newVal)
+    }
+  }
 
   // Check if any job is currently active/processing
   const hasActiveJobs = jobs.some(j => j.status === 'Processing' || j.status === 'Pending')
@@ -159,8 +205,49 @@ export default function BatchConvert({
     }
   }
 
+  // Retry Job
+  const handleRetryJob = async (e, jobId) => {
+    e.stopPropagation()
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/jobs/${jobId}/retry`, {
+        method: 'POST',
+        headers: jsonHeaders
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'Retry failed')
+
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'Đang chạy lại các task lỗi...',
+        timer: 2000,
+        showConfirmButton: false,
+        background: '#1e293b',
+        color: '#fff'
+      })
+
+      if (expandedJobId === jobId) {
+        await fetchTasksForJob(jobId)
+      }
+      if (fetchJobs) fetchJobs()
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: t('common.error'), text: err.message, background: '#1e293b', color: '#fff' })
+    }
+  }
+
   const handleSaveAndWarmup = async (e) => {
     e.preventDefault();
+    if (!batchVoice) {
+      Swal.fire({
+        icon: 'warning',
+        title: t('common.error'),
+        text: 'Vui lòng chọn giọng đọc trước khi lưu cấu hình',
+        background: '#1e293b',
+        color: '#fff'
+      });
+      return;
+    }
     setIsSavingConfig(true);
     try {
       // 1. Fetch current settings
@@ -178,7 +265,8 @@ export default function BatchConvert({
         self_hosted_voice: batchVoice,
         self_hosted_seed: seed,
         output_speed: Number(batchSpeed),
-        self_hosted_keep_voice: "true"
+        self_hosted_keep_voice: "true",
+        auto_retry: autoRetry ? "true" : "false"
       };
 
       // 3. Save settings
@@ -239,6 +327,7 @@ export default function BatchConvert({
     if (files.length > 0) {
       setSelectedFiles(prev => [...prev, ...files]);
     }
+    e.target.value = '';
   };
 
   const removeFile = (index) => {
@@ -320,6 +409,10 @@ export default function BatchConvert({
                   onChange={async (e) => {
                     const selectedVal = e.target.value;
                     setBatchVoice(selectedVal);
+                    if (!selectedVal) {
+                      setBatchSavedPreviewUrl(null);
+                      return;
+                    }
 
                     const sv = savedVoices.find(s => s.voice_type === selectedVal);
                     if (sv) {
@@ -352,7 +445,8 @@ export default function BatchConvert({
                     fontSize: "0.9rem"
                   }}
                 >
-                  {!savedVoices.some(sv => sv.voice_type === batchVoice) && (
+                  <option value="">-- Chọn giọng đọc --</option>
+                  {batchVoice && !savedVoices.some(sv => sv.voice_type === batchVoice) && (
                     <option value={batchVoice}>{batchVoice} (Mặc định)</option>
                   )}
                   {savedVoices.map(sv => (
@@ -365,6 +459,7 @@ export default function BatchConvert({
                   className="btn ghost"
                   onClick={async (e) => {
                     e.preventDefault();
+                    if (!batchVoice) return;
                     const sv = savedVoices.find(s => s.voice_type === batchVoice);
                     const seed = sv ? sv.seed : "";
                     const previewId = sv ? sv.id : "current";
@@ -384,7 +479,7 @@ export default function BatchConvert({
                       setBatchSavedPreviewId(null);
                     }
                   }}
-                  disabled={batchSavedPreviewId !== null}
+                  disabled={batchSavedPreviewId !== null || !batchVoice}
                   style={{
                     padding: "0.55rem 0.75rem",
                     minHeight: "auto",
@@ -429,6 +524,43 @@ export default function BatchConvert({
             </div>
           </div>
 
+          <div style={{
+            marginTop: '1rem',
+            marginBottom: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            background: 'rgba(255,255,255,0.01)',
+            padding: '0.75rem',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid rgba(255,255,255,0.04)'
+          }}>
+            <input
+              type="checkbox"
+              id="auto-retry-checkbox"
+              checked={autoRetry}
+              onChange={handleToggleAutoRetry}
+              style={{
+                width: '18px',
+                height: '18px',
+                accentColor: 'var(--primary)',
+                cursor: 'pointer'
+              }}
+            />
+            <label
+              htmlFor="auto-retry-checkbox"
+              style={{
+                fontSize: '0.9rem',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                userSelect: 'none',
+                fontWeight: 500
+              }}
+            >
+              Tự động chạy lại khi có lỗi (Auto-retry)
+            </label>
+          </div>
+
           <div className="button-row" style={{ marginTop: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
             <button
               className="btn ghost"
@@ -451,15 +583,6 @@ export default function BatchConvert({
           <div className="jobs-monitor-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '1rem' }}>
             <h3 style={{ margin: 0 }}>{t('batch.jobsList')}</h3>
             <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
-              <button
-                className="btn ghost btn-sm"
-                onClick={handleResetStuck}
-                disabled={isResetting}
-                title={t('batch.resetQueue')}
-                style={{ flex: 1, padding: '0.4rem 0.5rem' }}
-              >
-                {isResetting ? t('common.processing') : t('batch.resetQueue')}
-              </button>
               <button
                 className="btn ghost btn-sm"
                 onClick={() => fetchJobs && fetchJobs()}
@@ -529,54 +652,89 @@ export default function BatchConvert({
                         </div>
                       </div>
 
-                      {/* Actions row for completed jobs */}
-                      {job.status === "Completed" && (
-                        <div 
-                          style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', justifyContent: 'flex-end' }} 
+                      {/* Actions row for completed/failed jobs */}
+                      {(job.status === "Completed" || job.status === "Error" || error > 0) && (
+                        <div
+                          style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <button
-                            className="btn ghost btn-sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPlayingJobId(playingJobId === job.job_id ? null : job.job_id);
-                            }}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.3rem 0.6rem' }}
-                          >
-                            {playingJobId === job.job_id ? "⏹️ Dừng" : "▶️ Nghe thử"}
-                          </button>
-                          <a
-                            href={`${API_BASE_URL}/api/jobs/${job.job_id}/download-result`}
-                            download
-                            className="btn btn-sm"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.25rem',
-                              padding: '0.3rem 0.6rem',
-                              textDecoration: 'none',
-                              fontSize: '0.8rem',
-                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                              border: 'none',
-                              color: '#fff',
-                              boxShadow: 'none'
-                            }}
-                          >
-                            ⬇️ Tải về
-                          </a>
+                          {error > 0 && !job.temp_files_exist && (
+                            <span style={{ fontSize: '0.75rem', color: '#f87171', marginRight: 'auto' }}>
+                              ⚠️ Đã quá 60 phút (Không thể thử lại)
+                            </span>
+                          )}
+
+                          {error > 0 && (
+                            <button
+                              className="btn btn-sm"
+                              disabled={!job.temp_files_exist}
+                              onClick={(e) => handleRetryJob(e, job.job_id)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                padding: '0.3rem 0.6rem',
+                                fontSize: '0.8rem',
+                                background: job.temp_files_exist
+                                  ? 'linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%)'
+                                  : '#334155',
+                                border: 'none',
+                                color: '#fff',
+                                opacity: job.temp_files_exist ? 1 : 0.5,
+                                cursor: job.temp_files_exist ? 'pointer' : 'not-allowed'
+                              }}
+                              title={job.temp_files_exist ? "Chạy lại toàn bộ task bị lỗi" : "Không thể thử lại vì file tạm đã bị xóa"}
+                            >
+                              🔄 Thử lại lỗi
+                            </button>
+                          )}
+
+                          {job.status === "Completed" && (
+                            <>
+                              <button
+                                className="btn ghost btn-sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPlayingJobId(playingJobId === job.job_id ? null : job.job_id);
+                                }}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.3rem 0.6rem' }}
+                              >
+                                {playingJobId === job.job_id ? "⏹️ Dừng" : "▶️ Nghe thử"}
+                              </button>
+                              <a
+                                href={`${API_BASE_URL}/api/jobs/${job.job_id}/download-result`}
+                                download
+                                className="btn btn-sm"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                  padding: '0.3rem 0.6rem',
+                                  textDecoration: 'none',
+                                  fontSize: '0.8rem',
+                                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                  border: 'none',
+                                  color: '#fff',
+                                  boxShadow: 'none'
+                                }}
+                              >
+                                ⬇️ Tải về
+                              </a>
+                            </>
+                          )}
                         </div>
                       )}
 
                       {playingJobId === job.job_id && (
-                        <div 
-                          onClick={(e) => e.stopPropagation()} 
+                        <div
+                          onClick={(e) => e.stopPropagation()}
                           style={{ marginTop: '0.5rem', background: 'rgba(0,0,0,0.15)', padding: '0.35rem', borderRadius: 'var(--radius-sm)' }}
                         >
-                          <audio 
-                            controls 
-                            autoPlay 
-                            src={`${API_BASE_URL}/api/jobs/${job.job_id}/download-result`} 
-                            style={{ width: '100%', height: '28px' }} 
+                          <audio
+                            controls
+                            autoPlay
+                            src={`${API_BASE_URL}/api/jobs/${job.job_id}/download-result`}
+                            style={{ width: '100%', height: '28px' }}
                           />
                         </div>
                       )}

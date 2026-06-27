@@ -4,12 +4,17 @@ import Swal from 'sweetalert2';
 
 export function useBatchConvert(authToken, selfHostedUrl, fetchJobs, t) {
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [batchVoice, setBatchVoice] = useState('female');
+  const [batchVoice, setBatchVoice] = useState('');
   const [batchSpeed, setBatchSpeed] = useState(1);
 
   const handleStartBatch = async () => {
     if (selectedFiles.length === 0) {
       Swal.fire({ icon: 'warning', title: t('common.error'), text: 'Vui lòng chọn ít nhất 1 file .txt hoặc .docx', background: '#1e293b', color: '#fff' });
+      return;
+    }
+
+    if (!batchVoice) {
+      Swal.fire({ icon: 'warning', title: t('common.error'), text: 'Vui lòng chọn giọng đọc trước khi bắt đầu chuyển đổi', background: '#1e293b', color: '#fff' });
       return;
     }
 

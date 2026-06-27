@@ -310,6 +310,7 @@ class SettingsRequest(BaseModel):
     self_hosted_seed: str = ""
     self_hosted_keep_voice: str = "false"
     output_speed: float = 1.0
+    auto_retry: str = "false"
 
 
 @router.post("/api/settings")
@@ -317,7 +318,7 @@ def update_settings(req: SettingsRequest, request: Request, db: Session = Depend
     user = _current_user_from_request(request, db)
     user_id = user.id if user else None
 
-    user_specific_keys = {"output_speed", "self_hosted_voice", "self_hosted_seed"}
+    user_specific_keys = {"output_speed", "self_hosted_voice", "self_hosted_seed", "auto_retry"}
 
     for k, v in [
         ("api_key", req.api_key),
@@ -330,7 +331,8 @@ def update_settings(req: SettingsRequest, request: Request, db: Session = Depend
         ("self_hosted_voice", req.self_hosted_voice),
         ("self_hosted_seed", req.self_hosted_seed),
         ("self_hosted_keep_voice", req.self_hosted_keep_voice),
-        ("output_speed", str(req.output_speed))
+        ("output_speed", str(req.output_speed)),
+        ("auto_retry", req.auto_retry)
     ]:
         db_key = f"{user_id}_{k}" if (k in user_specific_keys and user_id) else k
         setting = db.query(models.Settings).filter(models.Settings.key == db_key).first()
@@ -383,6 +385,7 @@ def get_settings(request: Request, db: Session = Depends(get_db)):
     self_hosted_voice_val = get_user_setting("self_hosted_voice", "female")
     self_hosted_seed_val = get_user_setting("self_hosted_seed", "")
     output_speed_val = float(get_user_setting("output_speed", "1.0"))
+    auto_retry_val = get_user_setting("auto_retry", "false")
     
     provider_val = provider_setting.value if provider_setting else "self_hosted"
     if provider_val == "vieneu":
@@ -399,7 +402,8 @@ def get_settings(request: Request, db: Session = Depends(get_db)):
         "self_hosted_voice": self_hosted_voice_val,
         "self_hosted_seed": self_hosted_seed_val,
         "self_hosted_keep_voice": self_hosted_keep_voice_setting.value if self_hosted_keep_voice_setting else "false",
-        "output_speed": output_speed_val
+        "output_speed": output_speed_val,
+        "auto_retry": auto_retry_val
     }
 @router.get("/api/self-hosted/config")
 def get_self_hosted_config(db: Session = Depends(get_db)):

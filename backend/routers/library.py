@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from fastapi.responses import FileResponse, StreamingResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from database import get_db
@@ -154,7 +154,8 @@ def stream_audio(file_name: str, request: Request, db: Session = Depends(get_db)
     if not os.path.exists(file_path):
         provider = get_storage_provider()
         if hasattr(provider, "base_dir"):
-            file_path = os.path.join(str(provider.base_dir), file_name)
+            user_subdir = f"user_{audio.owner_id}" if audio.owner_id else ""
+            file_path = os.path.join(str(provider.base_dir), user_subdir, file_name)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Audio file missing on disk")
     file_size = os.path.getsize(file_path)
