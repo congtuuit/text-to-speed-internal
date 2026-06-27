@@ -281,10 +281,12 @@ export default function LandingPage({ authToken }) {
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>/ {lang === 'vi' ? 'tháng' : 'month'}</span>
                 </div>
                 <ul style={{ paddingLeft: '1.2rem', color: 'var(--text-muted, #94a3b8)', fontSize: '0.9rem', lineHeight: 1.8, margin: '0 0 2rem 0' }}>
-                  <li>{lang === 'vi' ? '50.000 ký tự / tháng' : '50,000 characters / month'}</li>
-                  <li>{lang === 'vi' ? 'Tối đa 3 tệp mỗi lô' : 'Up to 3 files per batch'}</li>
-                  <li>{lang === 'vi' ? 'Lưu trữ 30 tệp âm thanh' : '30 audios stored in library'}</li>
-                  <li>{lang === 'vi' ? 'Giới hạn 1 job chạy đồng thời' : '1 concurrent job limit'}</li>
+                  <li>{lang === 'vi' ? '20.000 ký tự / tháng' : '20,000 characters / month'}</li>
+                  <li>{lang === 'vi' ? 'Tối đa 3 tệp mỗi lô xử lý' : 'Up to 3 files per batch'}</li>
+                  <li>{lang === 'vi' ? 'Lưu trữ 20 tệp âm thanh' : '20 audio files in library'}</li>
+                  <li>{lang === 'vi' ? 'Đầy đủ giọng đọc tiếng Việt' : 'All Vietnamese voices'}</li>
+                  <li>{lang === 'vi' ? 'Hỗ trợ cộng đồng' : 'Community support'}</li>
+                  <li>{lang === 'vi' ? 'Chuyển đổi DOCX hàng loạt' : 'Batch DOCX conversion'}</li>
                 </ul>
               </div>
               <button onClick={handleAction} className="btn ghost" style={{ width: '100%', border: '1px solid var(--border-glass, rgba(255,255,255,0.08))', color: '#fff', fontWeight: 600 }}>
@@ -293,25 +295,78 @@ export default function LandingPage({ authToken }) {
             </div>
 
             {/* Starter Plan */}
-            <div className="profile-card" style={{ padding: '2.5rem', background: 'rgba(99, 102, 241, 0.03)', border: '1px solid var(--primary, #6366f1)', borderRadius: 'var(--radius-lg, 12px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '420px', position: 'relative', boxShadow: '0 8px 30px rgba(99, 102, 241, 0.1)' }}>
-              <div style={{ position: 'absolute', top: '1rem', right: '1.25rem', background: 'var(--primary, #6366f1)', color: '#fff', fontSize: '0.75rem', fontWeight: 600, padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
-                {lang === 'vi' ? 'Phổ biến' : 'Popular'}
-              </div>
+            <div className="profile-card" style={{ padding: '2.5rem', background: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--border-glass, rgba(255,255,255,0.05))', borderRadius: 'var(--radius-lg, 12px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '420px' }}>
               <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--primary, #6366f1)', margin: '0 0 0.5rem 0' }}>STARTER</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-muted, #94a3b8)', margin: '0 0 0.5rem 0' }}>STARTER</h3>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.2rem', marginBottom: '1.5rem' }}>
                   <span style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff' }}>149.000đ</span>
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>/ {lang === 'vi' ? 'tháng' : 'month'}</span>
                 </div>
-                <ul style={{ paddingLeft: '1.2rem', color: 'var(--text-main, #f8fafc)', fontSize: '0.9rem', lineHeight: 1.8, margin: '0 0 2rem 0' }}>
+                <ul style={{ paddingLeft: '1.2rem', color: 'var(--text-muted, #94a3b8)', fontSize: '0.9rem', lineHeight: 1.8, margin: '0 0 2rem 0' }}>
                   <li>{lang === 'vi' ? '300.000 ký tự / tháng' : '300,000 characters / month'}</li>
-                  <li>{lang === 'vi' ? 'Tối đa 20 tệp mỗi lô' : 'Up to 20 files per batch'}</li>
-                  <li>{lang === 'vi' ? 'Lưu trữ 200 tệp âm thanh' : '200 audios stored in library'}</li>
-                  <li>{lang === 'vi' ? 'Giới hạn 2 job chạy đồng thời' : '2 concurrent jobs limit'}</li>
-                  <li>{lang === 'vi' ? 'Hỗ trợ ưu tiên qua Email' : 'Priority Email support'}</li>
+                  <li>{lang === 'vi' ? '~497đ / 1.000 ký tự' : '~497đ per 1,000 chars'}</li>
+                  <li>{lang === 'vi' ? 'Tối đa 20 tệp mỗi lô xử lý' : 'Up to 20 files per batch'}</li>
+                  <li>{lang === 'vi' ? 'Lưu trữ 200 tệp âm thanh' : '200 audio files in library'}</li>
+                  <li>{lang === 'vi' ? '⚡2 tác vụ đồng thời' : '⚡2 concurrent jobs'}</li>
+                  <li>{lang === 'vi' ? 'Hỗ trợ qua email' : 'Email support'}</li>
+                  <li>{lang === 'vi' ? 'Chuyển đổi DOCX hàng loạt' : 'Batch DOCX conversion'}</li>
+                </ul>
+              </div>
+              <button onClick={handleAction} className="btn ghost" style={{ width: '100%', border: '1px solid var(--border-glass, rgba(255,255,255,0.08))', color: '#fff', fontWeight: 600 }}>
+                {lang === 'vi' ? 'Nâng cấp ngay' : 'Buy Now'}
+              </button>
+            </div>
+
+            {/* Pro Plan */}
+            <div className="profile-card" style={{ padding: '2.5rem', background: 'rgba(99, 102, 241, 0.03)', border: '1px solid var(--primary, #6366f1)', borderRadius: 'var(--radius-lg, 12px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '420px', position: 'relative', boxShadow: '0 8px 30px rgba(99, 102, 241, 0.1)' }}>
+              <div style={{ position: 'absolute', top: '1rem', right: '1.25rem', background: 'var(--primary, #6366f1)', color: '#fff', fontSize: '0.75rem', fontWeight: 600, padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                {lang === 'vi' ? 'Phổ biến nhất' : 'Most Popular'}
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--primary, #6366f1)', margin: '0 0 0.5rem 0' }}>PRO</h3>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.2rem', marginBottom: '1.5rem' }}>
+                  <span style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff' }}>449.000đ</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>/ {lang === 'vi' ? 'tháng' : 'month'}</span>
+                </div>
+                <ul style={{ paddingLeft: '1.2rem', color: 'var(--text-main, #f8fafc)', fontSize: '0.9rem', lineHeight: 1.8, margin: '0 0 2rem 0' }}>
+                  <li>{lang === 'vi' ? '1.000.000 ký tự / tháng' : '1,000,000 characters / month'}</li>
+                  <li>{lang === 'vi' ? '~449đ / 1.000 ký tự' : '~449đ per 1,000 chars'}</li>
+                  <li>{lang === 'vi' ? 'Tối đa 100 tệp mỗi lô xử lý' : 'Up to 100 files per batch'}</li>
+                  <li>{lang === 'vi' ? 'Lưu trữ 1.000 tệp âm thanh' : '1,000 audio files in library'}</li>
+                  <li>{lang === 'vi' ? '⚡3 tác vụ đồng thời' : '⚡3 concurrent jobs'}</li>
+                  <li>{lang === 'vi' ? 'Hỗ trợ ưu tiên' : 'Priority support'}</li>
+                  <li>{lang === 'vi' ? 'Chuyển đổi DOCX hàng loạt' : 'Batch DOCX conversion'}</li>
                 </ul>
               </div>
               <button onClick={handleAction} className="btn primary" style={{ width: '100%', background: 'linear-gradient(135deg, var(--primary, #6366f1) 0%, #4f46e5 100%)', border: 'none', fontWeight: 600 }}>
+                {lang === 'vi' ? 'Nâng cấp ngay' : 'Buy Now'}
+              </button>
+            </div>
+
+            {/* Studio Plan */}
+            <div className="profile-card" style={{ padding: '2.5rem', background: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--border-glass, rgba(255,255,255,0.05))', borderRadius: 'var(--radius-lg, 12px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '420px', position: 'relative' }}>
+              <div style={{ position: 'absolute', top: '1rem', right: '1.25rem', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: '0.75rem', fontWeight: 600, padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                {lang === 'vi' ? 'Bao gồm API' : 'API Included'}
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-muted, #94a3b8)', margin: '0 0 0.5rem 0' }}>STUDIO</h3>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.2rem', marginBottom: '1.5rem' }}>
+                  <span style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff' }}>1.290.000đ</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>/ {lang === 'vi' ? 'tháng' : 'month'}</span>
+                </div>
+                <ul style={{ paddingLeft: '1.2rem', color: 'var(--text-muted, #94a3b8)', fontSize: '0.9rem', lineHeight: 1.8, margin: '0 0 2rem 0' }}>
+                  <li>{lang === 'vi' ? '3.000.000 ký tự / tháng' : '3,000,000 characters / month'}</li>
+                  <li>{lang === 'vi' ? '~430đ / 1.000 ký tự' : '~430đ per 1,000 chars'}</li>
+                  <li>{lang === 'vi' ? 'Tối đa 500 tệp mỗi lô xử lý' : 'Up to 500 files per batch'}</li>
+                  <li>{lang === 'vi' ? 'Lưu trữ 5.000 tệp âm thanh' : '5,000 audio files in library'}</li>
+                  <li>{lang === 'vi' ? '⚡5 tác vụ đồng thời' : '⚡5 concurrent jobs'}</li>
+                  <li>{lang === 'vi' ? 'Hỗ trợ ưu tiên + SLA' : 'Priority support + SLA'}</li>
+                  <li>{lang === 'vi' ? 'Truy cập REST API' : 'REST API access'}</li>
+                  <li>{lang === 'vi' ? 'Thư viện giọng đọc tùy chỉnh' : 'Custom voice seed library'}</li>
+                  <li>{lang === 'vi' ? 'SLA + quản lý khách hàng riêng' : 'SLA + dedicated account manager'}</li>
+                </ul>
+              </div>
+              <button onClick={handleAction} className="btn ghost" style={{ width: '100%', border: '1px solid var(--border-glass, rgba(255,255,255,0.08))', color: '#fff', fontWeight: 600 }}>
                 {lang === 'vi' ? 'Nâng cấp ngay' : 'Buy Now'}
               </button>
             </div>
@@ -326,10 +381,12 @@ export default function LandingPage({ authToken }) {
                 </div>
                 <ul style={{ paddingLeft: '1.2rem', color: 'var(--text-muted, #94a3b8)', fontSize: '0.9rem', lineHeight: 1.8, margin: '0 0 2rem 0' }}>
                   <li><strong>{lang === 'vi' ? 'Không giới hạn ký tự' : 'Unlimited characters'}</strong></li>
-                  <li>{lang === 'vi' ? 'Không giới hạn tệp mỗi lô' : 'Unlimited files per batch'}</li>
-                  <li>{lang === 'vi' ? 'Lưu trữ không giới hạn' : 'Unlimited audio library storage'}</li>
-                  <li><strong>{lang === 'vi' ? 'Không giới hạn job đồng thời' : 'Unlimited concurrent jobs'}</strong></li>
-                  <li>{lang === 'vi' ? 'Hạ tầng xử lý riêng biệt (SLA)' : 'Dedicated infrastructure + SLA'}</li>
+                  <li>{lang === 'vi' ? 'Không giới hạn lô xử lý' : 'Unlimited batch jobs'}</li>
+                  <li>{lang === 'vi' ? 'Không giới hạn lưu trữ âm thanh' : 'Unlimited audio storage'}</li>
+                  <li><strong>{lang === 'vi' ? 'Hạ tầng xử lý riêng' : 'Dedicated worker capacity'}</strong></li>
+                  <li>{lang === 'vi' ? 'Triển khai tại chỗ hoặc đám mây riêng' : 'On-premise / private cloud'}</li>
+                  <li>{lang === 'vi' ? 'SLA + quản lý khách hàng riêng' : 'SLA + dedicated account manager'}</li>
+                  <li>{lang === 'vi' ? 'Giá theo sản lượng, có thể thương lượng' : 'Volume pricing negotiable'}</li>
                 </ul>
               </div>
               <button onClick={handleAction} className="btn ghost" style={{ width: '100%', border: '1px solid var(--border-glass, rgba(255,255,255,0.08))', color: '#fff', fontWeight: 600 }}>
@@ -352,6 +409,11 @@ export default function LandingPage({ authToken }) {
       }}>
         <div style={{ marginBottom: '1rem', fontWeight: 650, color: '#fff' }}>
           ⚡ {t('app.name', 'Text to Speed')}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginBottom: '1.5rem' }}>
+          <a href="/policies" onClick={(e) => { e.preventDefault(); navigate('/policies'); }} style={{ color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseOver={e => e.target.style.color = '#fff'} onMouseOut={e => e.target.style.color = 'var(--text-muted)'}>
+            {lang === 'vi' ? 'Chính sách & Điều khoản' : 'Policies & Terms'}
+          </a>
         </div>
         <div>
           &copy; {new Date().getFullYear()} Text to Speed. All rights reserved. Custom-made for high-performance TTS production.

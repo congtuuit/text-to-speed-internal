@@ -19,6 +19,7 @@ import Profile from './pages/Profile';
 import PricingPlans from './pages/PricingPlans';
 import AdminSettings from './AdminSettings';
 import LandingPage from './pages/LandingPage';
+import Policies from './pages/Policies';
 
 function RequireAuth({ children, authToken }) {
   const location = useLocation();
@@ -79,6 +80,7 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage authToken={authToken} />} />
+      <Route path="/policies" element={<Policies />} />
       <Route
         path="/login"
         element={
