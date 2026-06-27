@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 import models
 
-# TÃ¡ÂºÂ¡o DB tables
+# Tạo DB tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Batch TTS Tool API")
@@ -56,11 +56,13 @@ async def log_requests(request: Request, call_next):
     return await call_next(request)
 
 from services.queue_manager import queue_manager, start_session_cleaner
+from services.library_cleaner import start_library_cleaner
 
 @app.on_event("startup")
 def startup_event():
     queue_manager.start()
     start_session_cleaner()
+    start_library_cleaner()
 
 @app.on_event("shutdown")
 def shutdown_event():
@@ -76,4 +78,3 @@ app.include_router(library.router)
 app.include_router(documents.router)
 app.include_router(admin.router)
 app.include_router(billing.router)
-
