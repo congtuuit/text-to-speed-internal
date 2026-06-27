@@ -21,6 +21,7 @@ from services.storage_service import get_storage_provider, delete_audio_file
 from auth import create_jwt, decode_jwt, hash_password, verify_password
 from routers.auth import _current_user_from_request
 from services.docx_helper import split_docx_to_txt
+from routers.billing import check_quota, record_usage
 import hashlib
 
 def generate_customer_voice_params(seed_input: str, keep_voice_input: str, customer_prefix: str):
@@ -172,6 +173,91 @@ def test_voice(req: TestVoiceRequest, request: Request, background_tasks: Backgr
     return FileResponse(temp_file, media_type="audio/wav")
 
 
+@router.post("/api/create-audio")
+def create_audio(req: TestVoiceRequest, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    user = _current_user_from_request(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Chua dang nhap")
+        
+    if len(req.text) > 2000:
+        raise HTTPException(status_code=400, detail="Văn bản vượt quá giới hạn 2000 ký tự.")
+        
+    # Tính quota
+    check_quota(user, len(req.text), db)
+    
+    import shutil
+    
+    # Tạo file tạm thời duy nhất để tránh xung đột khi gọi liên tục
+    fd, temp_file = tempfile.mkstemp(suffix=".wav", prefix="tts_")
+    os.close(fd)
+    
+    def cleanup():
+        try:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+        except:
+            pass
+            
+    try:
+        if req.provider == "fpt":
+            from services.queue_manager import process_fpt_tts
+            keys = [k.split('|')[1].strip() if '|' in k else k.strip() for k in req.fpt_api_keys.split('\n') if k.strip()]
+            success = process_fpt_tts(req.text, temp_file, req.voice, req.fpt_speed, keys)
+        elif req.provider == "self_hosted":
+            from services.queue_manager import process_self_hosted_tts
+            cleaned_voice = req.voice
+            presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
+            if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
+                cleaned_voice = "female"
+            url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
+            self_hosted_url = url_setting.value if url_setting else "http://localhost:7860"
+            url = f"{self_hosted_url.rstrip('/')}/api/tts"
+            
+            # Parse seed and keep_voice parameters
+            seed_val, keep_voice_val = generate_customer_voice_params(req.seed, req.keep_voice, customer_prefix="create_audio")
+            
+            success = process_self_hosted_tts(
+                text=req.text,
+                output_path=temp_file,
+                voice=cleaned_voice,
+                url=url,
+                seed_val=seed_val,
+                keep_voice_val=keep_voice_val,
+                worker_name="CreateAudio"
+            )
+        else:
+            provider = TTSProvider(api_key=req.api_key)
+            success = provider.process_text_to_speech(req.text, temp_file, req.voice, req.model_name)
+    except Exception as e:
+        cleanup()
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    if not success or not os.path.exists(temp_file):
+        cleanup()
+        if req.provider == "gemini":
+            error_msg = "Failed to generate Gemini TTS audio. Check backend logs."
+        elif req.provider == "self_hosted":
+            error_msg = "Failed to generate Self-hosted TTS audio. Make sure the model server is running."
+        else:
+            error_msg = "Lỗi tạo audio. Vui lòng kiểm tra log backend."
+        raise HTTPException(status_code=500, detail=error_msg)
+        
+    if req.output_speed != 1.0:
+        temp_speed_file = temp_file + ".speed.wav"
+        if adjust_audio_speed_ffmpeg(temp_file, temp_speed_file, req.output_speed):
+            import shutil
+            shutil.move(temp_speed_file, temp_file)
+        else:
+            if os.path.exists(temp_speed_file):
+                os.remove(temp_speed_file)
+                
+    # Ghi nhận usage
+    record_usage(user.id, len(req.text), "create-audio", db)
+                
+    background_tasks.add_task(cleanup)
+    return FileResponse(temp_file, media_type="audio/wav")
+
+
 class ChunkSessionRequest(TestVoiceRequest):
     session_id: str
     chunk_index: int
@@ -244,7 +330,7 @@ def tts_chunk(req: ChunkSessionRequest, request: Request, background_tasks: Back
             if os.path.exists(temp_speed_file):
                 os.remove(temp_speed_file)
                 
-        record_usage(user.id, len(req.text), "generate", db)
+    record_usage(user.id, len(req.text), "generate", db)
     return {"status": "ok"}
 
 

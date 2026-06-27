@@ -43,8 +43,32 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
     try {
       if (text.length <= 150) {
         // Direct call
-        const url = await handlePreviewVoice(voice, text, Number(speed), createVoiceSeed);
-        setAudioUrl(url);
+        const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
+        const token = localStorage.getItem('tts_auth_token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        
+        const res = await fetch(`${API_BASE_URL}/api/create-audio`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            text: text,
+            voice: voice,
+            provider: 'self_hosted',
+            output_speed: Number(speed),
+            seed: createVoiceSeed,
+            keep_voice: "true",
+            is_sample: false
+          })
+        });
+        
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || "Tạo audio thất bại.");
+        }
+        
+        const blob = await res.blob();
+        setAudioUrl(URL.createObjectURL(blob));
       } else {
         // Chunking
         const chunks = splitText(text, 150);
