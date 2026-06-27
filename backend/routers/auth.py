@@ -73,7 +73,7 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
 @router.post("/api/auth/google")
 def google_auth(req: GoogleLoginRequest, db: Session = Depends(get_db)):
     import secrets
-    credential = req.credential
+    credential = req.token
     if not credential:
         raise HTTPException(status_code=400, detail="Google credential token is required")
     

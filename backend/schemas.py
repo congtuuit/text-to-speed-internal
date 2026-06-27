@@ -101,4 +101,4 @@ class LoginRequest(BaseModel):
     password: str
 
 class GoogleLoginRequest(BaseModel):
-    credential: str
+    token: str
