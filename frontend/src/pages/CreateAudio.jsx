@@ -19,6 +19,9 @@ export default function CreateAudio({ t, text, setText, voice, setVoice, createV
     setDialogPreviewUrl(null);
     setDialogPreviewId(null);
 
+    const sv = savedVoices.find(s => s.voice_type === voiceType && (s.seed || '') === (seed || ''));
+    const voiceText = (sv && sv.text) ? sv.text : t('create.sample');
+
     // Call API to warmup voice in background
     fetch(`${API_BASE_URL}/api/self-hosted/warmup`, {
       method: 'POST',
@@ -26,7 +29,7 @@ export default function CreateAudio({ t, text, setText, voice, setVoice, createV
       body: JSON.stringify({
         voice: voiceType,
         seed: seed || '',
-        text: text
+        text: voiceText
       })
     }).catch(err => console.error("Warmup API error:", err));
   }

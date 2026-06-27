@@ -45,6 +45,7 @@ def get_default_system_voices():
                         "name": data.get("name"),
                         "voice_type": data.get("voice"),
                         "seed": data.get("seed"),
+                        "text": data.get("text"),
                         "tag": "TTS Studio",
                         "is_default": True,
                         "created_at": None

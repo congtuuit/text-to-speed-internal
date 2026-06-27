@@ -1,65 +1,27 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { API_BASE_URL } from '../config';
 import Swal from 'sweetalert2';
 
-export function useAppData(authToken, t) {
-  const [library, setLibrary] = useState([]);
-  const [jobs, setJobs] = useState([]);
-  const [voices, setVoices] = useState([]);
-  const [savedVoices, setSavedVoices] = useState([]);
-  const [selfHostedUrl, setSelfHostedUrl] = useState('http://localhost:7860');
+import { useLibraryQuery } from '../queries/useLibraryQuery';
+import { useJobsQuery } from '../queries/useJobsQuery';
+import { useVoicesQuery, useSavedVoicesQuery } from '../queries/useVoicesQuery';
+import { useSettingsQuery } from '../queries/useSettingsQuery';
+import { useQueryClient } from '@tanstack/react-query';
 
+export function useAppData(authToken, t) {
+  const queryClient = useQueryClient();
+  
   const authHeaders = useMemo(() => authToken ? { Authorization: `Bearer ${authToken}` } : {}, [authToken]);
   const jsonHeaders = useMemo(() => ({ ...authHeaders, 'Content-Type': 'application/json' }), [authHeaders]);
 
-  useEffect(() => {
-    if (!authToken) return;
-    fetchLibrary();
-    fetchJobs();
-    fetchVoices();
-    fetchSavedVoices();
-    fetchAdminSettings();
-  }, [authToken]);
+  // Use React Query hooks
+  const { data: library = [], refetch: fetchLibrary } = useLibraryQuery(authToken);
+  const { data: jobs = [], refetch: fetchJobs } = useJobsQuery(authToken);
+  const { data: voices = [], refetch: fetchVoices } = useVoicesQuery(authToken);
+  const { data: savedVoices = [], refetch: fetchSavedVoices } = useSavedVoicesQuery(authToken);
+  const { data: settings = {}, refetch: fetchAdminSettings } = useSettingsQuery(authToken);
 
-  const fetchAdminSettings = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/settings`, { headers: authHeaders });
-      const data = await res.json();
-      if (res.ok && data.self_hosted_url) setSelfHostedUrl(data.self_hosted_url);
-    } catch (_) {}
-  };
-
-  const fetchLibrary = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/library`, { headers: authHeaders });
-      const data = await res.json();
-      if (res.ok) setLibrary(data.items || []);
-    } catch (_) {}
-  };
-
-  const fetchJobs = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/jobs/active/progress`, { headers: authHeaders });
-      const data = await res.json();
-      if (res.ok) setJobs(data.jobs || []);
-    } catch (_) {}
-  };
-
-  const fetchVoices = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/voices?provider=self_hosted`, { headers: authHeaders });
-      const data = await res.json();
-      if (res.ok) setVoices(data || []);
-    } catch (_) {}
-  };
-
-  const fetchSavedVoices = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/saved-voices`, { headers: authHeaders });
-      const data = await res.json();
-      if (res.ok) setSavedVoices(data.saved_voices || []);
-    } catch (_) {}
-  };
+  const selfHostedUrl = settings?.self_hosted_url || 'http://localhost:7860';
 
   const handlePreviewVoice = async (voiceId, previewText, previewSpeed = 1.0, seed = "", keepVoice = "true") => {
     const isSample = !previewText || previewText === t('create.sample');
@@ -96,35 +58,31 @@ export function useAppData(authToken, t) {
     const result = await Swal.fire({ title: t('library.deleteConfirm'), icon: 'warning', showCancelButton: true, background: '#1e293b', color: '#fff' });
     if (!result.isConfirmed) return;
     const res = await fetch(`${API_BASE_URL}/api/library/${item.id}`, { method: 'DELETE', headers: authHeaders });
-    if (res.ok) setLibrary(prev => prev.filter(audio => audio.id !== item.id));
-  };
-
-  const handleSaveSavedVoice = async (voiceId, voiceName, seed = "") => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/saved-voices`, {
-        method: 'POST',
-        headers: jsonHeaders,
-        body: JSON.stringify({ name: voiceName, voice_type: voiceId, seed: seed })
-      });
-      if (!res.ok) throw new Error('Save failed');
-      await fetchSavedVoices();
-      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: t('voices.saved'), timer: 900, showConfirmButton: false, background: '#1e293b', color: '#fff' });
-    } catch (err) {
-      Swal.fire({ icon: 'error', title: t('common.error'), text: err.message, background: '#1e293b', color: '#fff' });
+    if (res.ok) {
+      // Optimistically update cache
+      queryClient.setQueryData(['library'], prev => prev?.filter(audio => audio.id !== item.id));
+      fetchLibrary();
     }
   };
 
+  const handleSaveSavedVoice = async (id, voiceType, name, text, keepVoice, seed, tag) => {
+    const payload = { voice_type: voiceType, name, text, keep_voice: keepVoice, seed, tag };
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `${API_BASE_URL}/api/saved-voices/${id}` : `${API_BASE_URL}/api/saved-voices`;
+    const res = await fetch(url, { method, headers: jsonHeaders, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('Failed to save voice');
+    await fetchSavedVoices();
+  };
+
   const handleDeleteSavedVoice = async (id) => {
-    const result = await Swal.fire({ title: t('voices.deleteConfirm'), icon: 'warning', showCancelButton: true, background: '#1e293b', color: '#fff' });
-    if (!result.isConfirmed) return;
-    await fetch(`${API_BASE_URL}/api/saved-voices/${id}`, { method: 'DELETE', headers: authHeaders });
+    const res = await fetch(`${API_BASE_URL}/api/saved-voices/${id}`, { method: 'DELETE', headers: authHeaders });
+    if (!res.ok) throw new Error('Failed to delete voice');
     await fetchSavedVoices();
   };
 
   return {
     library, jobs, voices, savedVoices, selfHostedUrl,
-    authHeaders, jsonHeaders,
-    fetchAdminSettings, fetchLibrary, fetchJobs, fetchVoices, fetchSavedVoices,
+    jsonHeaders, fetchAdminSettings, fetchLibrary, fetchJobs, fetchVoices, fetchSavedVoices,
     handlePreviewVoice, handleCopyAudio, handleDeleteAudio, handleSaveSavedVoice, handleDeleteSavedVoice
   };
 }
