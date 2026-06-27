@@ -25,7 +25,6 @@ export function useBatchConvert(authToken, selfHostedUrl, fetchJobs, t) {
       });
       formData.append('voice', batchVoice);
       formData.append('provider', 'self_hosted');
-      formData.append('self_hosted_url', selfHostedUrl);
       formData.append('output_speed', String(batchSpeed));
 
       const headers = {};

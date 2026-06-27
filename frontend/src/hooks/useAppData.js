@@ -32,7 +32,6 @@ export function useAppData(authToken, t) {
         text: previewText || t('create.sample'),
         voice: voiceId,
         provider: 'self_hosted',
-        self_hosted_url: selfHostedUrl,
         output_speed: Number(previewSpeed),
         seed: seed,
         is_sample: isSample,

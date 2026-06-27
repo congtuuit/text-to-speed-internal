@@ -23,7 +23,11 @@ def health_check():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "https://www.tienichso.online",
+        "https://tienichso.online"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
-from database import get_db
+from database import get_db, SessionLocal
 from models import *
 import models
 from schemas import *
@@ -119,7 +119,9 @@ def test_voice(req: TestVoiceRequest, request: Request, background_tasks: Backgr
             presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
             if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
                 cleaned_voice = "female"
-            url = f"{req.self_hosted_url.rstrip('/')}/api/tts"
+            url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
+            self_hosted_url = url_setting.value if url_setting else "http://localhost:7860"
+            url = f"{self_hosted_url.rstrip('/')}/api/tts"
             
             # Parse seed and keep_voice parameters
             seed_val, keep_voice_val = generate_customer_voice_params(req.seed, req.keep_voice, customer_prefix="test_voice")
@@ -208,7 +210,9 @@ def tts_chunk(req: ChunkSessionRequest, request: Request, background_tasks: Back
             presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
             if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
                 cleaned_voice = "female"
-            url = f"{req.self_hosted_url.rstrip('/')}/api/tts"
+            url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
+            self_hosted_url = url_setting.value if url_setting else "http://localhost:7860"
+            url = f"{self_hosted_url.rstrip('/')}/api/tts"
             
             seed_val, keep_voice_val = generate_customer_voice_params(req.seed, req.keep_voice, customer_prefix=req.session_id)
 
@@ -431,7 +435,11 @@ def warmup_self_hosted_voice(req: WarmupRequest, background_tasks: BackgroundTas
             presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
             if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
                 cleaned_voice = "female"
-            url = f"{req.self_hosted_url.rstrip('/')}/api/tts"
+            db = SessionLocal()
+            url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
+            self_hosted_url = url_setting.value if url_setting else "http://localhost:7860"
+            db.close()
+            url = f"{self_hosted_url.rstrip('/')}/api/tts"
             
             seed_val, keep_voice_val = generate_customer_voice_params(req.seed, req.keep_voice, customer_prefix="test_voice")
             

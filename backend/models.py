@@ -17,8 +17,8 @@ class BatchJob(Base):
     final_output_path = Column(String, nullable=True)
     status = Column(String, default="Pending")
     created_at = Column(DateTime, default=datetime.utcnow)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    workspace_id = Column(Integer, ForeignKey("workspaces.id"), nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=True)
+    workspace_id = Column(Integer, ForeignKey("workspaces.id"), index=True, nullable=True)
 
     tasks = relationship("FileTask", back_populates="job")
 
@@ -33,7 +33,7 @@ class FileTask(Base):
     status = Column(String, default="Pending")
     error_message = Column(String, nullable=True)
     output_path = Column(String, nullable=True)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=True)
 
     job = relationship("BatchJob", back_populates="tasks")
 
@@ -43,7 +43,7 @@ class Settings(Base):
 
     key = Column(String, primary_key=True, index=True)
     value = Column(String)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=True)
 
 
 class SavedVoice(Base):
@@ -53,7 +53,7 @@ class SavedVoice(Base):
     name = Column(String, index=True)
     voice_type = Column(String)
     seed = Column(String)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -65,7 +65,7 @@ class GeneratedAudio(Base):
     file_path = Column(String, nullable=False)
     storage_provider = Column(String, default="local")
     audio_url = Column(String, nullable=False)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

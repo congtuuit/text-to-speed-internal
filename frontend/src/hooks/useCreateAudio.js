@@ -72,7 +72,6 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
               text: chunks[i],
               voice,
               provider: 'self_hosted',
-              self_hosted_url: selfHostedUrl || "http://localhost:7860",
               output_speed: Number(speed),
               seed: createVoiceSeed,
               session_id: sessionId,

@@ -13,7 +13,6 @@ class JobRequest(BaseModel):
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
     max_workers: int = 3
-    self_hosted_url: str = "http://localhost:7860"
     output_speed: float = 1.0
 
 class DocxJobRequest(BaseModel):
@@ -25,7 +24,6 @@ class DocxJobRequest(BaseModel):
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
     max_workers: int = 3
-    self_hosted_url: str = "http://localhost:7860"
     output_speed: float = 1.0
 
 class BatchDocxRequest(BaseModel):
@@ -37,7 +35,6 @@ class BatchDocxRequest(BaseModel):
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
     max_workers: int = 3
-    self_hosted_url: str = "http://localhost:7860"
     output_speed: float = 1.0
 
 from services.docx_helper import split_docx_to_txt
@@ -50,7 +47,6 @@ class TestVoiceRequest(BaseModel):
     provider: str = "self_hosted"
     fpt_api_keys: str = ""
     fpt_speed: float = 0.8
-    self_hosted_url: str = "http://localhost:7860"
     seed: str = ""
     keep_voice: str = "false"
     output_speed: float = 1.0
@@ -70,7 +66,6 @@ class WarmupRequest(BaseModel):
     voice: str
     text: str = "Xin chào, đây là giọng đọc thử."
     seed: str = ""
-    self_hosted_url: str = "http://localhost:7860"
     keep_voice: str = "true"
 
 class SettingsRequest(BaseModel):

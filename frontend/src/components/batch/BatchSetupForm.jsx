@@ -93,14 +93,12 @@ export default function BatchSetupForm({
       if (!saveRes.ok) throw new Error("Không thể lưu cấu hình");
 
       // 4. Trigger warmup on backend
-      const selfHostedUrl = currentSettings.self_hosted_url || "http://localhost:7860";
       const warmupRes = await fetch(`${API_BASE_URL}/api/self-hosted/warmup`, {
         method: 'POST',
         headers: jsonHeaders,
         body: JSON.stringify({
           voice: batchVoice,
           seed: seed,
-          self_hosted_url: selfHostedUrl,
           keep_voice: "true",
           text: voiceText
         })
