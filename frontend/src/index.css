@@ -822,6 +822,23 @@ audio::-webkit-media-controls-panel {
   .voice-grid {
     grid-template-columns: 1fr;
   }
+  
+  .auth-page {
+    padding: 1rem;
+  }
+  
+  .auth-card {
+    padding: 2rem 1.5rem;
+  }
+  
+  .auth-heading {
+    font-size: 1.4rem;
+  }
+  
+  .auth-subheading {
+    font-size: 0.85rem;
+    margin-bottom: 1.25rem;
+  }
 }
 
 

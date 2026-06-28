@@ -44,7 +44,7 @@ export default function AuthScreen({
         theme: 'filled_black',
         size: 'large',
         shape: 'pill',
-        width: googleBtnRef.current.offsetWidth || 360,
+        width: Math.max(200, Math.min(360, googleBtnRef.current.offsetWidth || (window.innerWidth - 64))),
         text: 'continue_with',
       });
     };

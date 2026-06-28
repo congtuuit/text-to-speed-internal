@@ -1,0 +1,2 @@
+[17:53] DONE task: Optimize login UI for mobile screens (AuthScreen.jsx & index.css)
+[17:55] END task: Optimize login UI for mobile screens ✅
