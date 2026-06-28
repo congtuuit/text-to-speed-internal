@@ -1,2 +1,3 @@
 [17:53] DONE task: Optimize login UI for mobile screens (AuthScreen.jsx & index.css)
 [17:55] END task: Optimize login UI for mobile screens ✅
+[18:00] DONE task: Rename deploy.sh to deploy_frontend.sh and chmod +x ✅
