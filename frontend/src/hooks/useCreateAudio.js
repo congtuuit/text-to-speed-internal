@@ -4,18 +4,20 @@ import Swal from 'sweetalert2';
 // Helper to chunk text
 function splitText(text, maxLength = 150) {
   const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
-  const chunks = [];
+  let chunks = [];
   let currentChunk = "";
   for (const sentence of sentences) {
-    if ((currentChunk + sentence).length > maxLength && currentChunk) {
+    if ((currentChunk + sentence).length > maxLength && currentChunk.trim()) {
       chunks.push(currentChunk.trim());
       currentChunk = sentence;
     } else {
       currentChunk += sentence;
     }
   }
-  if (currentChunk) chunks.push(currentChunk.trim());
-  return chunks;
+  if (currentChunk.trim()) {
+    chunks.push(currentChunk.trim());
+  }
+  return chunks.filter(c => c.trim().length > 0);
 }
 
 export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {

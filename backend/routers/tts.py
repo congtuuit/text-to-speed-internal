@@ -179,6 +179,9 @@ def create_audio(req: TestVoiceRequest, request: Request, background_tasks: Back
     if not user:
         raise HTTPException(status_code=401, detail="Chua dang nhap")
         
+    if not req.text or not req.text.strip():
+        raise HTTPException(status_code=400, detail="Văn bản không được để trống.")
+        
     if len(req.text) > 2000:
         raise HTTPException(status_code=400, detail="Văn bản vượt quá giới hạn 2000 ký tự.")
         
@@ -273,6 +276,10 @@ def tts_chunk(req: ChunkSessionRequest, request: Request, background_tasks: Back
         raise HTTPException(status_code=401, detail="Chua dang nhap")
         
     from routers.billing import check_quota, record_usage
+    
+    if not req.text or not req.text.strip():
+        raise HTTPException(status_code=400, detail="Văn bản không được để trống.")
+        
     check_quota(user, len(req.text), db)
     if len(req.text) > 2000:
         raise HTTPException(status_code=400, detail="Chunk vượt quá giới hạn.")
