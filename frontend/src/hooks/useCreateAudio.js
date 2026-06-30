@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Swal from 'sweetalert2';
+import { API_BASE_URL } from '../config';
 
 import { useBilling } from './useBilling';
 
@@ -65,7 +66,6 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
     try {
       if (text.length <= 150) {
         // Direct call
-        const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
         const token = localStorage.getItem('tts_auth_token');
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -106,7 +106,7 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
         for (let i = 0; i < chunks.length; i++) {
           setProgressState({ current: i + 1, total: chunks.length, merging: false });
 
-          const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
+
           const token = localStorage.getItem('tts_auth_token');
           const headers = { 'Content-Type': 'application/json' };
           if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -134,7 +134,6 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
 
         // Merge
         setProgressState(prev => ({ ...prev, merging: true }));
-        const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
         const token = localStorage.getItem('tts_auth_token');
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
