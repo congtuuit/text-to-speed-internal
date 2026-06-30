@@ -59,7 +59,7 @@ function App() {
 
   const {
     text, setText, voice, setVoice, createVoiceSeed, setCreateVoiceSeed,
-    speed, setSpeed, audioUrl, isGenerating, handleGenerate, progressState
+    speed, setSpeed, audioUrl, isGenerating, handleGenerate, progressState, maxChars
   } = useCreateAudio(t, handlePreviewVoice, selfHostedUrl);
 
   const {
@@ -112,7 +112,7 @@ function App() {
                 <Routes>
                   <Route path="/" element={<Dashboard t={t} jobs={jobs} library={library} authToken={authToken} currentUser={currentUser} onCopy={handleCopyAudio} onDelete={handleDeleteAudio} />} />
                   <Route path="/dashboard" element={<Dashboard t={t} jobs={jobs} library={library} authToken={authToken} currentUser={currentUser} onCopy={handleCopyAudio} onDelete={handleDeleteAudio} />} />
-                  <Route path="/create" element={<CreateAudio t={t} text={text} setText={setText} voice={voice} setVoice={setVoice} createVoiceSeed={createVoiceSeed} setCreateVoiceSeed={setCreateVoiceSeed} speed={speed} setSpeed={setSpeed} audioUrl={audioUrl} isGenerating={isGenerating} onGenerate={handleGenerate} voices={voices} savedVoices={savedVoices} onPreview={handlePreviewVoice} progressState={progressState} />} />
+                  <Route path="/create" element={<CreateAudio t={t} text={text} setText={setText} voice={voice} setVoice={setVoice} createVoiceSeed={createVoiceSeed} setCreateVoiceSeed={setCreateVoiceSeed} speed={speed} setSpeed={setSpeed} audioUrl={audioUrl} isGenerating={isGenerating} onGenerate={handleGenerate} voices={voices} savedVoices={savedVoices} onPreview={handlePreviewVoice} progressState={progressState} maxChars={maxChars || 5000} />} />
                   <Route path="/batch" element={<BatchConvert t={t} selectedFiles={selectedFiles} setSelectedFiles={setSelectedFiles} onStart={handleStartBatch} voices={voices} batchVoice={batchVoice} setBatchVoice={setBatchVoice} batchSpeed={batchSpeed} setBatchSpeed={setBatchSpeed} savedVoices={savedVoices} onPreview={handlePreviewVoice} jobs={jobs} fetchJobs={fetchJobs} authToken={authToken} />} />
                   <Route path="/voices" element={<Voices t={t} voice={voice} setVoice={setVoice} voices={voices} savedVoices={savedVoices} onPreview={handlePreviewVoice} onSave={handleSaveSavedVoice} onDelete={handleDeleteSavedVoice} currentUser={currentUser} authToken={authToken} />} />
                   <Route path="/library" element={<AudioLibrary t={t} library={library} onRefresh={fetchLibrary} onCopy={handleCopyAudio} onDelete={handleDeleteAudio} />} />

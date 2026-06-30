@@ -4,7 +4,7 @@ import PageHeader from '../components/PageHeader'
 import Button from '../components/Button'
 import { API_BASE_URL } from '../config'
 
-export default function CreateAudio({ t, text, setText, voice, setVoice, createVoiceSeed, setCreateVoiceSeed, speed, setSpeed, audioUrl, isGenerating, onGenerate, voices, savedVoices = [], onPreview, progressState }) {
+export default function CreateAudio({ t, text, setText, voice, setVoice, createVoiceSeed, setCreateVoiceSeed, speed, setSpeed, audioUrl, isGenerating, onGenerate, voices, savedVoices = [], onPreview, progressState, maxChars = 5000 }) {
   const [savedPreviewId, setSavedPreviewId] = useState(null)
   const [savedPreviewUrl, setSavedPreviewUrl] = useState(null)
 
@@ -42,8 +42,8 @@ export default function CreateAudio({ t, text, setText, voice, setVoice, createV
         <div className="glass-panel">
           <label>{t('create.textLabel')}</label>
           <textarea value={text} onChange={e => setText(e.target.value)} placeholder={t('create.textPlaceholder')} />
-          <small style={{ color: text.length > 2000 ? 'var(--danger-color, #ef4444)' : 'inherit' }}>
-            {t('create.characters', { count: text.length })} / 2000
+          <small style={{ color: text.length > maxChars ? 'var(--danger-color, #ef4444)' : 'inherit' }}>
+            {t('create.characters', { count: text.length })} / {maxChars}
           </small>
         </div>
 
