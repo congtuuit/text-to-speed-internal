@@ -35,25 +35,27 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressState, setProgressState] = useState({ current: 0, total: 0, merging: false });
 
+  let maxChars = 5000;
+  if (billing && billing.subscription) {
+    if (billing.subscription.plan_id === 'free') {
+      maxChars = 5000;
+    } else {
+      if (billing.subscription.chars_limit === -1) {
+        maxChars = 10000;
+      } else {
+        const remaining = billing.usage?.chars_remaining ?? 10000;
+        maxChars = Math.min(Math.max(remaining, 0), 10000);
+      }
+    }
+  }
+
   const handleGenerate = async () => {
     if (!text.trim()) {
       Swal.fire({ icon: 'warning', title: t('create.missingText'), background: '#1e293b', color: '#fff' });
       return;
     }
     
-    let maxChars = 5000;
-    if (billing && billing.subscription) {
-      if (billing.subscription.plan_id === 'free') {
-        maxChars = 5000;
-      } else {
-        if (billing.subscription.chars_limit === -1) {
-          maxChars = 10000;
-        } else {
-          const remaining = billing.usage?.chars_remaining ?? 10000;
-          maxChars = Math.min(Math.max(remaining, 0), 10000);
-        }
-      }
-    }
+
 
     if (text.length > maxChars) {
       Swal.fire({ icon: 'warning', title: "Văn bản quá dài", text: `Gói của bạn hiện tại cho phép tối đa ${maxChars} ký tự. Vui lòng dùng tính năng Batch (Tạo hàng loạt) cho văn bản dài hơn.`, background: '#1e293b', color: '#fff' });
@@ -160,6 +162,6 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
 
   return {
     text, setText, voice, setVoice, createVoiceSeed, setCreateVoiceSeed,
-    speed, setSpeed, audioUrl, setAudioUrl, isGenerating, handleGenerate, progressState
+    speed, setSpeed, audioUrl, setAudioUrl, isGenerating, handleGenerate, progressState, maxChars
   };
 }
