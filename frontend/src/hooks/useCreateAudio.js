@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import Swal from 'sweetalert2';
 
+import { useBilling } from './useBilling';
+
 // Helper to chunk text
 function splitText(text, maxLength = 150) {
   const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
@@ -21,11 +23,14 @@ function splitText(text, maxLength = 150) {
 }
 
 export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
+  const token = localStorage.getItem('tts_auth_token');
+  const { billing } = useBilling(token);
+
   const [text, setText] = useState("Xin chào, đây là bản đọc thử tiếng Việt cho sản phẩm TTS Studio.");
   const [voice, setVoice] = useState('female');
   const [createVoiceSeed, setCreateVoiceSeed] = useState('');
   const [speed, setSpeed] = useState(1);
-  const [audioUrl, setAudioUrl] = useState('');
+  const [audioUrl, setAudioUrl] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressState, setProgressState] = useState({ current: 0, total: 0, merging: false });
 
@@ -34,8 +39,23 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl) {
       Swal.fire({ icon: 'warning', title: t('create.missingText'), background: '#1e293b', color: '#fff' });
       return;
     }
-    if (text.length > 2000) {
-      Swal.fire({ icon: 'warning', title: "VÄƒn báº£n quÃ¡ dÃ i", text: "Vui lÃ²ng nháº­p tá»‘i Ä‘a 2000 kÃ½ tá»±.", background: '#1e293b', color: '#fff' });
+    
+    let maxChars = 5000;
+    if (billing && billing.subscription) {
+      if (billing.subscription.plan_id === 'free') {
+        maxChars = 5000;
+      } else {
+        if (billing.subscription.chars_limit === -1) {
+          maxChars = 10000;
+        } else {
+          const remaining = billing.usage?.chars_remaining ?? 10000;
+          maxChars = Math.min(Math.max(remaining, 0), 10000);
+        }
+      }
+    }
+
+    if (text.length > maxChars) {
+      Swal.fire({ icon: 'warning', title: "Văn bản quá dài", text: `Gói của bạn hiện tại cho phép tối đa ${maxChars} ký tự. Vui lòng dùng tính năng Batch (Tạo hàng loạt) cho văn bản dài hơn.`, background: '#1e293b', color: '#fff' });
       return;
     }
 

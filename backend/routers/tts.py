@@ -182,8 +182,20 @@ def create_audio(req: TestVoiceRequest, request: Request, background_tasks: Back
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Văn bản không được để trống.")
         
-    if len(req.text) > 2000:
-        raise HTTPException(status_code=400, detail="Văn bản vượt quá giới hạn 2000 ký tự.")
+    from routers.billing import check_quota, record_usage, _get_or_create_subscription, get_monthly_usage
+    
+    sub = _get_or_create_subscription(user, db)
+    max_chars = 5000
+    if sub.plan_id != "free":
+        if sub.chars_limit == -1:
+            max_chars = 10000
+        else:
+            used = get_monthly_usage(user.id, db)
+            remaining = sub.chars_limit - used
+            max_chars = min(max(remaining, 0), 10000)
+            
+    if len(req.text) > max_chars:
+        raise HTTPException(status_code=400, detail=f"Văn bản vượt quá giới hạn {max_chars} ký tự cho phép của gói hiện tại.")
         
     # Tính quota
     check_quota(user, len(req.text), db)
