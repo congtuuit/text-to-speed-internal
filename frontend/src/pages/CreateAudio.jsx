@@ -68,13 +68,12 @@ export default function CreateAudio({ t, text, setText, voice, setVoice, createV
           {savedPreviewUrl && (
             <audio controls autoPlay src={savedPreviewUrl} className="preview-audio" key={savedPreviewUrl} style={{ width: "100%", marginTop: "0.5rem" }} />
           )}
-
           {isGenerating && progressState && progressState.total > 0 && (
             <div style={{ marginBottom: "1rem", textAlign: "center" }}>
               <small style={{ display: "block", marginBottom: "0.5rem", color: "var(--text-muted)" }}>
                 {progressState.merging 
                   ? "Đang gộp file audio..." 
-                  : `Đang xử lý phần ${progressState.current} / ${progressState.total}...`}
+                  : `Đang xử lý ${Math.round((progressState.current / progressState.total) * 100)}%...`}
               </small>
               <div style={{ width: "100%", background: "var(--bg-glass)", height: "6px", borderRadius: "3px", overflow: "hidden" }}>
                 <div style={{ 
@@ -86,7 +85,6 @@ export default function CreateAudio({ t, text, setText, voice, setVoice, createV
               </div>
             </div>
           )}
-
           <Button className="btn btn-giant" onClick={onGenerate} isLoading={isGenerating}>
             {isGenerating ? t('common.processing') : t('create.generate')}
           </Button>

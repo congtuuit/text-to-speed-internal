@@ -67,6 +67,7 @@ class GeneratedAudio(Base):
     audio_url = Column(String, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
 
 
 class User(Base):

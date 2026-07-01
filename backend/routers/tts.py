@@ -265,12 +265,29 @@ def create_audio(req: TestVoiceRequest, request: Request, background_tasks: Back
         else:
             if os.path.exists(temp_speed_file):
                 os.remove(temp_speed_file)
-                
+    # Register in library (7 days TTL) — wrapped so cleanup always runs on failure
+    from services.storage_service import register_audio_file
+    from datetime import datetime, timedelta
+
+    audio = None
+    try:
+        audio = register_audio_file(
+            source_path=temp_file,
+            file_name=f"create_{os.path.basename(temp_file)}",
+            db=db,
+            owner_id=user.id,
+            expires_at=datetime.utcnow() + timedelta(days=7)
+        )
+    except Exception as reg_err:
+        print(f"[CreateAudio] Warning: Failed to register audio in library: {reg_err}")
+
     # Ghi nhận usage
     record_usage(user.id, len(req.text), "create-audio", db)
-                
+
     background_tasks.add_task(cleanup)
-    return FileResponse(temp_file, media_type="audio/wav")
+    serve_path = audio.file_path if audio else temp_file
+    return FileResponse(serve_path, media_type="audio/wav")
+
 
 
 class ChunkSessionRequest(TestVoiceRequest):
@@ -352,9 +369,12 @@ def tts_chunk(req: ChunkSessionRequest, request: Request, background_tasks: Back
     record_usage(user.id, len(req.text), "generate", db)
     return {"status": "ok"}
 
-
 @router.post("/api/tts/merge")
-def tts_merge(req: MergeSessionRequest):
+def tts_merge(req: MergeSessionRequest, request: Request, db: Session = Depends(get_db)):
+    user = _current_user_from_request(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Chua dang nhap")
+        
     import os
     import wave
     
@@ -362,8 +382,8 @@ def tts_merge(req: MergeSessionRequest):
     if not os.path.exists(session_dir):
         raise HTTPException(status_code=404, detail="Session not found")
         
-    # Get all chunk files sorted
-    files = [f for f in os.listdir(session_dir) if f.endswith(".wav")]
+    # Get all chunk files sorted (exclude merged.wav)
+    files = [f for f in os.listdir(session_dir) if f.endswith(".wav") and f != "merged.wav"]
     files.sort(key=lambda x: int(x.split('.')[0]))
     
     if not files:
@@ -384,26 +404,43 @@ def tts_merge(req: MergeSessionRequest):
             output_wav.setparams(params)
             for d in data:
                 output_wav.writeframes(d)
-                
-        # Dọn dẹp thư mục sau 60 phút
-        import threading
-        import time
-
-        import shutil
-        def cleanup_session():
-            time.sleep(3600)  # 60 phút
-            try:
-                shutil.rmtree(session_dir)
-            except:
-                pass
-        t = threading.Thread(target=cleanup_session)
-        t.daemon = True
-        t.start()
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Merge error: {e}")
-        
-    return FileResponse(output_path, media_type="audio/wav")
+
+    # Register in library (7 days TTL)
+    from services.storage_service import register_audio_file
+    from datetime import datetime, timedelta
+
+    serve_path = output_path
+    try:
+        audio = register_audio_file(
+            source_path=output_path,
+            file_name=f"merge_{req.session_id}.wav",
+            db=db,
+            owner_id=user.id,
+            expires_at=datetime.utcnow() + timedelta(days=7)
+        )
+        serve_path = audio.file_path
+    except Exception as reg_err:
+        print(f"[TTSMerge] Warning: Failed to register audio in library: {reg_err}")
+
+    # Dọn dẹp thư mục sau 60 phút
+    import threading
+    import time
+    import shutil
+    def cleanup_session():
+        time.sleep(3600)  # 60 phút
+        try:
+            shutil.rmtree(session_dir)
+        except:
+            pass
+    t = threading.Thread(target=cleanup_session)
+    t.daemon = True
+    t.start()
+
+    return FileResponse(serve_path, media_type="audio/wav")
+
+
 class CheckConnectionRequest(BaseModel):
     self_hosted_url: str
 

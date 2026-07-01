@@ -14,14 +14,19 @@ from services.storage_service import delete_audio_file
 LIBRARY_MAX_AGE_DAYS = 30
 LIBRARY_CHECK_INTERVAL_SECS = 24 * 60 * 60  # run cleanup every 24 hours
 
+
 def _cleanup_old_library_audios():
-    """Delete audio files and database records older than LIBRARY_MAX_AGE_DAYS."""
+    """Delete audio files and database records that are expired or older than LIBRARY_MAX_AGE_DAYS."""
     removed = 0
-    cutoff_date = datetime.utcnow() - timedelta(days=LIBRARY_MAX_AGE_DAYS)
+    now = datetime.utcnow()
+    cutoff_date = now - timedelta(days=LIBRARY_MAX_AGE_DAYS)
     
     db = SessionLocal()
     try:
-        old_audios = db.query(GeneratedAudio).filter(GeneratedAudio.created_at < cutoff_date).all()
+        old_audios = db.query(GeneratedAudio).filter(
+            (GeneratedAudio.expires_at < now) | 
+            ((GeneratedAudio.expires_at == None) & (GeneratedAudio.created_at < cutoff_date))
+        ).all()
         for audio in old_audios:
             try:
                 # delete_audio_file handles both physical file deletion and DB record removal

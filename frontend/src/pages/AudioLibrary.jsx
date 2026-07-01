@@ -115,7 +115,6 @@ export default function AudioLibrary({ t, library, onRefresh, onCopy, onDelete }
       <button className="btn ghost refresh-button" onClick={onRefresh} style={{ marginBottom: '1.5rem' }}>
         {t('common.refresh')}
       </button>
-      
       <div className="library-list">
         {library.length === 0 ? (
           <section className="glass-panel empty-state">{t('library.empty')}</section>
@@ -123,9 +122,15 @@ export default function AudioLibrary({ t, library, onRefresh, onCopy, onDelete }
           const src = item.audio_url?.startsWith('http') ? item.audio_url : `${API_BASE_URL}${item.audio_url}`
           const isCurrent = playingTrack?.id === item.id
           const createdAt = new Date(item.created_at)
-          const daysSinceCreation = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
-          const daysLeft = Math.max(0, 30 - daysSinceCreation)
           
+          let daysLeft = 30
+          if (item.expires_at) {
+            const expiresAt = new Date(item.expires_at)
+            daysLeft = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+          } else {
+            const daysSinceCreation = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+            daysLeft = Math.max(0, 30 - daysSinceCreation)
+          }
           return (
             <article 
               key={item.id} 

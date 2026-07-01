@@ -30,8 +30,7 @@ export default function BatchConvert({
   // Auth Headers
   const authHeaders = { Authorization: `Bearer ${authToken}` }
   const jsonHeaders = { ...authHeaders, 'Content-Type': 'application/json' }
-
-  // Load auto-retry setting on mount
+  // Load settings on mount
   useEffect(() => {
     if (!authToken) return
     const loadSettings = async () => {
@@ -42,6 +41,24 @@ export default function BatchConvert({
           setAutoRetry(data.auto_retry === 'true')
           if (data.self_hosted_voice) {
             setBatchVoice(data.self_hosted_voice)
+            
+            // Warmup that config in the background
+            const sv = savedVoices.find(s => s.voice_type === data.self_hosted_voice);
+            const seed = sv ? sv.seed : (data.self_hosted_seed || "");
+            const voiceText = (sv && sv.text) ? sv.text : t('create.sample');
+            
+            fetch(`${API_BASE_URL}/api/self-hosted/warmup`, {
+              method: 'POST',
+              headers: jsonHeaders,
+              body: JSON.stringify({
+                voice: data.self_hosted_voice,
+                seed: seed,
+                text: voiceText
+              })
+            }).catch(err => console.error("Warmup API error:", err));
+          }
+          if (data.output_speed !== undefined) {
+            setBatchSpeed(data.output_speed)
           }
         }
       } catch (err) {
@@ -49,8 +66,7 @@ export default function BatchConvert({
       }
     }
     loadSettings()
-  }, [authToken])
-
+  }, [authToken, savedVoices])
   // Check if any job is currently active/processing
   const hasActiveJobs = jobs.some(j => j.status === 'Processing' || j.status === 'Pending')
 

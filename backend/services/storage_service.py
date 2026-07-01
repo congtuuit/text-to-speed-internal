@@ -1,7 +1,7 @@
 import os
 import shutil
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 from urllib.parse import quote
@@ -107,10 +107,12 @@ def get_storage_provider() -> StorageProvider:
     return _storage_provider
 
 
-def register_audio_file(source_path: str, file_name: Optional[str] = None, db: Session | None = None, owner_id: Optional[int] = None) -> GeneratedAudio:
+def register_audio_file(source_path: str, file_name: Optional[str] = None, db: Session | None = None, owner_id: Optional[int] = None, expires_at: Optional[datetime] = None) -> GeneratedAudio:
     provider = get_storage_provider()
     saved = provider.save(source_path, file_name=file_name, owner_id=owner_id)
     session = db or SessionLocal()
+    if expires_at is None:
+        expires_at = datetime.utcnow() + timedelta(days=30)
     try:
         existing = session.query(GeneratedAudio).filter(GeneratedAudio.file_name == saved.file_name).first()
         if existing:
@@ -118,11 +120,12 @@ def register_audio_file(source_path: str, file_name: Optional[str] = None, db: S
             existing.storage_provider = saved.storage_provider
             existing.audio_url = saved.audio_url
             existing.created_at = datetime.utcnow()
+            existing.expires_at = expires_at
             if owner_id is not None:
                 existing.owner_id = owner_id
             audio = existing
         else:
-            audio = GeneratedAudio(file_name=saved.file_name, file_path=saved.file_path, storage_provider=saved.storage_provider, audio_url=saved.audio_url, owner_id=owner_id)
+            audio = GeneratedAudio(file_name=saved.file_name, file_path=saved.file_path, storage_provider=saved.storage_provider, audio_url=saved.audio_url, owner_id=owner_id, expires_at=expires_at)
             session.add(audio)
         session.commit()
         session.refresh(audio)

@@ -50,9 +50,8 @@ function App() {
     authPassword, setAuthPassword, authName, setAuthName, authError, authLoading,
     handleAuthSubmit, handleLogout, handleGoogleLogin
   } = useAuth();
-
   const {
-    library, jobs, voices, savedVoices, selfHostedUrl,
+    library, jobs, voices, savedVoices, selfHostedUrl, settings,
     jsonHeaders, fetchAdminSettings, fetchLibrary, fetchJobs, fetchVoices, fetchSavedVoices,
     handlePreviewVoice, handleCopyAudio, handleDeleteAudio, handleSaveSavedVoice, handleDeleteSavedVoice
   } = useAppData(authToken, t);
@@ -60,8 +59,7 @@ function App() {
   const {
     text, setText, voice, setVoice, createVoiceSeed, setCreateVoiceSeed,
     speed, setSpeed, audioUrl, isGenerating, handleGenerate, progressState, maxChars
-  } = useCreateAudio(t, handlePreviewVoice, selfHostedUrl);
-
+  } = useCreateAudio(t, handlePreviewVoice, selfHostedUrl, settings, fetchAdminSettings);
   const {
     selectedFiles, setSelectedFiles,
     batchVoice, setBatchVoice, batchSpeed, setBatchSpeed, handleStartBatch

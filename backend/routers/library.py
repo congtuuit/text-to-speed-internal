@@ -150,8 +150,7 @@ def get_audio_library(request: Request, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="Chưa đăng nhập")
     audios = db.query(models.GeneratedAudio).filter(models.GeneratedAudio.owner_id == user.id).order_by(models.GeneratedAudio.created_at.desc()).all()
-    return {"items": [{"id": audio.id, "file_name": audio.file_name, "file_path": audio.file_path, "storage_provider": audio.storage_provider, "audio_url": audio.audio_url, "created_at": audio.created_at} for audio in audios]}
-
+    return {"items": [{"id": audio.id, "file_name": audio.file_name, "file_path": audio.file_path, "storage_provider": audio.storage_provider, "audio_url": audio.audio_url, "created_at": audio.created_at, "expires_at": audio.expires_at} for audio in audios]}
 
 @router.get("/api/audio/{file_name}")
 def stream_audio(file_name: str, request: Request, db: Session = Depends(get_db)):
