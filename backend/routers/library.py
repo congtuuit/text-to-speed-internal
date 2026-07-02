@@ -103,6 +103,30 @@ def create_saved_voice(req: SavedVoiceRequest, request: Request, db: Session = D
     db.refresh(voice)
     return {"status": "ok", "id": voice.id}
 
+@router.put("/api/saved-voices/{voice_id}")
+def update_saved_voice(voice_id: str, req: SavedVoiceRequest, request: Request, db: Session = Depends(get_db)):
+    if voice_id.startswith("common_"):
+        raise HTTPException(status_code=400, detail="Không thể sửa giọng mặc định của hệ thống")
+
+    user = _current_user_from_request(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Chưa đăng nhập")
+
+    try:
+        vid = int(voice_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ID không hợp lệ")
+
+    voice = db.query(models.SavedVoice).filter(models.SavedVoice.id == vid, models.SavedVoice.owner_id == user.id).first()
+    if not voice:
+        raise HTTPException(status_code=404, detail="Saved voice not found")
+
+    voice.name = req.name
+    voice.voice_type = req.voice_type
+    voice.seed = req.seed
+    db.commit()
+    db.refresh(voice)
+    return {"status": "ok", "id": voice.id}
 
 @router.delete("/api/saved-voices/{voice_id}")
 def delete_saved_voice(voice_id: str, request: Request, db: Session = Depends(get_db)):

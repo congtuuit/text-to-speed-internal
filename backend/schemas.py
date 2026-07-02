@@ -86,6 +86,9 @@ class SavedVoiceRequest(BaseModel):
     name: str
     voice_type: str
     seed: str
+    text: str | None = None
+    keep_voice: bool | str | None = None
+    tag: str | None = None
 
 class RegisterRequest(BaseModel):
     email: str
@@ -97,4 +100,4 @@ class LoginRequest(BaseModel):
     password: str
 
 class GoogleLoginRequest(BaseModel):
-    token: str
+    token: str

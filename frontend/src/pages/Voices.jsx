@@ -61,7 +61,7 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
     })
 
     if (voiceName) {
-      onSave(voiceId, voiceName, currentSeed)
+      onSave(null, voiceId, voiceName, null, true, currentSeed, null)
     }
   }
 
