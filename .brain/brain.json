@@ -136,6 +136,14 @@
     {
       "path": "/system-stats",
       "explained": "Lấy thống kê hệ thống (CPU, RAM, DB) và chi tiết số lượng worker đang bận"
+    },
+    {
+      "path": "/api/self-hosted/warmup",
+      "explained": "Khởi động mô hình (warmup) và lưu thiết lập voice (voice, seed, speed) cá nhân của người dùng vào Database"
+    },
+    {
+      "path": "/api/settings",
+      "explained": "Đọc (GET) và ghi (POST) các cấu hình của hệ thống và người dùng"
     }
   ],
   "business_rules": [

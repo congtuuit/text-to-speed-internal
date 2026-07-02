@@ -2,9 +2,7 @@ import { useState } from 'react'
 import Swal from 'sweetalert2'
 import PageHeader from '../components/PageHeader'
 import Button from '../components/Button'
-import { API_BASE_URL } from '../config'
-
-export default function CreateAudio({ t, text, setText, voice, setVoice, createVoiceSeed, setCreateVoiceSeed, speed, setSpeed, audioUrl, isGenerating, onGenerate, voices, savedVoices = [], onPreview, progressState, maxChars = 5000 }) {
+export default function CreateAudio({ t, text, setText, voice, setVoice, createVoiceSeed, setCreateVoiceSeed, setVoiceAndSeed, speed, setSpeed, audioUrl, isGenerating, onGenerate, voices, savedVoices = [], onPreview, progressState, maxChars = 5000 }) {
   const [savedPreviewId, setSavedPreviewId] = useState(null)
   const [savedPreviewUrl, setSavedPreviewUrl] = useState(null)
 
@@ -13,25 +11,15 @@ export default function CreateAudio({ t, text, setText, voice, setVoice, createV
   const [dialogPreviewUrl, setDialogPreviewUrl] = useState(null)
 
   const handleSelectVoice = (voiceType, seed) => {
-    setVoice(voiceType);
-    setCreateVoiceSeed(seed || '');
+    if (setVoiceAndSeed) {
+      setVoiceAndSeed(voiceType, seed);
+    } else {
+      setVoice(voiceType);
+      setCreateVoiceSeed(seed || '');
+    }
     setShowVoiceDialog(false);
     setDialogPreviewUrl(null);
     setDialogPreviewId(null);
-
-    const sv = savedVoices.find(s => s.voice_type === voiceType && (s.seed || '') === (seed || ''));
-    const voiceText = (sv && sv.text) ? sv.text : t('create.sample');
-
-    // Call API to warmup voice in background
-    fetch(`${API_BASE_URL}/api/self-hosted/warmup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        voice: voiceType,
-        seed: seed || '',
-        text: voiceText
-      })
-    }).catch(err => console.error("Warmup API error:", err));
   }
 
   return (

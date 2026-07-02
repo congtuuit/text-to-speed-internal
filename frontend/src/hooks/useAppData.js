@@ -84,7 +84,7 @@ export function useAppData(authToken, t) {
   };
 
   return {
-    library, jobs, voices, savedVoices, selfHostedUrl,
+    library, jobs, voices, savedVoices, selfHostedUrl, settings,
     jsonHeaders, fetchAdminSettings, fetchLibrary, fetchJobs, fetchVoices, fetchSavedVoices,
     handlePreviewVoice, handleCopyAudio, handleDeleteAudio, handleSaveSavedVoice, handleDeleteSavedVoice
   };

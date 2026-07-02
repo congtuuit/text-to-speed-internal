@@ -1,16 +1,22 @@
 {
-  "updated_at": "2026-06-28T10:53:00.000000Z",
+  "updated_at": "2026-07-02T09:00:00.000000Z",
   "working_on": {
-    "feature": "Login Screen Responsiveness",
-    "task": "Optimize login page UI layout for mobile devices",
+    "feature": "Voice Settings Persistence",
+    "task": "Sửa lỗi không giữ đúng voice/seed sau khi đăng nhập lại và lỗi gọi nhiều API khi chọn voice",
     "status": "completed",
     "files": [
-      "frontend/src/pages/AuthScreen.jsx",
-      "frontend/src/index.css"
+      "frontend/src/hooks/useCreateAudio.js",
+      "frontend/src/pages/CreateAudio.jsx",
+      "backend/routers/tts.py"
     ],
-    "notes": "Added media query styles for .auth-page and .auth-card to fit smaller viewport widths, adjusted Google Sign-in button sizing to dynamically compute responsive width preventing overflow."
+    "notes": "Đã đổi hasInitialized thành initializedToken, xử lý gộp state (setVoiceAndSeed) và update backend warmup API để lưu settings cho từng user ID."
   },
   "recent_changes": [
+    {
+      "timestamp": "2026-07-02T09:00:00.000000Z",
+      "type": "bugfix",
+      "description": "Fixed voice settings desync after relogin by tracking initializedToken. Fixed UI showing wrong seed due to fallback. Grouped voice and seed updates to prevent race conditions and duplicate API calls."
+    },
     {
       "timestamp": "2026-06-28T10:53:00.000000Z",
       "type": "feature",
@@ -33,6 +39,11 @@
     }
   ],
   "errors_encountered": [
+    {
+      "error": "Lỗi API warmup bị gọi nhiều lần và lưu đè state cũ khi chọn voice ở giao diện",
+      "solution": "Gộp state (setVoiceAndSeed) để chạy update 1 lần thay vì setVoice và setCreateVoiceSeed rời rạc (Race condition), và bỏ lời gọi fetch dư thừa trong handleSelectVoice.",
+      "resolved": true
+    },
     {
       "error": "Google login failed with 422 Unprocessable Content",
       "solution": "Changed 'credential' to 'token' in GoogleLoginRequest schema (backend/schemas.py) and auth router to match frontend payload.",

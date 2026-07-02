@@ -567,7 +567,25 @@ def get_self_hosted_config(db: Session = Depends(get_db)):
 
 
 @router.post("/api/self-hosted/warmup")
-def warmup_self_hosted_voice(req: WarmupRequest, background_tasks: BackgroundTasks):
+def warmup_self_hosted_voice(req: WarmupRequest, background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db)):
+    user = _current_user_from_request(request, db)
+    user_id = user.id if user else None
+    
+    if user_id:
+        for k, v in [
+            ("self_hosted_voice", req.voice),
+            ("self_hosted_seed", req.seed),
+            ("output_speed", str(req.speed)),
+        ]:
+            db_key = f"{user_id}_{k}"
+            setting = db.query(models.Settings).filter(models.Settings.key == db_key).first()
+            if not setting:
+                setting = models.Settings(key=db_key, value=v, owner_id=user_id)
+                db.add(setting)
+            else:
+                setting.value = v
+        db.commit()
+
     def do_warmup():
         try:
             from services.queue_manager import process_self_hosted_tts

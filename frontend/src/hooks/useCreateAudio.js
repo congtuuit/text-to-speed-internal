@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Swal from 'sweetalert2';
 import { API_BASE_URL } from '../config';
 
@@ -34,57 +34,20 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl, settings, f
   const [audioUrl, setAudioUrl] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressState, setProgressState] = useState({ current: 0, total: 0, merging: false });
-  const [hasInitialized, setHasInitialized] = useState(false);
+  const [initializedToken, setInitializedToken] = useState(null);
+  const warmupKeyRef = useRef('');
+  const warmupInFlightRef = useRef(false);
 
-  // Initialize from settings once loaded
-  useEffect(() => {
-    if (settings && Object.keys(settings).length > 0 && !hasInitialized) {
-      const initialVoice = settings.self_hosted_voice || 'female';
-      const initialSeed = settings.self_hosted_seed || '';
-      const initialSpeed = settings.output_speed !== undefined ? settings.output_speed : 1;
-
-      setVoice(initialVoice);
-      setCreateVoiceSeed(initialSeed);
-      setSpeed(initialSpeed);
-      setHasInitialized(true);
-
-      // Warmup the voice config
-      fetch(`${API_BASE_URL}/api/self-hosted/warmup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          voice: initialVoice,
-          seed: initialSeed,
-          text: t('create.sample')
-        })
-      }).catch(err => console.error("Warmup API error on init:", err));
-    }
-  }, [settings, hasInitialized, token, t]);
-
-  // Helper to save voice settings in DB
-  const saveVoiceSettings = async (v, sd, sp) => {
+  const triggerWarmup = async (payload) => {
     if (!token) return;
-    try {
-      const currentSettings = settings || {};
-      const payload = {
-        api_key: currentSettings.api_key,
-        model_name: currentSettings.model_name,
-        provider: currentSettings.provider,
-        fpt_api_keys: currentSettings.fpt_api_keys,
-        fpt_speed: Number(currentSettings.fpt_speed),
-        max_workers: Number(currentSettings.max_workers),
-        self_hosted_url: currentSettings.self_hosted_url,
-        self_hosted_voice: v,
-        self_hosted_seed: sd,
-        self_hosted_keep_voice: currentSettings.self_hosted_keep_voice,
-        output_speed: Number(sp),
-        auto_retry: currentSettings.auto_retry
-      };
+    const warmupKey = JSON.stringify(payload);
+    if (warmupInFlightRef.current || warmupKeyRef.current === warmupKey) return;
 
-      await fetch(`${API_BASE_URL}/api/settings`, {
+    warmupInFlightRef.current = true;
+    warmupKeyRef.current = warmupKey;
+
+    try {
+      await fetch(`${API_BASE_URL}/api/self-hosted/warmup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,6 +56,48 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl, settings, f
         body: JSON.stringify(payload)
       });
       if (fetchAdminSettings) fetchAdminSettings();
+    } catch (e) {
+      console.error('Warmup API error:', e);
+    } finally {
+      warmupInFlightRef.current = false;
+    }
+  };
+
+  // Initialize from settings once loaded
+  useEffect(() => {
+    if (settings && Object.keys(settings).length > 0 && initializedToken !== token && token) {
+      const initialVoice = settings.self_hosted_voice || 'female';
+      const initialSeed = settings.self_hosted_seed || '';
+      const initialSpeed = settings.output_speed !== undefined ? settings.output_speed : 1;
+
+      setVoice(initialVoice);
+      setCreateVoiceSeed(initialSeed);
+      setSpeed(initialSpeed);
+      setInitializedToken(token);
+
+      // Warmup the voice config
+      triggerWarmup({
+        voice: initialVoice,
+        seed: initialSeed,
+        text: t('create.sample')
+      });
+    }
+
+    if (!token && initializedToken !== null) {
+      setInitializedToken(null);
+    }
+  }, [settings, initializedToken, token, t]);
+
+  // Helper to save voice settings in DB
+  const saveVoiceSettings = async (v, sd, sp) => {
+    if (!token) return;
+    try {
+      await triggerWarmup({
+        voice: v,
+        seed: sd,
+        speed: Number(sp),
+        text: t('create.sample')
+      });
     } catch (e) {
       console.error("Failed to auto-save voice settings", e);
     }
@@ -105,6 +110,11 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl, settings, f
   const updateCreateVoiceSeed = (newSeed) => {
     setCreateVoiceSeed(newSeed || '');
     saveVoiceSettings(voice, newSeed || '', speed);
+  };
+  const updateVoiceAndSeed = (newVoice, newSeed) => {
+    setVoice(newVoice);
+    setCreateVoiceSeed(newSeed || '');
+    saveVoiceSettings(newVoice, newSeed || '', speed);
   };
   const updateSpeed = (newSpeed) => {
     setSpeed(newSpeed);
@@ -243,6 +253,7 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl, settings, f
     text, setText,
     voice, setVoice: updateVoice,
     createVoiceSeed, setCreateVoiceSeed: updateCreateVoiceSeed,
+    setVoiceAndSeed: updateVoiceAndSeed,
     speed, setSpeed: updateSpeed,
     audioUrl, setAudioUrl, isGenerating, handleGenerate, progressState, maxChars
   };

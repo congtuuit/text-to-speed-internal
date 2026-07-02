@@ -67,6 +67,7 @@ class WarmupRequest(BaseModel):
     text: str = "Xin chào, đây là giọng đọc thử."
     seed: str = ""
     keep_voice: str = "true"
+    speed: float = 1.0
 
 class SettingsRequest(BaseModel):
     api_key: str = ""
