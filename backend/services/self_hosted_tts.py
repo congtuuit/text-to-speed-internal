@@ -1,9 +1,11 @@
-import threading
-import time
 import os
+import random
 import requests
 import tempfile
-import wave
+import threading
+import time
+
+from services.audio_merge import merge_wav_files_with_crossfade
 from services.fpt_tts import _chunk_text_fpt
 
 self_hosted_semaphore = threading.Semaphore(20)
@@ -14,13 +16,10 @@ def process_self_hosted_tts(text: str, output_path: str, voice: str, url: str, s
     """XÃ¡Â»Â­ lÃƒÂ½ TTS vÃ¡Â»â€ºi Self-hosted OmniVoice, cÃƒÂ³ chia nhÃ¡Â»  vÃ„Æ’n bÃ¡ÂºÂ£n Ã„â€˜Ã¡Â»Æ’ trÃƒÂ¡nh timeout."""
     global LAST_SELF_HOSTED_SEED
     if seed_val is None:
-        import random
         seed_val = random.randint(1, 1000000000)
-        
+
     chunks = _chunk_text_fpt(text, 200)
-    import tempfile
-    import wave
-    
+
     chunk_files = []
     success_all = True
     total_chunks = len(chunks)
@@ -46,7 +45,7 @@ def process_self_hosted_tts(text: str, output_path: str, voice: str, url: str, s
                     with open(temp_file_path, "wb") as f:
                         f.write(res.content)
                     chunk_files.append(temp_file_path)
-                    break  # ThÃƒÂ nh cÃƒÂ´ng, thoÃƒÂ¡t vÃƒÂ²ng lÃ¡ÂºÂ·p retry
+                    break
                 else:
                     if attempt == max_chunk_retries - 1:
                         success_all = False
@@ -67,17 +66,7 @@ def process_self_hosted_tts(text: str, output_path: str, voice: str, url: str, s
             
     if success_all and len(chunk_files) == total_chunks and total_chunks > 0:
         try:
-            data = []
-            params = None
-            for audio_file in chunk_files:
-                with wave.open(audio_file, 'rb') as w:
-                    if not params:
-                        params = w.getparams()
-                    data.append(w.readframes(w.getnframes()))
-            with wave.open(output_path, 'wb') as output_wav:
-                output_wav.setparams(params)
-                for d in data:
-                    output_wav.writeframes(d)
+            merge_wav_files_with_crossfade(chunk_files, output_path)
         except Exception as e:
             print(f"[{worker_name}] Error merging self-hosted audio chunks: {e}")
             success_all = False

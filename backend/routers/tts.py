@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+﻿from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from database import get_db, SessionLocal
@@ -18,6 +18,7 @@ import asyncio
 from services.queue_manager import queue_manager, fpt_key_rotator, adjust_audio_speed_ffmpeg
 from services.tts_provider import TTSProvider
 from services.storage_service import get_storage_provider, delete_audio_file
+from services.audio_merge import merge_wav_files_with_crossfade
 from auth import create_jwt, decode_jwt, hash_password, verify_password
 from routers.auth import _current_user_from_request
 from services.docx_helper import split_docx_to_txt
@@ -32,7 +33,6 @@ def generate_customer_voice_params(seed_input: str, keep_voice_input: str, custo
     seed_val = int(seed_input) if (seed_input and str(seed_input).strip()) else None
     
     if seed_val is None:
-        # Sinh seed duy nhất nhưng cố định theo khách hàng để gọi lại đúng cache voice cũ
         seed_val = int(hashlib.md5(f"customer_{customer_prefix}".encode()).hexdigest(), 16) % 1000000000
         keep_voice_val = True
     else:
@@ -86,7 +86,6 @@ def test_voice(req: TestVoiceRequest, request: Request, background_tasks: Backgr
     import hashlib
     import shutil
     
-    # Kiểm tra Cache (Chỉ cache nếu là sample từ thư viện)
     cache_file = None
     if req.is_sample:
         cache_dir = "cache/test_voice"
@@ -98,7 +97,6 @@ def test_voice(req: TestVoiceRequest, request: Request, background_tasks: Backgr
         if os.path.exists(cache_file):
             return FileResponse(cache_file, media_type="audio/wav")
         
-    # Tạo file tạm thời duy nhất để tránh xung đột khi gọi liên tục
     fd, temp_file = tempfile.mkstemp(suffix=".wav", prefix="tts_")
     os.close(fd)
     
@@ -375,9 +373,6 @@ def tts_merge(req: MergeSessionRequest, request: Request, db: Session = Depends(
     if not user:
         raise HTTPException(status_code=401, detail="Chua dang nhap")
         
-    import os
-    import wave
-    
     session_dir = os.path.join("cache", "sessions", req.session_id)
     if not os.path.exists(session_dir):
         raise HTTPException(status_code=404, detail="Session not found")
@@ -392,18 +387,8 @@ def tts_merge(req: MergeSessionRequest, request: Request, db: Session = Depends(
     output_path = os.path.join(session_dir, "merged.wav")
     
     try:
-        data = []
-        params = None
-        for f in files:
-            audio_file = os.path.join(session_dir, f)
-            with wave.open(audio_file, 'rb') as w:
-                if not params:
-                    params = w.getparams()
-                data.append(w.readframes(w.getnframes()))
-        with wave.open(output_path, 'wb') as output_wav:
-            output_wav.setparams(params)
-            for d in data:
-                output_wav.writeframes(d)
+        audio_files = [os.path.join(session_dir, f) for f in files]
+        merge_wav_files_with_crossfade(audio_files, output_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Merge error: {e}")
 
