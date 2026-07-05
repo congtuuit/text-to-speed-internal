@@ -786,6 +786,15 @@ audio::-webkit-media-controls-panel {
 
 /* Responsive */
 @media (max-width: 1024px) {
+  .create-audio-grid,
+  .composer-grid,
+  .batch-layout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .voice-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
   .saas-shell {
     grid-template-columns: 220px minmax(0, 1fr);
   }
@@ -795,6 +804,9 @@ audio::-webkit-media-controls-panel {
 }
 
 @media (max-width: 768px) {
+  #root {
+    padding: 1rem;
+  }
   .saas-shell {
     grid-template-columns: 1fr;
   }
@@ -802,6 +814,10 @@ audio::-webkit-media-controls-panel {
   .saas-sidebar {
     position: static;
     height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border-glass);
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
   }
   
   .composer-grid {
@@ -1999,5 +2015,34 @@ input:checked + .toggle-slider:before {
     justify-content: space-between;
     width: 100%;
     margin-top: 0.25rem;
+  }
+}
+
+/* Admin & Batch Data Tables Responsive */
+.table-container,
+.batch-table-container,
+.admin-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Phase 04: Public Pages Responsive */
+@media (max-width: 1024px) {
+  .pricing-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .hero-section {
+    padding: 3rem 1rem;
+    text-align: center;
+  }
+}
+@media (max-width: 768px) {
+  .pricing-grid {
+    grid-template-columns: 1fr;
+  }
+  .auth-card {
+    width: 100%;
+    margin: 1rem;
   }
 }
