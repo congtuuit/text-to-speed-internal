@@ -1,17 +1,23 @@
 {
-  "updated_at": "2026-07-02T09:00:00.000000Z",
+  "updated_at": "2026-07-05T14:35:28.359902Z",
   "working_on": {
-    "feature": "Voice Settings Persistence",
-    "task": "Sửa lỗi không giữ đúng voice/seed sau khi đăng nhập lại và lỗi gọi nhiều API khi chọn voice",
+    "feature": "Tablet/iPad Responsive Design",
+    "task": "Tối ưu hóa layout cho các màn hình cỡ trung",
     "status": "completed",
     "files": [
-      "frontend/src/hooks/useCreateAudio.js",
-      "frontend/src/pages/CreateAudio.jsx",
-      "backend/routers/tts.py"
+      "frontend/src/index.css"
     ],
-    "notes": "Đã đổi hasInitialized thành initializedToken, xử lý gộp state (setVoiceAndSeed) và update backend warmup API để lưu settings cho từng user ID."
+    "notes": "Áp dụng CSS Grid and flexbox media queries (@1024px, @768px). Sidebar thu gọn, grid chuyển từ 2 cột xuống 1 cột."
   },
   "recent_changes": [
+    {
+      "timestamp": "2026-07-05T14:35:28.359902Z",
+      "type": "feature",
+      "description": "Implemented full responsive layout for iPad/Tablet (768px - 1024px). Optimized global shell, sidebar, core grid layouts (CreateAudio, Voices), admin tables, and public pages (Pricing, Landing) in frontend/src/index.css.",
+      "files": [
+        "frontend/src/index.css"
+      ]
+    },
     {
       "timestamp": "2026-07-02T09:00:00.000000Z",
       "type": "bugfix",
