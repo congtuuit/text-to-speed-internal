@@ -5,3 +5,5 @@
  
 [21:32] DONE task: Fix Landing Page & AuthScreen layout issues caused by #root padding  
 [21:36] DONE task: Remove padding and max-width for full-screen pages (#root:has(.app-page))
+[21:48] DONE task: Auto lowercase input text in schemas and self-hosted caller to prevent audio generation error
+[21:50] DONE task: Auto lowercase text in queue_manager.py before sending to TTS engines

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List, Optional
 
 class ScanRequest(BaseModel):
@@ -52,6 +52,11 @@ class TestVoiceRequest(BaseModel):
     output_speed: float = 1.0
     is_sample: bool = False
 
+    @field_validator('text', mode='before')
+    @classmethod
+    def lowercase_text(cls, v):
+        return v.lower() if isinstance(v, str) else v
+
 class ChunkSessionRequest(TestVoiceRequest):
     session_id: str
     chunk_index: int
@@ -68,6 +73,11 @@ class WarmupRequest(BaseModel):
     seed: str = ""
     keep_voice: str = "true"
     speed: float = 1.0
+
+    @field_validator('text', mode='before')
+    @classmethod
+    def lowercase_text(cls, v):
+        return v.lower() if isinstance(v, str) else v
 
 class SettingsRequest(BaseModel):
     api_key: str = ""

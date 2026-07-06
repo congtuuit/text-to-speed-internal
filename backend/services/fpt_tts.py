@@ -97,6 +97,7 @@ def process_fpt_tts(text: str, output_path: str, voice: str, speed: float, keys:
         print("No FPT API keys provided.")
         return False
 
+    text = text.lower()
     chunks = _chunk_text_fpt(text, 200)
 
     import tempfile
@@ -186,6 +187,8 @@ def _process_fpt_tts_with_rotator(
     if not all_keys:
         print(f"[{worker_name}] FPT: No API keys in rotator.")
         return False
+
+    text = text.lower()
 
     # LÃ¡ÂºÂ¥y key Ã†Â°u tiÃƒÂªn (round-robin, khÃƒÂ´ng trÃƒÂ¹ng worker khÃƒÂ¡c nÃ¡ÂºÂ¿u cÃƒÂ³ thÃ¡Â»Æ’)
     primary_key = rotator.acquire()

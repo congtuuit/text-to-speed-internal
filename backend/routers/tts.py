@@ -350,12 +350,6 @@ def create_audio(req: TestVoiceRequest, request: Request, background_tasks: Back
 
 
 
-class ChunkSessionRequest(TestVoiceRequest):
-    session_id: str
-    chunk_index: int
-
-class MergeSessionRequest(BaseModel):
-    session_id: str
 
 
 @router.post("/api/tts/chunk")

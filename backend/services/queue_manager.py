@@ -277,6 +277,9 @@ class QueueManager:
                             with open(task_file_path, 'r', encoding='cp1258', errors='ignore') as f:
                                 text = f.read()
 
+                    # Lowercase text to prevent generation errors
+                    text = text.lower()
+
                     base_name = os.path.splitext(task_file_name)[0]
                     job_provider = job.provider or "gemini"
                     ext = ".wav" if job_provider == "self_hosted" else ".mp3"

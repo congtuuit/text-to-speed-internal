@@ -11,6 +11,8 @@ class TTSProvider:
             print("No API Key provided")
             return False
 
+        text = text.lower()
+
         try:
             clean_model = model_name.replace("models/", "")
             print(f"Generating Gemini Audio for voice {voice} using {clean_model}...")

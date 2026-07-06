@@ -14,6 +14,7 @@ LAST_SELF_HOSTED_SEED = None
 
 def process_self_hosted_tts(text: str, output_path: str, voice: str, url: str, seed_val: int = None, keep_voice_val: bool = False, worker_name: str = "Backend") -> bool:
     """XÃ¡Â»Â­ lÃƒÂ½ TTS vÃ¡Â»â€ºi Self-hosted OmniVoice, cÃƒÂ³ chia nhÃ¡Â»  vÃ„Æ’n bÃ¡ÂºÂ£n Ã„â€˜Ã¡Â»Æ’ trÃƒÂ¡nh timeout."""
+    text = text.lower()
     global LAST_SELF_HOSTED_SEED
     if seed_val is None:
         seed_val = random.randint(1, 1000000000)
