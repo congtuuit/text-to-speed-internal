@@ -21,30 +21,6 @@ from services.storage_service import get_storage_provider, delete_audio_file
 from auth import create_jwt, decode_jwt, hash_password, verify_password
 from services.docx_helper import split_docx_to_txt
 
-@router.get("/api/browse-folder")
-def browse_folder():
-    try:
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
-        folder_path = filedialog.askdirectory(parent=root, title="Select Directory")
-        root.destroy()
-        return {"path": folder_path}
-    except Exception as e:
-        return {"path": "", "error": str(e)}
-
-
-@router.get("/api/browse-docx")
-def browse_docx():
-    try:
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
-        file_path = filedialog.askopenfilename(parent=root, title="Select Docx File", filetypes=[("Word Documents", "*.docx")])
-        root.destroy()
-        return {"path": file_path}
-    except Exception as e:
-        return {"path": "", "error": str(e)}
 
 
 @router.post("/api/docx/split")

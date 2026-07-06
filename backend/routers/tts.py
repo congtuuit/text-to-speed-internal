@@ -1,29 +1,60 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from database import get_db, SessionLocal
 from models import *
 import models
-from schemas import *
+from schemas import (
+    TestVoiceRequest, ChunkSessionRequest, MergeSessionRequest,
+    WarmupRequest, CheckConnectionRequest, SettingsRequest
+)
 import os
+import shutil
 import tempfile
 import time
+import threading
+import json
+import requests
+import hashlib
+from datetime import datetime, timedelta
 
+from services.queue_manager import queue_manager, fpt_key_rotator, adjust_audio_speed_ffmpeg
+from services.queue_manager import process_fpt_tts, process_self_hosted_tts
+from services.tts_provider import TTSProvider
+from services.storage_service import get_storage_provider, delete_audio_file, register_audio_file
+from services.audio_merge import merge_wav_files_with_crossfade
+from utils.audio_utils import convert_wav_to_mp3_ffmpeg
+from auth import create_jwt, decode_jwt, hash_password, verify_password
+from routers.auth import _current_user_from_request
+from routers.billing import check_quota, record_usage, _get_or_create_subscription, get_monthly_usage
 
 router = APIRouter()
 
-import json
-import requests
-import asyncio
-from services.queue_manager import queue_manager, fpt_key_rotator, adjust_audio_speed_ffmpeg
-from services.tts_provider import TTSProvider
-from services.storage_service import get_storage_provider, delete_audio_file
-from services.audio_merge import merge_wav_files_with_crossfade
-from auth import create_jwt, decode_jwt, hash_password, verify_password
-from routers.auth import _current_user_from_request
-from services.docx_helper import split_docx_to_txt
-from routers.billing import check_quota, record_usage
-import hashlib
+
+# ---------------------------------------------------------------------------
+# Constants & Helpers
+# ---------------------------------------------------------------------------
+
+SELF_HOSTED_PRESETS = {
+    "female", "male",
+    "female, low pitch", "female, high pitch",
+    "male, low pitch", "male, high pitch",
+}
+
+
+def _get_self_hosted_url(db) -> str:
+    """Lấy URL self-hosted TTS endpoint từ DB settings."""
+    s = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
+    base = s.value if s else "http://localhost:7860"
+    return f"{base.rstrip('/')}/api/tts"
+
+
+def _clean_self_hosted_voice(voice: str) -> str:
+    """Chuẩn hoá voice cho self-hosted, fallback về 'female' nếu không hợp lệ."""
+    if voice in SELF_HOSTED_PRESETS or (voice and voice.startswith("voice_")):
+        return voice
+    return "female"
+
 
 def generate_customer_voice_params(seed_input: str, keep_voice_input: str, customer_prefix: str):
     """
@@ -31,171 +62,203 @@ def generate_customer_voice_params(seed_input: str, keep_voice_input: str, custo
     Sinh ra seed cố định dựa trên customer_prefix và bật keep_voice=True để request sau gọi lại đúng giọng đó.
     """
     seed_val = int(seed_input) if (seed_input and str(seed_input).strip()) else None
-    
+
     if seed_val is None:
         seed_val = int(hashlib.md5(f"customer_{customer_prefix}".encode()).hexdigest(), 16) % 1000000000
         keep_voice_val = True
     else:
         keep_voice_val = str(keep_voice_input).lower() == "true"
-        
+
     return seed_val, keep_voice_val
 
-def find_matching_system_voice(text: str, voice: str, seed: str) -> str | None:
+
+def _dispatch_tts(req: TestVoiceRequest, output_path: str, db, worker_name: str) -> bool:
+    """
+    Gọi TTS engine dựa trên req.provider.
+    Dùng chung cho test-voice, create-audio và tts/chunk.
+    """
+    if req.provider == "fpt":
+        keys = [
+            k.split('|')[1].strip() if '|' in k else k.strip()
+            for k in req.fpt_api_keys.split('\n') if k.strip()
+        ]
+        return process_fpt_tts(req.text, output_path, req.voice, req.fpt_speed, keys)
+
+    if req.provider == "self_hosted":
+        url = _get_self_hosted_url(db)
+        voice = _clean_self_hosted_voice(req.voice)
+        seed_val, keep_voice_val = generate_customer_voice_params(
+            req.seed, req.keep_voice,
+            customer_prefix=getattr(req, "session_id", worker_name)
+        )
+        return process_self_hosted_tts(
+            text=req.text,
+            output_path=output_path,
+            voice=voice,
+            url=url,
+            seed_val=seed_val,
+            keep_voice_val=keep_voice_val,
+            worker_name=worker_name,
+        )
+
+    # Gemini (default)
+    provider = TTSProvider(api_key=req.api_key)
+    return provider.process_text_to_speech(req.text, output_path, req.voice, req.model_name)
+
+
+def _apply_speed(wav_path: str, speed: float) -> None:
+    """Điều chỉnh tốc độ audio in-place nếu speed != 1.0."""
+    if speed == 1.0:
+        return
+    tmp = wav_path + ".speed.wav"
+    if adjust_audio_speed_ffmpeg(wav_path, tmp, speed):
+        shutil.move(tmp, wav_path)
+    elif os.path.exists(tmp):
+        os.remove(tmp)
+
+
+def _wav_to_mp3(wav_path: str) -> str:
+    """Convert WAV sang MP3, trả về path của file kết quả."""
+    mp3_path = wav_path.replace(".wav", ".mp3")
+    if convert_wav_to_mp3_ffmpeg(wav_path, mp3_path):
+        try:
+            os.remove(wav_path)
+        except Exception:
+            pass
+        return mp3_path
+    return wav_path
+
+
+def _tts_error_msg(provider: str) -> str:
+    if provider == "gemini":
+        return "Failed to generate Gemini TTS audio. Check backend logs."
+    if provider == "self_hosted":
+        return "Failed to generate Self-hosted TTS audio. Make sure the model server is running."
+    return "Lỗi tạo audio. Vui lòng kiểm tra log backend."
+
+
+def find_matching_system_voice(text: str, voice: str, seed: str):
+    """Tìm file audio đã cache trong common_voices, tránh generate lại."""
     dir_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "common_voices")
     if not os.path.exists(dir_path):
         dir_path = "backend/common_voices"
         if not os.path.exists(dir_path):
             return None
-            
+
     text_norm = "".join(text.split()).lower()
-    
     for file_name in os.listdir(dir_path):
-        if file_name.endswith("-meta.txt"):
-            meta_path = os.path.join(dir_path, file_name)
-            try:
-                with open(meta_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                
-                meta_text = data.get("text", "")
-                meta_text_norm = "".join(meta_text.split()).lower()
-                
-                if (data.get("voice") == voice and 
-                    str(data.get("seed")) == str(seed) and 
-                    text_norm == meta_text_norm):
-                    audio_filename = file_name.replace("-meta.txt", ".wav")
-                    audio_path = os.path.join(dir_path, audio_filename)
-                    if os.path.exists(audio_path):
-                        return audio_path
-            except:
-                pass
+        if not file_name.endswith("-meta.txt"):
+            continue
+        try:
+            with open(os.path.join(dir_path, file_name), "r", encoding="utf-8") as f:
+                data = json.load(f)
+            meta_norm = "".join(data.get("text", "").split()).lower()
+            if (data.get("voice") == voice
+                    and str(data.get("seed")) == str(seed)
+                    and text_norm == meta_norm):
+                audio_path = os.path.join(dir_path, file_name.replace("-meta.txt", ".wav"))
+                if os.path.exists(audio_path):
+                    return audio_path
+        except Exception:
+            pass
     return None
 
+
+def _upsert_setting(db, key: str, value: str, owner_id=None):
+    """Tạo hoặc cập nhật một Settings record."""
+    s = db.query(models.Settings).filter(models.Settings.key == key).first()
+    if s:
+        s.value = value
+    else:
+        db.add(models.Settings(key=key, value=value, owner_id=owner_id))
+
+
+def _get_setting(db, key: str, fallback: str = "") -> str:
+    s = db.query(models.Settings).filter(models.Settings.key == key).first()
+    return s.value if s else fallback
+
+
+def _get_user_setting(db, user_id, key: str, fallback: str = "") -> str:
+    """Ưu tiên setting theo user_id, fallback về global."""
+    if user_id:
+        s = db.query(models.Settings).filter(models.Settings.key == f"{user_id}_{key}").first()
+        if s:
+            return s.value
+    return _get_setting(db, key, fallback)
+
+
+# ---------------------------------------------------------------------------
+# Endpoints: Audio Generation
+# ---------------------------------------------------------------------------
 
 @router.post("/api/test-voice")
 def test_voice(req: TestVoiceRequest, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = _current_user_from_request(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Chua dang nhap")
-        
+
+    # Cache hit: common_voices
     matching_audio = find_matching_system_voice(req.text, req.voice, req.seed)
     if matching_audio:
         return FileResponse(matching_audio, media_type="audio/wav")
+
     if len(req.text) > 2000:
         raise HTTPException(status_code=400, detail="Văn bản vượt quá giới hạn 2000 ký tự.")
-        
-    import hashlib
-    import shutil
-    
+
+    # Cache hit: test_voice cache
     cache_file_base = None
     if req.is_sample:
         cache_dir = "cache/test_voice"
         os.makedirs(cache_dir, exist_ok=True)
         raw_key = f"{req.provider}_{req.voice}_{req.output_speed}_{req.seed}_{req.text}"
-        cache_key = hashlib.md5(raw_key.encode('utf-8')).hexdigest()
+        cache_key = hashlib.md5(raw_key.encode("utf-8")).hexdigest()
         cache_file_base = os.path.join(cache_dir, cache_key)
-        
-        if os.path.exists(f"{cache_file_base}.mp3"):
-            return FileResponse(f"{cache_file_base}.mp3", media_type="audio/mpeg")
-        if os.path.exists(f"{cache_file_base}.wav"):
-            return FileResponse(f"{cache_file_base}.wav", media_type="audio/wav")
-        
+        for ext, mime in [(".mp3", "audio/mpeg"), (".wav", "audio/wav")]:
+            if os.path.exists(f"{cache_file_base}{ext}"):
+                return FileResponse(f"{cache_file_base}{ext}", media_type=mime)
+
     fd, temp_file = tempfile.mkstemp(suffix=".wav", prefix="tts_")
     os.close(fd)
-    
+
     def cleanup():
         try:
             if os.path.exists(temp_file):
                 os.remove(temp_file)
-        except:
+        except Exception:
             pass
-            
+
     try:
-        if req.provider == "fpt":
-            from services.queue_manager import process_fpt_tts
-            keys = [k.split('|')[1].strip() if '|' in k else k.strip() for k in req.fpt_api_keys.split('\n') if k.strip()]
-            success = process_fpt_tts(req.text, temp_file, req.voice, req.fpt_speed, keys)
-        elif req.provider == "self_hosted":
-            from services.queue_manager import process_self_hosted_tts
-            cleaned_voice = req.voice
-            presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
-            if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
-                cleaned_voice = "female"
-            url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
-            self_hosted_url = url_setting.value if url_setting else "http://localhost:7860"
-            url = f"{self_hosted_url.rstrip('/')}/api/tts"
-            
-            # Parse seed and keep_voice parameters
-            seed_val, keep_voice_val = generate_customer_voice_params(req.seed, req.keep_voice, customer_prefix="test_voice")
-            
-            success = process_self_hosted_tts(
-                text=req.text,
-                output_path=temp_file,
-                voice=cleaned_voice,
-                url=url,
-                seed_val=seed_val,
-                keep_voice_val=keep_voice_val,
-                worker_name="TestVoice"
-            )
-        else:
-            provider = TTSProvider(api_key=req.api_key)
-            success = provider.process_text_to_speech(req.text, temp_file, req.voice, req.model_name)
+        success = _dispatch_tts(req, temp_file, db, worker_name="TestVoice")
     except Exception as e:
         cleanup()
         raise HTTPException(status_code=500, detail=str(e))
-    
+
     if not success or not os.path.exists(temp_file):
         cleanup()
-        if req.provider == "gemini":
-            error_msg = "Failed to generate Gemini TTS audio. Check backend logs."
-        elif req.provider == "self_hosted":
-            error_msg = "Failed to generate Self-hosted TTS audio. Make sure the model server is running."
-        else:
-            error_msg = "Lỗi tạo audio. Vui lòng kiểm tra log backend."
-        raise HTTPException(status_code=500, detail=error_msg)
-        
-    if req.output_speed != 1.0:
-        temp_speed_file = temp_file + ".speed.wav"
-        if adjust_audio_speed_ffmpeg(temp_file, temp_speed_file, req.output_speed):
-            import shutil
-            shutil.move(temp_speed_file, temp_file)
-        else:
-            if os.path.exists(temp_speed_file):
-                os.remove(temp_speed_file)
-                
-    # --- CONVERT SANG MP3 ---
-    from utils.audio_utils import convert_wav_to_mp3_ffmpeg
-    mp3_temp_file = temp_file.replace(".wav", ".mp3")
-    wav_deleted = False
-    if convert_wav_to_mp3_ffmpeg(temp_file, mp3_temp_file):
-        try:
-            os.remove(temp_file)
-            wav_deleted = True
-        except Exception:
-            pass
-        final_serve_file = mp3_temp_file
-    else:
-        final_serve_file = temp_file
-                
-    # Lưu vào cache
+        raise HTTPException(status_code=500, detail=_tts_error_msg(req.provider))
+
+    _apply_speed(temp_file, req.output_speed)
+    final_serve_file = _wav_to_mp3(temp_file)
+    wav_deleted = final_serve_file != temp_file
+
     if cache_file_base and os.path.exists(final_serve_file):
+        ext = ".mp3" if final_serve_file.endswith(".mp3") else ".wav"
         try:
-            final_cache_file = f"{cache_file_base}.mp3" if final_serve_file.endswith(".mp3") else f"{cache_file_base}.wav"
-            shutil.copy2(final_serve_file, final_cache_file)
+            shutil.copy2(final_serve_file, f"{cache_file_base}{ext}")
         except Exception as e:
             print(f"Cache save error: {e}")
 
-    # Dọn temp WAV nếu chưa bị xóa (fallback case)
     if not wav_deleted:
         background_tasks.add_task(cleanup)
-    # Dọn temp MP3 sau khi đã serve xong (chỉ khi file temp != file đang serve)
-    if final_serve_file == mp3_temp_file:
-        def cleanup_mp3_tmp():
+    if final_serve_file.endswith(".mp3"):
+        mp3_tmp = final_serve_file
+        def _cleanup_mp3():
             try:
-                if os.path.exists(mp3_temp_file):
-                    os.remove(mp3_temp_file)
+                if os.path.exists(mp3_tmp):
+                    os.remove(mp3_tmp)
             except Exception:
                 pass
-        background_tasks.add_task(cleanup_mp3_tmp)
+        background_tasks.add_task(_cleanup_mp3)
 
     media_type = "audio/mpeg" if final_serve_file.endswith(".mp3") else "audio/wav"
     return FileResponse(final_serve_file, media_type=media_type)
@@ -206,12 +269,10 @@ def create_audio(req: TestVoiceRequest, request: Request, background_tasks: Back
     user = _current_user_from_request(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Chua dang nhap")
-        
+
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Văn bản không được để trống.")
-        
-    from routers.billing import check_quota, record_usage, _get_or_create_subscription, get_monthly_usage
-    
+
     sub = _get_or_create_subscription(user, db)
     max_chars = 5000
     if sub.plan_id != "free":
@@ -221,98 +282,36 @@ def create_audio(req: TestVoiceRequest, request: Request, background_tasks: Back
             used = get_monthly_usage(user.id, db)
             remaining = sub.chars_limit - used
             max_chars = min(max(remaining, 0), 10000)
-            
+
     if len(req.text) > max_chars:
         raise HTTPException(status_code=400, detail=f"Văn bản vượt quá giới hạn {max_chars} ký tự cho phép của gói hiện tại.")
-        
-    # Tính quota
+
     check_quota(user, len(req.text), db)
-    
-    import shutil
-    
-    # Tạo file tạm thời duy nhất để tránh xung đột khi gọi liên tục
+
     fd, temp_file = tempfile.mkstemp(suffix=".wav", prefix="tts_")
     os.close(fd)
-    
+
     def cleanup():
         try:
             if os.path.exists(temp_file):
                 os.remove(temp_file)
-        except:
+        except Exception:
             pass
-            
+
     try:
-        if req.provider == "fpt":
-            from services.queue_manager import process_fpt_tts
-            keys = [k.split('|')[1].strip() if '|' in k else k.strip() for k in req.fpt_api_keys.split('\n') if k.strip()]
-            success = process_fpt_tts(req.text, temp_file, req.voice, req.fpt_speed, keys)
-        elif req.provider == "self_hosted":
-            from services.queue_manager import process_self_hosted_tts
-            cleaned_voice = req.voice
-            presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
-            if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
-                cleaned_voice = "female"
-            url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
-            self_hosted_url = url_setting.value if url_setting else "http://localhost:7860"
-            url = f"{self_hosted_url.rstrip('/')}/api/tts"
-            
-            # Parse seed and keep_voice parameters
-            seed_val, keep_voice_val = generate_customer_voice_params(req.seed, req.keep_voice, customer_prefix="create_audio")
-            
-            success = process_self_hosted_tts(
-                text=req.text,
-                output_path=temp_file,
-                voice=cleaned_voice,
-                url=url,
-                seed_val=seed_val,
-                keep_voice_val=keep_voice_val,
-                worker_name="CreateAudio"
-            )
-        else:
-            provider = TTSProvider(api_key=req.api_key)
-            success = provider.process_text_to_speech(req.text, temp_file, req.voice, req.model_name)
+        success = _dispatch_tts(req, temp_file, db, worker_name="CreateAudio")
     except Exception as e:
         cleanup()
         raise HTTPException(status_code=500, detail=str(e))
-    
+
     if not success or not os.path.exists(temp_file):
         cleanup()
-        if req.provider == "gemini":
-            error_msg = "Failed to generate Gemini TTS audio. Check backend logs."
-        elif req.provider == "self_hosted":
-            error_msg = "Failed to generate Self-hosted TTS audio. Make sure the model server is running."
-        else:
-            error_msg = "Lỗi tạo audio. Vui lòng kiểm tra log backend."
-        raise HTTPException(status_code=500, detail=error_msg)
-        
-    if req.output_speed != 1.0:
-        temp_speed_file = temp_file + ".speed.wav"
-        if adjust_audio_speed_ffmpeg(temp_file, temp_speed_file, req.output_speed):
-            import shutil
-            shutil.move(temp_speed_file, temp_file)
-        else:
-            if os.path.exists(temp_speed_file):
-                os.remove(temp_speed_file)
-                
-    # --- CONVERT SANG MP3 ---
-    from utils.audio_utils import convert_wav_to_mp3_ffmpeg
-    mp3_temp_file = temp_file.replace(".wav", ".mp3")
-    print(f"[CreateAudio] Converting to MP3: {mp3_temp_file}")
-    wav_deleted = False
-    if convert_wav_to_mp3_ffmpeg(temp_file, mp3_temp_file):
-        try:
-            os.remove(temp_file)
-            wav_deleted = True
-        except Exception:
-            pass
-        final_serve_file = mp3_temp_file
-    else:
-        print(f"[CreateAudio] Convert to MP3 failed, falling back to WAV")
-        final_serve_file = temp_file
+        raise HTTPException(status_code=500, detail=_tts_error_msg(req.provider))
 
-    # Register in library (7 days TTL)
-    from services.storage_service import register_audio_file
-    from datetime import datetime, timedelta
+    _apply_speed(temp_file, req.output_speed)
+    print(f"[CreateAudio] Converting to MP3...")
+    final_serve_file = _wav_to_mp3(temp_file)
+    wav_deleted = final_serve_file != temp_file
 
     audio = None
     try:
@@ -321,35 +320,28 @@ def create_audio(req: TestVoiceRequest, request: Request, background_tasks: Back
             file_name=f"create_{os.path.basename(final_serve_file)}",
             db=db,
             owner_id=user.id,
-            expires_at=datetime.utcnow() + timedelta(days=7)
+            expires_at=datetime.utcnow() + timedelta(days=7),
         )
     except Exception as reg_err:
         print(f"[CreateAudio] Warning: Failed to register audio in library: {reg_err}")
 
-    # Ghi nhận usage
     record_usage(user.id, len(req.text), "create-audio", db)
 
-    # Cleanup temp files sau khi response đã gửi
-    # Nếu WAV chưa bị xóa (fallback), cleanup() sẽ dọn nó
     if not wav_deleted:
         background_tasks.add_task(cleanup)
-    # Nếu serve_path là từ library (audio registered), mp3_temp_file là bản gốc tạm cần dọn
-    # Nếu serve_path = final_serve_file (register fail), KHÔNG xóa mp3_temp_file vì đó là file đang được serve
-    if audio and final_serve_file == mp3_temp_file:
-        def cleanup_mp3_tmp():
+    if audio and final_serve_file.endswith(".mp3"):
+        mp3_tmp = final_serve_file
+        def _cleanup_mp3():
             try:
-                if os.path.exists(mp3_temp_file):
-                    os.remove(mp3_temp_file)
+                if os.path.exists(mp3_tmp):
+                    os.remove(mp3_tmp)
             except Exception:
                 pass
-        background_tasks.add_task(cleanup_mp3_tmp)
+        background_tasks.add_task(_cleanup_mp3)
 
     serve_path = audio.file_path if audio else final_serve_file
     media_type = "audio/mpeg" if serve_path.endswith(".mp3") else "audio/wav"
     return FileResponse(serve_path, media_type=media_type)
-
-
-
 
 
 @router.post("/api/tts/chunk")
@@ -357,163 +349,87 @@ def tts_chunk(req: ChunkSessionRequest, request: Request, background_tasks: Back
     user = _current_user_from_request(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Chua dang nhap")
-        
-    from routers.billing import check_quota, record_usage
-    
+
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Văn bản không được để trống.")
-        
-    check_quota(user, len(req.text), db)
     if len(req.text) > 2000:
         raise HTTPException(status_code=400, detail="Chunk vượt quá giới hạn.")
-        
-    import os
-    import tempfile
-    
+
+    check_quota(user, len(req.text), db)
+
     session_dir = os.path.join("cache", "sessions", req.session_id)
     os.makedirs(session_dir, exist_ok=True)
     temp_file = os.path.join(session_dir, f"{req.chunk_index}.wav")
-    
-    # Generate TTS
-    try:
-        if req.provider == "fpt":
-            from services.queue_manager import process_fpt_tts
-            keys = [k.split('|')[1].strip() if '|' in k else k.strip() for k in req.fpt_api_keys.split('\n') if k.strip()]
-            success = process_fpt_tts(req.text, temp_file, req.voice, req.fpt_speed, keys)
-        elif req.provider == "self_hosted":
-            from services.queue_manager import process_self_hosted_tts
-            cleaned_voice = req.voice
-            presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
-            if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
-                cleaned_voice = "female"
-            url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
-            self_hosted_url = url_setting.value if url_setting else "http://localhost:7860"
-            url = f"{self_hosted_url.rstrip('/')}/api/tts"
-            
-            seed_val, keep_voice_val = generate_customer_voice_params(req.seed, req.keep_voice, customer_prefix=req.session_id)
 
-            
-            success = process_self_hosted_tts(
-                text=req.text,
-                output_path=temp_file,
-                voice=cleaned_voice,
-                url=url,
-                seed_val=seed_val,
-                keep_voice_val=keep_voice_val,
-                worker_name=f"TTSChunk-{req.chunk_index}"
-            )
-        else:
-            provider = TTSProvider(api_key=req.api_key)
-            success = provider.process_text_to_speech(req.text, temp_file, req.voice, req.model_name)
+    try:
+        success = _dispatch_tts(req, temp_file, db, worker_name=f"TTSChunk-{req.chunk_index}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-        
+
     if not success or not os.path.exists(temp_file):
         raise HTTPException(status_code=500, detail="Failed to generate chunk.")
-        
-    if req.output_speed != 1.0:
-        temp_speed_file = temp_file + ".speed.wav"
-        if adjust_audio_speed_ffmpeg(temp_file, temp_speed_file, req.output_speed):
-            import shutil
-            shutil.move(temp_speed_file, temp_file)
-        else:
-            if os.path.exists(temp_speed_file):
-                os.remove(temp_speed_file)
-                
+
+    _apply_speed(temp_file, req.output_speed)
     record_usage(user.id, len(req.text), "generate", db)
     return {"status": "ok"}
+
 
 @router.post("/api/tts/merge")
 def tts_merge(req: MergeSessionRequest, request: Request, db: Session = Depends(get_db)):
     user = _current_user_from_request(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Chua dang nhap")
-        
+
     session_dir = os.path.join("cache", "sessions", req.session_id)
     if not os.path.exists(session_dir):
         raise HTTPException(status_code=404, detail="Session not found")
-        
-    # Get all chunk files sorted (exclude merged.wav)
-    files = [f for f in os.listdir(session_dir) if f.endswith(".wav") and f != "merged.wav"]
-    files.sort(key=lambda x: int(x.split('.')[0]))
-    
+
+    files = sorted(
+        [f for f in os.listdir(session_dir) if f.endswith(".wav") and f != "merged.wav"],
+        key=lambda x: int(x.split('.')[0])
+    )
     if not files:
         raise HTTPException(status_code=400, detail="No audio chunks found")
-        
+
     output_path = os.path.join(session_dir, "merged.wav")
-    
     try:
-        audio_files = [os.path.join(session_dir, f) for f in files]
-        merge_wav_files_with_crossfade(audio_files, output_path)
+        merge_wav_files_with_crossfade([os.path.join(session_dir, f) for f in files], output_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Merge error: {e}")
 
-    # --- CONVERT SANG MP3 ---
-    from utils.audio_utils import convert_wav_to_mp3_ffmpeg
-    mp3_output_path = output_path.replace(".wav", ".mp3")
-    if convert_wav_to_mp3_ffmpeg(output_path, mp3_output_path):
-        try:
-            os.remove(output_path)
-        except:
-            pass
-        final_serve_file = mp3_output_path
-    else:
-        final_serve_file = output_path
-    # ------------------------
-
-    # Register in library (7 days TTL)
-    from services.storage_service import register_audio_file
-    from datetime import datetime, timedelta
+    final_serve_file = _wav_to_mp3(output_path)
 
     serve_path = final_serve_file
     try:
+        ext = ".mp3" if final_serve_file.endswith(".mp3") else ".wav"
         audio = register_audio_file(
             source_path=final_serve_file,
-            file_name=f"merge_{req.session_id}.mp3" if final_serve_file.endswith(".mp3") else f"merge_{req.session_id}.wav",
+            file_name=f"merge_{req.session_id}{ext}",
             db=db,
             owner_id=user.id,
-            expires_at=datetime.utcnow() + timedelta(days=7)
+            expires_at=datetime.utcnow() + timedelta(days=7),
         )
         serve_path = audio.file_path
     except Exception as reg_err:
         print(f"[TTSMerge] Warning: Failed to register audio in library: {reg_err}")
 
-    # Dọn dẹp thư mục sau 60 phút
-    # FileResponse stream xong ngay lập tức nên session_dir vẫn còn đủ thời gian để serve
-    import threading
-    import time
-    import shutil
-    def cleanup_session():
-        time.sleep(3600)  # 60 phút
+    # Dọn dẹp session sau 60 phút
+    def _cleanup_session():
+        time.sleep(3600)
         try:
             shutil.rmtree(session_dir)
         except Exception:
             pass
-    cleanup_thread = threading.Thread(target=cleanup_session)
-    cleanup_thread.daemon = True
-    cleanup_thread.start()
+    t = threading.Thread(target=_cleanup_session, daemon=True)
+    t.start()
 
     media_type = "audio/mpeg" if serve_path.endswith(".mp3") else "audio/wav"
     return FileResponse(serve_path, media_type=media_type)
 
 
-class CheckConnectionRequest(BaseModel):
-    self_hosted_url: str
-
-class SettingsRequest(BaseModel):
-    api_key: str = ""
-    model_name: str = ""
-    provider: str = "self_hosted"
-    fpt_api_keys: str = ""
-    fpt_speed: float = 0.8
-    max_workers: int = 3
-    self_hosted_url: str = "http://localhost:7860"
-    self_hosted_voice: str = "female"
-    self_hosted_seed: str = ""
-    self_hosted_keep_voice: str = "false"
-    output_speed: float = 1.0
-    auto_retry: str = "false"
-
+# ---------------------------------------------------------------------------
+# Endpoints: Settings
+# ---------------------------------------------------------------------------
 
 @router.post("/api/settings")
 def update_settings(req: SettingsRequest, request: Request, db: Session = Depends(get_db)):
@@ -521,8 +437,7 @@ def update_settings(req: SettingsRequest, request: Request, db: Session = Depend
     user_id = user.id if user else None
 
     user_specific_keys = {"output_speed", "self_hosted_voice", "self_hosted_seed", "auto_retry"}
-
-    for k, v in [
+    fields = [
         ("api_key", req.api_key),
         ("model_name", req.model_name),
         ("provider", req.provider),
@@ -534,30 +449,22 @@ def update_settings(req: SettingsRequest, request: Request, db: Session = Depend
         ("self_hosted_seed", req.self_hosted_seed),
         ("self_hosted_keep_voice", req.self_hosted_keep_voice),
         ("output_speed", str(req.output_speed)),
-        ("auto_retry", req.auto_retry)
-    ]:
+        ("auto_retry", req.auto_retry),
+    ]
+    for k, v in fields:
         db_key = f"{user_id}_{k}" if (k in user_specific_keys and user_id) else k
-        setting = db.query(models.Settings).filter(models.Settings.key == db_key).first()
-        if not setting:
-            setting = models.Settings(key=db_key, value=v, owner_id=user_id if k in user_specific_keys else None)
-            db.add(setting)
-        else:
-            setting.value = v
+        owner = user_id if k in user_specific_keys else None
+        _upsert_setting(db, db_key, v, owner_id=owner)
     db.commit()
-    queue_manager.set_workers(req.max_workers)
 
-    # Reload FPT key rotator khi settings thay đổi
+    queue_manager.set_workers(req.max_workers)
     if req.fpt_api_keys:
         keys = [
             k.split('|')[1].strip() if '|' in k else k.strip()
-            for k in req.fpt_api_keys.split('\n')
-            if k.strip()
+            for k in req.fpt_api_keys.split('\n') if k.strip()
         ]
         fpt_key_rotator.load(keys)
-
-    # Resume queue in case it was paused due to quota/api key error
     queue_manager.resume()
-
     return {"status": "ok"}
 
 
@@ -566,109 +473,67 @@ def get_settings(request: Request, db: Session = Depends(get_db)):
     user = _current_user_from_request(request, db)
     user_id = user.id if user else None
 
-    api_key_setting = db.query(models.Settings).filter(models.Settings.key == "api_key").first()
-    model_name_setting = db.query(models.Settings).filter(models.Settings.key == "model_name").first()
-    provider_setting = db.query(models.Settings).filter(models.Settings.key == "provider").first()
-    fpt_api_keys_setting = db.query(models.Settings).filter(models.Settings.key == "fpt_api_keys").first()
-    fpt_speed_setting = db.query(models.Settings).filter(models.Settings.key == "fpt_speed").first()
-    max_workers_setting = db.query(models.Settings).filter(models.Settings.key == "max_workers").first()
-    self_hosted_url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
-    self_hosted_keep_voice_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_keep_voice").first()
-    
-    # Query user-specific settings first
-    def get_user_setting(key, fallback_val=""):
-        res = None
-        if user_id:
-            res = db.query(models.Settings).filter(models.Settings.key == f"{user_id}_{key}").first()
-        if not res:
-            res = db.query(models.Settings).filter(models.Settings.key == key).first()
-        return res.value if res else fallback_val
-    
-    self_hosted_voice_val = get_user_setting("self_hosted_voice", "female")
-    self_hosted_seed_val = get_user_setting("self_hosted_seed", "")
-    output_speed_val = float(get_user_setting("output_speed", "1.0"))
-    auto_retry_val = get_user_setting("auto_retry", "false")
-    
-    provider_val = provider_setting.value if provider_setting else "self_hosted"
+    provider_val = _get_setting(db, "provider", "self_hosted")
     if provider_val == "vieneu":
         provider_val = "self_hosted"
-                
+
     return {
-        "api_key": api_key_setting.value if api_key_setting else "",
-        "model_name": model_name_setting.value if model_name_setting else "gemini-2.5-flash-preview-tts",
-        "provider": provider_val,
-        "fpt_api_keys": fpt_api_keys_setting.value if fpt_api_keys_setting else "",
-        "fpt_speed": float(fpt_speed_setting.value) if fpt_speed_setting else 0.8,
-        "max_workers": int(max_workers_setting.value) if max_workers_setting else 3,
-        "self_hosted_url": self_hosted_url_setting.value if self_hosted_url_setting else "http://localhost:7860",
-        "self_hosted_voice": self_hosted_voice_val,
-        "self_hosted_seed": self_hosted_seed_val,
-        "self_hosted_keep_voice": self_hosted_keep_voice_setting.value if self_hosted_keep_voice_setting else "false",
-        "output_speed": output_speed_val,
-        "auto_retry": auto_retry_val
+        "api_key":              _get_setting(db, "api_key"),
+        "model_name":           _get_setting(db, "model_name", "gemini-2.5-flash-preview-tts"),
+        "provider":             provider_val,
+        "fpt_api_keys":         _get_setting(db, "fpt_api_keys"),
+        "fpt_speed":            float(_get_setting(db, "fpt_speed", "0.8")),
+        "max_workers":          int(_get_setting(db, "max_workers", "3")),
+        "self_hosted_url":      _get_setting(db, "self_hosted_url", "http://localhost:7860"),
+        "self_hosted_voice":    _get_user_setting(db, user_id, "self_hosted_voice", "female"),
+        "self_hosted_seed":     _get_user_setting(db, user_id, "self_hosted_seed"),
+        "self_hosted_keep_voice": _get_setting(db, "self_hosted_keep_voice", "false"),
+        "output_speed":         float(_get_user_setting(db, user_id, "output_speed", "1.0")),
+        "auto_retry":           _get_user_setting(db, user_id, "auto_retry", "false"),
     }
+
+
 @router.get("/api/self-hosted/config")
 def get_self_hosted_config(db: Session = Depends(get_db)):
-    url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
-    voice_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_voice").first()
-    seed_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_seed").first()
-    keep_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_keep_voice").first()
-
     return {
-        "url": url_setting.value if url_setting else "http://localhost:7860",
-        "voice": voice_setting.value if voice_setting else "female",
-        "seed": seed_setting.value if seed_setting else "",
-        "keep_voice": keep_setting.value if keep_setting else "false"
+        "url":        _get_setting(db, "self_hosted_url", "http://localhost:7860"),
+        "voice":      _get_setting(db, "self_hosted_voice", "female"),
+        "seed":       _get_setting(db, "self_hosted_seed"),
+        "keep_voice": _get_setting(db, "self_hosted_keep_voice", "false"),
     }
 
+
+# ---------------------------------------------------------------------------
+# Endpoints: Self-hosted Utilities
+# ---------------------------------------------------------------------------
 
 @router.post("/api/self-hosted/warmup")
 def warmup_self_hosted_voice(req: WarmupRequest, background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db)):
     user = _current_user_from_request(request, db)
     user_id = user.id if user else None
-    
+
     if user_id:
         for k, v in [
             ("self_hosted_voice", req.voice),
             ("self_hosted_seed", req.seed),
             ("output_speed", str(req.speed)),
         ]:
-            db_key = f"{user_id}_{k}"
-            setting = db.query(models.Settings).filter(models.Settings.key == db_key).first()
-            if not setting:
-                setting = models.Settings(key=db_key, value=v, owner_id=user_id)
-                db.add(setting)
-            else:
-                setting.value = v
+            _upsert_setting(db, f"{user_id}_{k}", v, owner_id=user_id)
         db.commit()
 
     def do_warmup():
         try:
-            from services.queue_manager import process_self_hosted_tts
-            import tempfile
-            import os
-            cleaned_voice = req.voice
-            presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
-            if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
-                cleaned_voice = "female"
-            db = SessionLocal()
-            url_setting = db.query(models.Settings).filter(models.Settings.key == "self_hosted_url").first()
-            self_hosted_url = url_setting.value if url_setting else "http://localhost:7860"
-            db.close()
-            url = f"{self_hosted_url.rstrip('/')}/api/tts"
-            
+            voice = _clean_self_hosted_voice(req.voice)
+            _db = SessionLocal()
+            url = _get_self_hosted_url(_db)
+            _db.close()
             seed_val, keep_voice_val = generate_customer_voice_params(req.seed, req.keep_voice, customer_prefix="test_voice")
-            
             fd, tmp = tempfile.mkstemp(suffix=".wav")
             os.close(fd)
             try:
                 process_self_hosted_tts(
-                    text=req.text,
-                    output_path=tmp,
-                    voice=cleaned_voice,
-                    url=url,
-                    seed_val=seed_val,
-                    keep_voice_val=keep_voice_val,
+                    text=req.text, output_path=tmp, voice=voice,
+                    url=url, seed_val=seed_val, keep_voice_val=keep_voice_val,
                     worker_name="WarmupVoice"
                 )
             finally:
@@ -693,61 +558,57 @@ def check_self_hosted_connection(req: CheckConnectionRequest):
         return {"success": False, "detail": str(e)}
 
 
+# ---------------------------------------------------------------------------
+# Endpoints: Voice & Model Lists
+# ---------------------------------------------------------------------------
+
 @router.get("/api/models")
 def get_models(api_key: str = None, db: Session = Depends(get_db)):
-    key_to_use = api_key
-    if not key_to_use:
-        setting = db.query(models.Settings).filter(models.Settings.key == "api_key").first()
-        if setting:
-            key_to_use = setting.value
-    
+    key_to_use = api_key or _get_setting(db, "api_key")
     if not key_to_use:
         return {"models": []}
-        
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key_to_use}"
         res = requests.get(url)
         if res.status_code == 200:
-            data = res.json()
             tts_models = [
-                m for m in data.get("models", []) 
-                if 'tts' in m.get("name", "").lower() or 'generateAudio' in m.get("supportedGenerationMethods", [])
+                m for m in res.json().get("models", [])
+                if 'tts' in m.get("name", "").lower()
+                or 'generateAudio' in m.get("supportedGenerationMethods", [])
             ]
             return {"models": tts_models}
-        return {"models": []}
-    except Exception as e:
-        return {"models": []}
+    except Exception:
+        pass
+    return {"models": []}
 
 
 @router.get("/api/voices")
 def get_voices(provider: str = "fpt", self_hosted_url: str = None, db: Session = Depends(get_db)):
     if provider == "fpt":
         return [
-            {"id": "banmai", "name": "Ban Mai (Nữ miền Bắc)"},
-            {"id": "leminh", "name": "Lê Minh (Nam miền Bắc)"},
-            {"id": "thuminh", "name": "Thu Minh (Nữ miền Bắc)"},
+            {"id": "banmai",    "name": "Ban Mai (Nữ miền Bắc)"},
+            {"id": "leminh",    "name": "Lê Minh (Nam miền Bắc)"},
+            {"id": "thuminh",   "name": "Thu Minh (Nữ miền Bắc)"},
             {"id": "minhquang", "name": "Minh Quang (Nam miền Nam)"},
-            {"id": "myan", "name": "Mỹ An (Nữ miền Trung)"},
-            {"id": "linhsan", "name": "Linh San (Nữ miền Nam)"},
-            {"id": "giahuy", "name": "Gia Huy (Nam miền Trung)"},
-            {"id": "lannhi", "name": "Lan Nhi (Nữ miền Nam)"},
-            {"id": "ngoclam", "name": "Ngọc Lam (Nữ miền Trung)"}
+            {"id": "myan",      "name": "Mỹ An (Nữ miền Trung)"},
+            {"id": "linhsan",   "name": "Linh San (Nữ miền Nam)"},
+            {"id": "giahuy",    "name": "Gia Huy (Nam miền Trung)"},
+            {"id": "lannhi",    "name": "Lan Nhi (Nữ miền Nam)"},
+            {"id": "ngoclam",   "name": "Ngọc Lam (Nữ miền Trung)"},
         ]
-
     if provider == "self_hosted":
         return [
-            {"id": "female", "name": "Nữ, giọng mặc định"},
-            {"id": "male", "name": "Nam, giọng mặc định"},
-            {"id": "female, low pitch", "name": "Nữ, giọng trầm"},
-            {"id": "female, high pitch", "name": "Nữ, giọng cao"},
-            {"id": "male, low pitch", "name": "Nam, giọng trầm"},
-            {"id": "male, high pitch", "name": "Nam, giọng cao"}
+            {"id": "female",           "name": "Nữ, giọng mặc định"},
+            {"id": "male",             "name": "Nam, giọng mặc định"},
+            {"id": "female, low pitch","name": "Nữ, giọng trầm"},
+            {"id": "female, high pitch","name": "Nữ, giọng cao"},
+            {"id": "male, low pitch",  "name": "Nam, giọng trầm"},
+            {"id": "male, high pitch", "name": "Nam, giọng cao"},
         ]
-
     return [
-        {"id": "Puck", "name": "Puck (Nam - Vui vẻ, năng động)"},
+        {"id": "Puck",   "name": "Puck (Nam - Vui vẻ, năng động)"},
         {"id": "Charon", "name": "Charon (Nam - Trầm ấm, mạnh mẽ)"},
-        {"id": "Kore", "name": "Kore (Nữ - Thanh thoát, dịu dàng)"},
+        {"id": "Kore",   "name": "Kore (Nữ - Thanh thoát, dịu dàng)"},
         {"id": "Fenrir", "name": "Fenrir (Nam - Trầm, cá tính)"},
-        {"id": "Aoede", "name": "Aoede (Nữ - Trầm ấm, nội lực)"}
+        {"id": "Aoede",  "name": "Aoede (Nữ - Trầm ấm, nội lực)"},
     ]
