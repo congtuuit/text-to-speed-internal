@@ -13,7 +13,15 @@ export function useAuth() {
   const [authLoading, setAuthLoading] = useState(false);
 
   const queryClient = useQueryClient();
-  const { data: currentUser } = useAuthQuery(authToken);
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('tts_auth_token');
+    localStorage.removeItem('tts_current_user');
+    setAuthToken('');
+    queryClient.setQueryData(['auth', 'me'], null);
+  }, [queryClient]);
+
+  const { data: currentUser } = useAuthQuery(authToken, setAuthToken, handleLogout);
 
   const handleAuthSubmit = async () => {
     setAuthLoading(true);
@@ -36,13 +44,6 @@ export function useAuth() {
     } finally {
       setAuthLoading(false);
     }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('tts_auth_token');
-    localStorage.removeItem('tts_current_user');
-    setAuthToken('');
-    queryClient.setQueryData(['auth', 'me'], null);
   };
 
   const handleGoogleLogin = useCallback(async (credential) => {

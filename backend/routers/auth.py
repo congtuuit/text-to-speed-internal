@@ -173,5 +173,25 @@ def me(request: Request, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
     workspace = db.query(models.Workspace).filter(models.Workspace.user_id == user.id).first()
-    return {"user": {"id": user.id, "email": user.email, "full_name": user.full_name, "role": user.role, "workspace_id": workspace.id if workspace else None, "workspace_name": workspace.name if workspace else None, "workspace_slug": workspace.slug if workspace else None}}
+    
+    # Cấp lại token mới để gia hạn (Sliding Session)
+    token = create_jwt({
+        "sub": str(user.id), 
+        "email": user.email, 
+        "role": user.role, 
+        "workspace_id": workspace.id if workspace else None
+    })
+    
+    return {
+        "user": {
+            "id": user.id, 
+            "email": user.email, 
+            "full_name": user.full_name, 
+            "role": user.role, 
+            "workspace_id": workspace.id if workspace else None, 
+            "workspace_name": workspace.name if workspace else None, 
+            "workspace_slug": workspace.slug if workspace else None
+        },
+        "token": token
+    }
 
