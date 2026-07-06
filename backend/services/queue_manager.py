@@ -21,6 +21,7 @@ from services.audio_speed import adjust_audio_speed_ffmpeg
 from services.fpt_tts import FPTKeyRotator, fpt_key_rotator, process_fpt_tts, _process_fpt_tts_with_rotator
 from services.self_hosted_tts import process_self_hosted_tts
 from services.session_cleaner import start_session_cleaner
+from utils.audio_utils import convert_wav_to_mp3_ffmpeg
 
 
 class QueueManager:
@@ -459,57 +460,80 @@ class QueueManager:
                                         if t.output_path and os.path.exists(t.output_path)
                                     ]
                                     if valid_audios:
-                                        try:
-                                            data = []
-                                            params = None
-                                            for audio_file in valid_audios:
-                                                with wave.open(audio_file, 'rb') as w:
-                                                    if not params:
-                                                        params = w.getparams()
-                                                    data.append(w.readframes(w.getnframes()))
-                                            with wave.open(job_obj.final_output_path, 'wb') as output_wav:
-                                                output_wav.setparams(params)
-                                                for d in data:
-                                                    output_wav.writeframes(d)
-                                            print(f"[{worker_name}] joined DOCX audio -> {job_obj.final_output_path}")
+                                        # Only self_hosted produces WAV chunks compatible with wave merge.
+                                        # Other providers (gemini, fpt) are disabled for batch at job creation
+                                        # level. This guard prevents crashes if old jobs exist in the DB.
+                                        if job_obj.provider not in (None, "self_hosted"):
+                                            print(f"[{worker_name}] SKIP merge: provider '{job_obj.provider}' not supported for WAV merge. Job {task_job_id} skipped.")
+                                        else:
+                                            # Determine if output should be mp3
+                                            final_path = job_obj.final_output_path
+                                            is_mp3_output = final_path.endswith(".mp3")
+                                            wav_merge_path = (final_path.replace(".mp3", "_merged_temp.wav")
+                                                              if is_mp3_output else final_path)
                                             try:
-                                                register_audio_file(job_obj.final_output_path, file_name=os.path.basename(job_obj.final_output_path), db=db, owner_id=job_obj.owner_id)
-                                            except Exception as upload_error:
-                                                print(f"[{worker_name}] storage register error for DOCX output: {upload_error}")
+                                                data = []
+                                                params = None
+                                                for audio_file in valid_audios:
+                                                    with wave.open(audio_file, 'rb') as w:
+                                                        if not params:
+                                                            params = w.getparams()
+                                                        data.append(w.readframes(w.getnframes()))
+                                                with wave.open(wav_merge_path, 'wb') as output_wav:
+                                                    output_wav.setparams(params)
+                                                    for d in data:
+                                                        output_wav.writeframes(d)
+                                                print(f"[{worker_name}] merged {len(valid_audios)} chunks -> {wav_merge_path}")
 
-                                            # Điều chỉnh tốc độ audio nếu cần
-                                            setting_speed = None
-                                            if job_obj.owner_id:
-                                                setting_speed = db.query(Settings).filter(Settings.key == f"{job_obj.owner_id}_output_speed").first()
-                                            if not setting_speed:
-                                                setting_speed = db.query(Settings).filter(Settings.key == "output_speed").first()
-                                            output_speed = float(setting_speed.value) if setting_speed else 1.0
-                                            if output_speed != 1.0:
-                                                print(f"[{worker_name}] Adjusting speed to {output_speed}x using FFmpeg...")
-                                                temp_speed_path = job_obj.final_output_path + ".temp.wav"
-                                                if adjust_audio_speed_ffmpeg(job_obj.final_output_path, temp_speed_path, output_speed):
-                                                    shutil.move(temp_speed_path, job_obj.final_output_path)
-                                                    print(f"[{worker_name}] Speed adjusted successfully.")
+                                                # Điều chỉnh tốc độ audio nếu cần (trên file WAV trước khi convert)
+                                                setting_speed = None
+                                                if job_obj.owner_id:
+                                                    setting_speed = db.query(Settings).filter(Settings.key == f"{job_obj.owner_id}_output_speed").first()
+                                                if not setting_speed:
+                                                    setting_speed = db.query(Settings).filter(Settings.key == "output_speed").first()
+                                                output_speed = float(setting_speed.value) if setting_speed else 1.0
+                                                if output_speed != 1.0:
+                                                    print(f"[{worker_name}] Adjusting speed to {output_speed}x using FFmpeg...")
+                                                    temp_speed_path = wav_merge_path + ".speed.wav"
+                                                    if adjust_audio_speed_ffmpeg(wav_merge_path, temp_speed_path, output_speed):
+                                                        os.replace(temp_speed_path, wav_merge_path)
+                                                        print(f"[{worker_name}] Speed adjusted successfully.")
+                                                    else:
+                                                        print(f"[{worker_name}] Speed adjustment failed. Using original.")
+                                                        if os.path.exists(temp_speed_path):
+                                                            os.remove(temp_speed_path)
+
+                                                # Convert WAV -> MP3 nếu output là .mp3
+                                                if is_mp3_output:
+                                                    print(f"[{worker_name}] Converting WAV -> MP3: {final_path}")
+                                                    if convert_wav_to_mp3_ffmpeg(wav_merge_path, final_path):
+                                                        os.remove(wav_merge_path)
+                                                        print(f"[{worker_name}] MP3 conversion done -> {final_path}")
+                                                    else:
+                                                        # Fallback: đổi tên WAV thành mp3 (không transcode)
+                                                        print(f"[{worker_name}] FFmpeg convert failed, renaming WAV as MP3 fallback.")
+                                                        shutil.move(wav_merge_path, final_path)
+
+                                                try:
+                                                    register_audio_file(final_path, file_name=os.path.basename(final_path), db=db, owner_id=job_obj.owner_id)
+                                                except Exception as upload_error:
+                                                    print(f"[{worker_name}] storage register error for DOCX output: {upload_error}")
+
+                                                has_any_errors = db.query(FileTask).filter(
+                                                    FileTask.job_id == task_job_id,
+                                                    FileTask.status == "Error"
+                                                ).count() > 0
+
+                                                if not has_any_errors:
+                                                    shutil.rmtree(job_obj.output_dir, ignore_errors=True)
+                                                    # Clean up original input directory if it exists under temp_batch
+                                                    if "chunks_" in job_obj.output_dir:
+                                                        input_dir = job_obj.output_dir.replace("chunks_", "input_")
+                                                        shutil.rmtree(input_dir, ignore_errors=True)
                                                 else:
-                                                    print(f"[{worker_name}] Speed adjustment failed. Using original file.")
-                                                    if os.path.exists(temp_speed_path):
-                                                        os.remove(temp_speed_path)
-
-                                            has_any_errors = db.query(FileTask).filter(
-                                                FileTask.job_id == task_job_id,
-                                                FileTask.status == "Error"
-                                            ).count() > 0
-
-                                            if not has_any_errors:
-                                                shutil.rmtree(job_obj.output_dir, ignore_errors=True)
-                                                # Clean up original input directory if it exists under temp_batch
-                                                if "chunks_" in job_obj.output_dir:
-                                                    input_dir = job_obj.output_dir.replace("chunks_", "input_")
-                                                    shutil.rmtree(input_dir, ignore_errors=True)
-                                            else:
-                                                print(f"[{worker_name}] job {task_job_id} has failed tasks. Keeping temp files for manual retry/60-min cleanup.")
-                                        except Exception as e:
-                                            print(f"[{worker_name}] error joining audio: {e}")
+                                                    print(f"[{worker_name}] job {task_job_id} has failed tasks. Keeping temp files for manual retry/60-min cleanup.")
+                                            except Exception as e:
+                                                print(f"[{worker_name}] error joining audio: {e}")
                 except Exception as e:
                     print(f"[{worker_name}] job-completion check error: {e}")
 

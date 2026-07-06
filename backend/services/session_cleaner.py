@@ -11,7 +11,7 @@ import threading
 
 CACHE_SESSIONS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache", "sessions")
 TEMP_BATCH_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "storage", "temp_batch")
-CACHE_MAX_AGE_SECS = 60 * 60   # 60 minutes
+CACHE_MAX_AGE_SECS = 24 * 60 * 60   # 24 hours
 CACHE_CHECK_INTERVAL_SECS = 60 * 60  # run cleanup every 60 minutes
 
 def _cleanup_old_sessions():

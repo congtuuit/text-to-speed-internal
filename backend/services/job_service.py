@@ -1,4 +1,4 @@
-﻿import os
+import os
 import shutil
 import uuid
 from typing import List
@@ -10,8 +10,22 @@ from schemas import JobRequest
 from services.queue_manager import queue_manager
 from services.docx_helper import split_txt_to_chunks, split_docx_to_txt
 from routers.billing import check_quota, check_batch_quota, record_usage
+from utils.text_utils import slugify
+import time
+
+# Providers currently supported for batch processing.
+# Gemini and FPT produce .mp3 chunks which are incompatible with the
+# current WAV-based merge pipeline. They will be enabled in a future release.
+ALLOWED_BATCH_PROVIDERS = ["self_hosted"]
+
 
 def create_batch_job(req: JobRequest, user: models.User, db: Session) -> dict:
+    if req.provider not in ALLOWED_BATCH_PROVIDERS:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Batch processing for provider '{req.provider}' is currently unavailable. Only self_hosted is supported at this time."
+        )
+
     if not os.path.exists(req.input_dir):
         raise HTTPException(status_code=400, detail="Input directory not found")
         
@@ -45,7 +59,9 @@ def create_batch_job(req: JobRequest, user: models.User, db: Session) -> dict:
     
     if is_docx_job:
         base_name = os.path.basename(req.input_dir).replace("_chunks", "")
-        final_output_path = os.path.join(req.output_dir, f"{base_name}.wav")
+        timestamp = int(time.time())
+        slugified_name = slugify(base_name)
+        final_output_path = os.path.join(req.output_dir, f"{slugified_name}-{timestamp}.mp3")
         actual_output_dir = req.input_dir
         
         job = models.BatchJob(
@@ -85,8 +101,10 @@ def create_batch_job(req: JobRequest, user: models.User, db: Session) -> dict:
             chunk_files = split_txt_to_chunks(txt_path, chunks_dir, max_chars=max_length)
             if not chunk_files:
                 continue
-                
-            final_output_path = os.path.join(req.output_dir, f"{base_name}.wav")
+
+            timestamp = int(time.time())
+            slugified_name = slugify(base_name)
+            final_output_path = os.path.join(req.output_dir, f"{slugified_name}-{timestamp}.mp3")
             
             job = models.BatchJob(
                 input_dir=chunks_dir,
@@ -130,6 +148,12 @@ def upload_and_run_batch_jobs(
     user: models.User,
     db: Session
 ) -> dict:
+    if provider not in ALLOWED_BATCH_PROVIDERS:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Batch processing for provider '{provider}' is currently unavailable. Only self_hosted is supported at this time."
+        )
+
     check_batch_quota(user, len(files), db)
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded")
@@ -163,7 +187,9 @@ def upload_and_run_batch_jobs(
                 shutil.copyfileobj(file.file, f_out)
                 
             base_name = os.path.splitext(file.filename)[0]
-            final_output_path = os.path.join(temp_root, f"output_{job_uuid}_{base_name}.wav")
+            timestamp = int(time.time())
+            slugified_name = slugify(base_name)
+            final_output_path = os.path.join(temp_root, f"{slugified_name}-{timestamp}.mp3")
             
             # Split
             if file.filename.endswith('.docx'):

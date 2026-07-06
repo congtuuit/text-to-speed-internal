@@ -80,12 +80,15 @@ def get_active_jobs_progress(request: Request, db: Session = Depends(get_db)):
         error = sum(1 for t in tasks if t.status == "Error")
         processing = sum(1 for t in tasks if t.status == "Processing")
         
-        # Lấy tên file gốc từ input_dir (nếu là docx, input_dir sẽ có tên dạng filename_chunks)
-        job_name = os.path.basename(job.input_dir)
-        if job.is_docx_job == 1 and job_name.endswith("_chunks"):
-            job_name = job_name.replace("_chunks", ".docx")
-        elif job.is_docx_job == 2 and job_name.endswith("_chunks"):
-            job_name = job_name.replace("_chunks", ".txt")
+        # Lấy tên file từ final_output_path để đồng bộ định dạng slugify + timestamp với file audio kết quả
+        if job.final_output_path:
+            job_name = os.path.basename(job.final_output_path)
+        else:
+            job_name = os.path.basename(job.input_dir) if job.input_dir else "unknown_job"
+            if job.is_docx_job == 1 and job_name.endswith("_chunks"):
+                job_name = job_name.replace("_chunks", ".docx")
+            elif job.is_docx_job == 2 and job_name.endswith("_chunks"):
+                job_name = job_name.replace("_chunks", ".txt")
             
         temp_files_exist = os.path.exists(job.input_dir) if job.input_dir else False
             
