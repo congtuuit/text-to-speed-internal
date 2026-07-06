@@ -20,14 +20,16 @@ export default function LandingPage({ authToken }) {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'var(--bg-dark, #0f172a)',
-      color: 'var(--text-main, #f8fafc)',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      position: 'relative',
-      overflowX: 'hidden'
-    }}>
+    <div
+      className='app-page'
+      style={{
+        minHeight: '100vh',
+        background: 'var(--bg-dark, #0f172a)',
+        color: 'var(--text-main, #f8fafc)',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        position: 'relative',
+        overflowX: 'hidden'
+      }}>
       {/* Background Glow Blobs */}
       <div style={{
         position: 'absolute',
@@ -55,14 +57,13 @@ export default function LandingPage({ authToken }) {
       }} />
 
       {/* Header Navigation */}
-      <header style={{
+      <header className="landing-header" style={{
         position: 'sticky',
         top: 0,
         zIndex: 100,
         backdropFilter: 'blur(16px)',
         background: 'rgba(15, 23, 42, 0.7)',
         borderBottom: '1px solid var(--border-glass, rgba(255, 255, 255, 0.05))',
-        padding: '1rem 2rem',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center'
@@ -76,7 +77,7 @@ export default function LandingPage({ authToken }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           {/* Language Selector */}
           <div style={{ display: 'flex', gap: '0.25rem', background: 'rgba(255, 255, 255, 0.05)', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-glass, rgba(255, 255, 255, 0.05))' }}>
-            <button 
+            <button
               onClick={() => changeLanguage('vi')}
               style={{
                 background: lang === 'vi' ? 'var(--primary, #6366f1)' : 'transparent',
@@ -91,7 +92,7 @@ export default function LandingPage({ authToken }) {
             >
               VI
             </button>
-            <button 
+            <button
               onClick={() => changeLanguage('en')}
               style={{
                 background: lang === 'en' ? 'var(--primary, #6366f1)' : 'transparent',
@@ -109,12 +110,12 @@ export default function LandingPage({ authToken }) {
           </div>
 
           {/* CTA */}
-          <button 
+          <button
             onClick={handleAction}
             className="btn primary"
-            style={{ 
-              width: 'auto', 
-              padding: '0.5rem 1.25rem', 
+            style={{
+              width: 'auto',
+              padding: '0.5rem 1.25rem',
               fontSize: '0.85rem',
               background: 'linear-gradient(135deg, var(--primary, #6366f1) 0%, #4f46e5 100%)',
               boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
@@ -127,10 +128,10 @@ export default function LandingPage({ authToken }) {
       </header>
 
       {/* Main Content Container */}
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 2rem', zIndex: 1, position: 'relative' }}>
-        
+      <main className="landing-main" style={{ maxWidth: '1200px', margin: '0 auto', zIndex: 1, position: 'relative' }}>
+
         {/* HERO SECTION */}
-        <section style={{ padding: '6rem 0 4rem 0', textAlign: 'center' }}>
+        <section className="hero-section" style={{ textAlign: 'center' }}>
           <h1 style={{
             fontSize: '3.5rem',
             fontWeight: 850,
@@ -146,7 +147,7 @@ export default function LandingPage({ authToken }) {
               {lang === 'vi' ? 'Hàng Loạt - Tốc Độ Cao' : 'In Bulk - At Scale'}
             </span>
           </h1>
-          
+
           <p style={{
             fontSize: '1.2rem',
             color: 'var(--text-muted, #94a3b8)',
@@ -154,13 +155,13 @@ export default function LandingPage({ authToken }) {
             margin: '0 auto 2.5rem auto',
             lineHeight: 1.6
           }}>
-            {lang === 'vi' 
+            {lang === 'vi'
               ? 'Giải pháp tối ưu chuyển đổi sách nói, tài liệu docx, và hàng loạt tệp văn bản sang giọng đọc tiếng Việt tự nhiên và truyền cảm chỉ trong vài giây.'
               : 'The ultimate tool to convert audiobooks, docx documents, and bulk text files into natural Vietnamese voices in just seconds.'}
           </p>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <button 
+            <button
               onClick={handleAction}
               className="btn"
               style={{
@@ -174,7 +175,7 @@ export default function LandingPage({ authToken }) {
             >
               {lang === 'vi' ? 'Dùng thử miễn phí' : 'Get Started Free'}
             </button>
-            <a 
+            <a
               href="#pricing"
               className="btn ghost"
               style={{

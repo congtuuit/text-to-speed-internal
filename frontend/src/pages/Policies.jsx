@@ -8,7 +8,9 @@ export default function Policies() {
   const lang = i18n.language;
 
   return (
-    <div style={{
+    <div 
+      className="app-page"
+      style={{
       minHeight: '100vh',
       background: 'var(--bg-dark, #0f172a)',
       color: 'var(--text-main, #f8fafc)',

@@ -192,6 +192,7 @@ def stream_audio(file_name: str, request: Request, db: Session = Depends(get_db)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Audio file missing on disk")
     file_size = os.path.getsize(file_path)
+    audio_media_type = "audio/mpeg" if file_path.endswith(".mp3") else "audio/wav"
     range_header = request.headers.get("range")
     if range_header:
         range_value = range_header.replace("bytes=", "").strip()
@@ -200,8 +201,8 @@ def stream_audio(file_name: str, request: Request, db: Session = Depends(get_db)
         end = int(end_str) if end_str else file_size - 1
         end = min(end, file_size - 1)
         headers = {"Content-Range": f"bytes {start}-{end}/{file_size}", "Accept-Ranges": "bytes", "Content-Length": str(end - start + 1)}
-        return StreamingResponse(_iter_file_range(file_path, start, end), status_code=206, media_type="audio/wav", headers=headers)
-    return StreamingResponse(_iter_file_range(file_path), media_type="audio/wav", headers={"Accept-Ranges": "bytes", "Content-Length": str(file_size)})
+        return StreamingResponse(_iter_file_range(file_path, start, end), status_code=206, media_type=audio_media_type, headers=headers)
+    return StreamingResponse(_iter_file_range(file_path), media_type=audio_media_type, headers={"Accept-Ranges": "bytes", "Content-Length": str(file_size)})
 
 
 @router.delete("/api/library/{audio_id}")

@@ -267,7 +267,8 @@ def download_job_result(job_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Job not found")
     if not job.final_output_path or not os.path.exists(job.final_output_path):
         raise HTTPException(status_code=404, detail="Result file not found or not finished yet")
-    return FileResponse(job.final_output_path, media_type="audio/wav", filename=os.path.basename(job.final_output_path))
+    media_type = "audio/mpeg" if job.final_output_path.endswith(".mp3") else "audio/wav"
+    return FileResponse(job.final_output_path, media_type=media_type, filename=os.path.basename(job.final_output_path))
 
 
 class SavedVoiceRequest(BaseModel):

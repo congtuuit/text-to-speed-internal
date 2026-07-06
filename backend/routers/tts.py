@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from database import get_db, SessionLocal
@@ -86,16 +86,18 @@ def test_voice(req: TestVoiceRequest, request: Request, background_tasks: Backgr
     import hashlib
     import shutil
     
-    cache_file = None
+    cache_file_base = None
     if req.is_sample:
         cache_dir = "cache/test_voice"
         os.makedirs(cache_dir, exist_ok=True)
         raw_key = f"{req.provider}_{req.voice}_{req.output_speed}_{req.seed}_{req.text}"
         cache_key = hashlib.md5(raw_key.encode('utf-8')).hexdigest()
-        cache_file = os.path.join(cache_dir, f"{cache_key}.wav")
+        cache_file_base = os.path.join(cache_dir, cache_key)
         
-        if os.path.exists(cache_file):
-            return FileResponse(cache_file, media_type="audio/wav")
+        if os.path.exists(f"{cache_file_base}.mp3"):
+            return FileResponse(f"{cache_file_base}.mp3", media_type="audio/mpeg")
+        if os.path.exists(f"{cache_file_base}.wav"):
+            return FileResponse(f"{cache_file_base}.wav", media_type="audio/wav")
         
     fd, temp_file = tempfile.mkstemp(suffix=".wav", prefix="tts_")
     os.close(fd)
@@ -160,15 +162,43 @@ def test_voice(req: TestVoiceRequest, request: Request, background_tasks: Backgr
             if os.path.exists(temp_speed_file):
                 os.remove(temp_speed_file)
                 
-    # Lưu vào cache
-    if cache_file and os.path.exists(temp_file):
+    # --- CONVERT SANG MP3 ---
+    from utils.audio_utils import convert_wav_to_mp3_ffmpeg
+    mp3_temp_file = temp_file.replace(".wav", ".mp3")
+    wav_deleted = False
+    if convert_wav_to_mp3_ffmpeg(temp_file, mp3_temp_file):
         try:
-            shutil.copy2(temp_file, cache_file)
+            os.remove(temp_file)
+            wav_deleted = True
+        except Exception:
+            pass
+        final_serve_file = mp3_temp_file
+    else:
+        final_serve_file = temp_file
+                
+    # Lưu vào cache
+    if cache_file_base and os.path.exists(final_serve_file):
+        try:
+            final_cache_file = f"{cache_file_base}.mp3" if final_serve_file.endswith(".mp3") else f"{cache_file_base}.wav"
+            shutil.copy2(final_serve_file, final_cache_file)
         except Exception as e:
             print(f"Cache save error: {e}")
-        
-    background_tasks.add_task(cleanup)
-    return FileResponse(temp_file, media_type="audio/wav")
+
+    # Dọn temp WAV nếu chưa bị xóa (fallback case)
+    if not wav_deleted:
+        background_tasks.add_task(cleanup)
+    # Dọn temp MP3 sau khi đã serve xong (chỉ khi file temp != file đang serve)
+    if final_serve_file == mp3_temp_file:
+        def cleanup_mp3_tmp():
+            try:
+                if os.path.exists(mp3_temp_file):
+                    os.remove(mp3_temp_file)
+            except Exception:
+                pass
+        background_tasks.add_task(cleanup_mp3_tmp)
+
+    media_type = "audio/mpeg" if final_serve_file.endswith(".mp3") else "audio/wav"
+    return FileResponse(final_serve_file, media_type=media_type)
 
 
 @router.post("/api/create-audio")
@@ -263,15 +293,32 @@ def create_audio(req: TestVoiceRequest, request: Request, background_tasks: Back
         else:
             if os.path.exists(temp_speed_file):
                 os.remove(temp_speed_file)
-    # Register in library (7 days TTL) — wrapped so cleanup always runs on failure
+                
+    # --- CONVERT SANG MP3 ---
+    from utils.audio_utils import convert_wav_to_mp3_ffmpeg
+    mp3_temp_file = temp_file.replace(".wav", ".mp3")
+    print(f"[CreateAudio] Converting to MP3: {mp3_temp_file}")
+    wav_deleted = False
+    if convert_wav_to_mp3_ffmpeg(temp_file, mp3_temp_file):
+        try:
+            os.remove(temp_file)
+            wav_deleted = True
+        except Exception:
+            pass
+        final_serve_file = mp3_temp_file
+    else:
+        print(f"[CreateAudio] Convert to MP3 failed, falling back to WAV")
+        final_serve_file = temp_file
+
+    # Register in library (7 days TTL)
     from services.storage_service import register_audio_file
     from datetime import datetime, timedelta
 
     audio = None
     try:
         audio = register_audio_file(
-            source_path=temp_file,
-            file_name=f"create_{os.path.basename(temp_file)}",
+            source_path=final_serve_file,
+            file_name=f"create_{os.path.basename(final_serve_file)}",
             db=db,
             owner_id=user.id,
             expires_at=datetime.utcnow() + timedelta(days=7)
@@ -282,9 +329,24 @@ def create_audio(req: TestVoiceRequest, request: Request, background_tasks: Back
     # Ghi nhận usage
     record_usage(user.id, len(req.text), "create-audio", db)
 
-    background_tasks.add_task(cleanup)
-    serve_path = audio.file_path if audio else temp_file
-    return FileResponse(serve_path, media_type="audio/wav")
+    # Cleanup temp files sau khi response đã gửi
+    # Nếu WAV chưa bị xóa (fallback), cleanup() sẽ dọn nó
+    if not wav_deleted:
+        background_tasks.add_task(cleanup)
+    # Nếu serve_path là từ library (audio registered), mp3_temp_file là bản gốc tạm cần dọn
+    # Nếu serve_path = final_serve_file (register fail), KHÔNG xóa mp3_temp_file vì đó là file đang được serve
+    if audio and final_serve_file == mp3_temp_file:
+        def cleanup_mp3_tmp():
+            try:
+                if os.path.exists(mp3_temp_file):
+                    os.remove(mp3_temp_file)
+            except Exception:
+                pass
+        background_tasks.add_task(cleanup_mp3_tmp)
+
+    serve_path = audio.file_path if audio else final_serve_file
+    media_type = "audio/mpeg" if serve_path.endswith(".mp3") else "audio/wav"
+    return FileResponse(serve_path, media_type=media_type)
 
 
 
@@ -392,15 +454,28 @@ def tts_merge(req: MergeSessionRequest, request: Request, db: Session = Depends(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Merge error: {e}")
 
+    # --- CONVERT SANG MP3 ---
+    from utils.audio_utils import convert_wav_to_mp3_ffmpeg
+    mp3_output_path = output_path.replace(".wav", ".mp3")
+    if convert_wav_to_mp3_ffmpeg(output_path, mp3_output_path):
+        try:
+            os.remove(output_path)
+        except:
+            pass
+        final_serve_file = mp3_output_path
+    else:
+        final_serve_file = output_path
+    # ------------------------
+
     # Register in library (7 days TTL)
     from services.storage_service import register_audio_file
     from datetime import datetime, timedelta
 
-    serve_path = output_path
+    serve_path = final_serve_file
     try:
         audio = register_audio_file(
-            source_path=output_path,
-            file_name=f"merge_{req.session_id}.wav",
+            source_path=final_serve_file,
+            file_name=f"merge_{req.session_id}.mp3" if final_serve_file.endswith(".mp3") else f"merge_{req.session_id}.wav",
             db=db,
             owner_id=user.id,
             expires_at=datetime.utcnow() + timedelta(days=7)
@@ -410,6 +485,7 @@ def tts_merge(req: MergeSessionRequest, request: Request, db: Session = Depends(
         print(f"[TTSMerge] Warning: Failed to register audio in library: {reg_err}")
 
     # Dọn dẹp thư mục sau 60 phút
+    # FileResponse stream xong ngay lập tức nên session_dir vẫn còn đủ thời gian để serve
     import threading
     import time
     import shutil
@@ -417,13 +493,14 @@ def tts_merge(req: MergeSessionRequest, request: Request, db: Session = Depends(
         time.sleep(3600)  # 60 phút
         try:
             shutil.rmtree(session_dir)
-        except:
+        except Exception:
             pass
-    t = threading.Thread(target=cleanup_session)
-    t.daemon = True
-    t.start()
+    cleanup_thread = threading.Thread(target=cleanup_session)
+    cleanup_thread.daemon = True
+    cleanup_thread.start()
 
-    return FileResponse(serve_path, media_type="audio/wav")
+    media_type = "audio/mpeg" if serve_path.endswith(".mp3") else "audio/wav"
+    return FileResponse(serve_path, media_type=media_type)
 
 
 class CheckConnectionRequest(BaseModel):

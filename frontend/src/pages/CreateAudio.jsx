@@ -80,7 +80,7 @@ export default function CreateAudio({ t, text, setText, voice, setVoice, createV
           {audioUrl && (
             <>
               <audio controls autoPlay src={audioUrl} key={audioUrl} />
-              <a className="btn success" href={audioUrl} download="tts-preview.wav">{t('create.download')}</a>
+              <a className="btn success" href={audioUrl} download="tts-preview.mp3">{t('create.download')}</a>
             </>
           )}
         </div>

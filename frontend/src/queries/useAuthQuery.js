@@ -24,7 +24,7 @@ export function useAuthQuery(authToken, setAuthToken, handleLogout) {
       
       return data.user;
     },
-    enabled: !!authToken, // Only run if authToken exists
+    enabled: !!authToken,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     initialData: () => {
       try {
@@ -33,6 +33,9 @@ export function useAuthQuery(authToken, setAuthToken, handleLogout) {
       } catch {
         return undefined;
       }
-    }
+    },
+    // Đánh dấu initialData từ localStorage là stale ngay lập tức
+    // để queryFn luôn chạy khi mount → đảm bảo token được gia hạn
+    initialDataUpdatedAt: 0,
   });
 }
