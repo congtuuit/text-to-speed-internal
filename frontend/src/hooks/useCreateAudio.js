@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Swal from 'sweetalert2';
-import { API_BASE_URL } from '../config';
-
+import { API_BASE_URL, FREE_MAX_REQUEST_LENGTH, PAID_MAX_REQUEST_LENGTH  } from '../config';
 import { useBilling } from './useBilling';
 
 // Helper to chunk text
@@ -121,16 +120,16 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl, settings, f
     saveVoiceSettings(voice, createVoiceSeed, newSpeed);
   };
 
-  let maxChars = 5000;
+  let maxChars = FREE_MAX_REQUEST_LENGTH;
   if (billing && billing.subscription) {
     if (billing.subscription.plan_id === 'free') {
-      maxChars = 5000;
+      maxChars = FREE_MAX_REQUEST_LENGTH;
     } else {
       if (billing.subscription.chars_limit === -1) {
-        maxChars = 10000;
+        maxChars = PAID_MAX_REQUEST_LENGTH;
       } else {
-        const remaining = billing.usage?.chars_remaining ?? 10000;
-        maxChars = Math.min(Math.max(remaining, 0), 10000);
+        const remaining = billing.usage?.chars_remaining ?? PAID_MAX_REQUEST_LENGTH;
+        maxChars = Math.min(Math.max(remaining, 0), PAID_MAX_REQUEST_LENGTH);
       }
     }
   }

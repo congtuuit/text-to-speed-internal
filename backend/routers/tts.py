@@ -277,11 +277,13 @@ def create_audio(req: TestVoiceRequest, request: Request, background_tasks: Back
     max_chars = 5000
     if sub.plan_id != "free":
         if sub.chars_limit == -1:
-            max_chars = 10000
+            # Unlimited plan, but still limit to 20000 chars per request to prevent abuse
+            max_chars = 20000
         else:
             used = get_monthly_usage(user.id, db)
             remaining = sub.chars_limit - used
-            max_chars = min(max(remaining, 0), 10000)
+            # Limit max_chars to 20000 even if remaining is higher, to prevent abuse
+            max_chars = min(max(remaining, 0), 20000)
 
     if len(req.text) > max_chars:
         raise HTTPException(status_code=400, detail=f"Văn bản vượt quá giới hạn {max_chars} ký tự cho phép của gói hiện tại.")
