@@ -91,6 +91,7 @@ class SettingsRequest(BaseModel):
     self_hosted_seed: str = ""
     self_hosted_keep_voice: str = "false"
     output_speed: float = 1.0
+    auto_retry: str = "false"
 
 class SavedVoiceRequest(BaseModel):
     name: str

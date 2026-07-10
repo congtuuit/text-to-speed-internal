@@ -178,10 +178,25 @@ export default function AdminSettings({ authToken, onSettingsSaved }) {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const payload = { ...settings };
+      if (payload.provider === "self_hosted") {
+        delete payload.fpt_api_keys;
+        delete payload.fpt_speed;
+        delete payload.api_key;
+        delete payload.model_name;
+      } else if (payload.provider === "fpt") {
+        delete payload.self_hosted_url;
+        delete payload.self_hosted_voice;
+        delete payload.self_hosted_seed;
+        delete payload.self_hosted_keep_voice;
+        delete payload.api_key;
+        delete payload.model_name;
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/settings`, {
         method: "POST",
         headers: authHeaders,
-        body: JSON.stringify(settings),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         Swal.fire({ icon: "success", title: t("admin.save"), timer: 1000, showConfirmButton: false, background: "#1e293b", color: "#fff" });
