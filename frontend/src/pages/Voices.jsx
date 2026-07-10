@@ -8,6 +8,7 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
   const queryClient = useQueryClient()
   const [cardPreviewingId, setCardPreviewingId] = useState(null)
   const [cardPreviewUrl, setCardPreviewUrl] = useState(null)
+  const [editingVoiceId, setEditingVoiceId] = useState(null)
 
   // Store a seed per base voice. If not generated, it will be undefined or empty.
   const [voiceSeeds, setVoiceSeeds] = useState({})
@@ -144,6 +145,104 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
     }
   }
 
+  const handleEditCommonVoice = async (e, voiceId, currentName) => {
+    e.stopPropagation()
+    const { value: newName } = await Swal.fire({
+      title: '<span style="font-size: 1.5rem; font-weight: 700;">✏️ Sửa tên giọng đọc</span>',
+      html: '<p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.5rem; margin-bottom: 1.5rem;">Chỉ thay đổi tên hiển thị, không ảnh hưởng đến chất lượng âm thanh.</p>',
+      input: 'text',
+      inputLabel: 'Tên hiển thị mới',
+      inputValue: currentName,
+      showCancelButton: true,
+      confirmButtonText: 'Lưu thay đổi',
+      cancelButtonText: 'Hủy bỏ',
+      background: 'transparent',
+      color: 'var(--text-main)',
+      customClass: {
+        popup: 'glass-panel',
+        confirmButton: 'btn success',
+        cancelButton: 'btn ghost',
+        actions: 'swal2-actions-custom',
+        input: 'swal2-input-custom',
+        inputLabel: 'swal2-label-custom'
+      },
+      buttonsStyling: false,
+      inputValidator: (value) => {
+        if (!value || !value.trim()) return 'Tên không được để trống!'
+      }
+    })
+
+    if (!newName || newName.trim() === currentName) return
+
+    setEditingVoiceId(voiceId)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/common-voices/${voiceId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ name: newName.trim() })
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Lỗi không xác định')
+      }
+      queryClient.invalidateQueries(['savedVoices'])
+      Swal.fire({
+        icon: 'success', title: 'Đã lưu!',
+        text: `Tên giọng đọc đã được cập nhật thành "${newName.trim()}"`,
+        background: '#1e293b', color: '#fff', timer: 2000, showConfirmButton: false
+      })
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: t('common.error'), text: err.message, background: '#1e293b', color: '#fff' })
+    } finally {
+      setEditingVoiceId(null)
+    }
+  }
+
+  const handleDeleteCommonVoice = async (e, voiceId, voiceName) => {
+    e.stopPropagation()
+    const result = await Swal.fire({
+      title: 'Xóa giọng đọc hệ thống?',
+      html: `<p style="color: var(--text-muted);">Giọng đọc <strong style="color: var(--text-main);">${voiceName}</strong> sẽ bị xóa vĩnh viễn khỏi hệ thống và không thể khôi phục.</p>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: '🗑️ Xóa vĩnh viễn',
+      cancelButtonText: 'Hủy bỏ',
+      background: 'transparent',
+      color: 'var(--text-main)',
+      customClass: {
+        popup: 'glass-panel',
+        confirmButton: 'btn danger',
+        cancelButton: 'btn ghost',
+        actions: 'swal2-actions-custom'
+      },
+      buttonsStyling: false
+    })
+
+    if (!result.isConfirmed) return
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/common-voices/${voiceId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Lỗi không xác định')
+      }
+      queryClient.invalidateQueries(['savedVoices'])
+      Swal.fire({
+        icon: 'success', title: 'Đã xóa!',
+        text: 'Giọng đọc hệ thống đã được xóa thành công.',
+        background: '#1e293b', color: '#fff', timer: 2000, showConfirmButton: false
+      })
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: t('common.error'), text: err.message, background: '#1e293b', color: '#fff' })
+    }
+  }
+
   return (
     <>
       <PageHeader title={t('voices.title')} subtitle={t('voices.subtitle')} />
@@ -193,15 +292,37 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
                   <button className="btn ghost btn-sm" style={{ minWidth: "90px" }} onClick={() => handleCardPreview(sv.voice_type, sv.seed)} disabled={cardPreviewingId === sv.voice_type}>
                     {cardPreviewingId === sv.voice_type ? '…' : '🎧 Nghe'}
                   </button>
-                  <button
-                    className="btn danger-soft btn-sm"
-                    onClick={() => onDelete(sv.id)}
-                    disabled={sv.is_default}
-                    style={{ opacity: sv.is_default ? 0.3 : 1, cursor: sv.is_default ? 'not-allowed' : 'pointer' }}
-                    title={sv.is_default ? "Không thể xóa giọng mặc định của hệ thống" : "Xóa giọng đọc"}
-                  >
-                    🗑️
-                  </button>
+                  {sv.is_default && currentUser?.role === 'admin' ? (
+                    // Admin: nút Sửa tên + Xóa giọng hệ thống
+                    <>
+                      <button
+                        className="btn ghost btn-sm"
+                        onClick={(e) => handleEditCommonVoice(e, sv.id.toString().replace('common_', ''), sv.name)}
+                        disabled={editingVoiceId === sv.id.toString().replace('common_', '')}
+                        title="Sửa tên giọng đọc hệ thống"
+                      >
+                        {editingVoiceId === sv.id.toString().replace('common_', '') ? '…' : '✏️'}
+                      </button>
+                      <button
+                        className="btn danger-soft btn-sm"
+                        onClick={(e) => handleDeleteCommonVoice(e, sv.id.toString().replace('common_', ''), sv.name)}
+                        title="Xóa giọng đọc hệ thống"
+                      >
+                        🗑️
+                      </button>
+                    </>
+                  ) : (
+                    // User thường: nút Xóa disabled nếu là giọng hệ thống
+                    <button
+                      className="btn danger-soft btn-sm"
+                      onClick={() => onDelete(sv.id)}
+                      disabled={sv.is_default}
+                      style={{ opacity: sv.is_default ? 0.3 : 1, cursor: sv.is_default ? 'not-allowed' : 'pointer' }}
+                      title={sv.is_default ? "Không thể xóa giọng mặc định của hệ thống" : "Xóa giọng đọc"}
+                    >
+                      🗑️
+                    </button>
+                  )}
                 </div>
               </article>
             ))}

@@ -16,3 +16,4 @@ backend/storage/audio_library/*
 venv/
 backend/venv/
 *.db
+ssh.txt

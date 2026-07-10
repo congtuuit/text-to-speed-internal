@@ -315,3 +315,74 @@ def delete_cache_file(file_id: int, request: Request, db: Session = Depends(get_
         
     return {"status": "ok", "message": "Xóa tệp cache thành công"}
 
+
+# ── Common Voices Management ───────────────────────────────────────────────────
+
+class CommonVoiceUpdateRequest(BaseModel):
+    name: str
+
+
+def _get_common_voices_dir() -> str:
+    """Trả về đường dẫn thư mục common_voices."""
+    dir_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "common_voices")
+    if not os.path.exists(dir_path):
+        dir_path = "backend/common_voices"
+    return dir_path
+
+
+@router.put("/common-voices/{voice_id}")
+def update_common_voice_name(voice_id: str, req: CommonVoiceUpdateRequest, request: Request, db: Session = Depends(get_db)):
+    """Cập nhật tên hiển thị của một giọng đọc hệ thống (common voice). Chỉ cập nhật trường 'name' trong file meta, không ảnh hưởng đến voice/seed/logic sinh audio."""
+    require_admin(request, db)
+
+    if not req.name or not req.name.strip():
+        raise HTTPException(status_code=400, detail="Tên giọng đọc không được để trống")
+
+    dir_path = _get_common_voices_dir()
+    meta_path = os.path.join(dir_path, f"{voice_id}-meta.txt")
+
+    if not os.path.exists(meta_path):
+        raise HTTPException(status_code=404, detail="Không tìm thấy giọng đọc hệ thống")
+
+    try:
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta_data = json.load(f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi đọc file meta: {e}")
+
+    meta_data["name"] = req.name.strip()
+
+    try:
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta_data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi ghi file meta: {e}")
+
+    return {"status": "ok", "voice_id": voice_id, "name": meta_data["name"]}
+
+
+@router.delete("/common-voices/{voice_id}")
+def delete_common_voice(voice_id: str, request: Request, db: Session = Depends(get_db)):
+    """Xóa một giọng đọc hệ thống (common voice) - xóa cả file .wav và file -meta.txt."""
+    require_admin(request, db)
+
+    dir_path = _get_common_voices_dir()
+    meta_path = os.path.join(dir_path, f"{voice_id}-meta.txt")
+    audio_path = os.path.join(dir_path, f"{voice_id}.wav")
+
+    if not os.path.exists(meta_path) and not os.path.exists(audio_path):
+        raise HTTPException(status_code=404, detail="Không tìm thấy giọng đọc hệ thống")
+
+    errors = []
+    for path in [meta_path, audio_path]:
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+            except Exception as e:
+                errors.append(str(e))
+
+    if errors:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi xóa file: {'; '.join(errors)}")
+
+    return {"status": "ok", "voice_id": voice_id, "message": "Đã xóa giọng đọc hệ thống thành công"}
+
