@@ -243,6 +243,108 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
     }
   }
 
+  const handleUploadCommonVoice = async () => {
+    const { value: formValues } = await Swal.fire({
+      title: '<span style="font-size: 1.4rem; font-weight: 700;">📤 Upload Giọng Hệ Thống</span>',
+      html: `
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+          Tải lên file audio từ máy tính của bạn (.wav hoặc .mp3) để làm giọng đọc hệ thống.
+        </p>
+        <div style="display:flex; flex-direction:column; gap:0.6rem; text-align:left">
+          <label class="swal2-label-custom">File Audio (.wav, .mp3)</label>
+          <input type="file" id="cv-upload-file" class="swal2-input-custom" accept=".wav,.mp3" style="margin:0; padding: 0.5rem; background: var(--bg-surface)"/>
+          
+          <label class="swal2-label-custom">Tên hiển thị</label>
+          <input id="cv-upload-name" class="swal2-input-custom" placeholder="Ví dụ: Nữ, giọng ấm..." style="margin:0"/>
+          
+          <label class="swal2-label-custom">Voice ID (voice type)</label>
+          <input id="cv-upload-voice" class="swal2-input-custom" placeholder="Ví dụ: female, male..." style="margin:0"/>
+          
+          <label class="swal2-label-custom">Seed (Bỏ trống nếu là instruct_cache)</label>
+          <input id="cv-upload-seed" class="swal2-input-custom" placeholder="Ví dụ: 12345 (tùy chọn)" style="margin:0"/>
+          
+          <label class="swal2-label-custom">Văn bản mẫu</label>
+          <textarea id="cv-upload-text" class="swal2-input-custom" rows="3" placeholder="Xin chào..." style="margin:0; height:auto; resize:vertical"></textarea>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: '📤 Upload',
+      cancelButtonText: 'Hủy bỏ',
+      background: 'transparent',
+      color: 'var(--text-main)',
+      customClass: {
+        popup: 'glass-panel',
+        confirmButton: 'btn success',
+        cancelButton: 'btn ghost',
+        actions: 'swal2-actions-custom',
+      },
+      buttonsStyling: false,
+      preConfirm: () => {
+        const fileInput = document.getElementById('cv-upload-file')
+        const file = fileInput.files.length > 0 ? fileInput.files[0] : null
+        const name = document.getElementById('cv-upload-name')?.value?.trim()
+        const voice = document.getElementById('cv-upload-voice')?.value?.trim()
+        const seed = document.getElementById('cv-upload-seed')?.value?.trim()
+        const text = document.getElementById('cv-upload-text')?.value?.trim()
+        
+        if (!file) return Swal.showValidationMessage('Bạn phải chọn file audio')
+        if (!name) return Swal.showValidationMessage('Tên hiển thị không được để trống')
+        if (!voice) return Swal.showValidationMessage('Voice ID không được để trống')
+        if (!seed && !voice.startsWith('instruct_cache_')) return Swal.showValidationMessage('Seed không được để trống với loại voice này')
+        if (!text) return Swal.showValidationMessage('Văn bản mẫu không được để trống')
+        
+        return { file, name, voice, seed, text }
+      }
+    })
+
+    if (!formValues) return
+
+    Swal.fire({
+      title: 'Đang upload...',
+      didOpen: () => Swal.showLoading(),
+      background: 'transparent',
+      color: 'var(--text-main)',
+      customClass: { popup: 'glass-panel' },
+      showConfirmButton: false,
+      allowOutsideClick: false
+    })
+
+    try {
+      const formData = new FormData()
+      formData.append('file', formValues.file)
+      formData.append('name', formValues.name)
+      formData.append('voice', formValues.voice)
+      if (formValues.seed) {
+        formData.append('seed', formValues.seed)
+      } else {
+        formData.append('seed', '') // Hoặc không append
+      }
+      formData.append('text', formValues.text)
+
+      const res = await fetch(`${API_BASE_URL}/api/admin/common-voices/upload`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authToken}` },
+        body: formData
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Lỗi không xác định')
+      }
+
+      const data = await res.json()
+      queryClient.invalidateQueries(['savedVoices'])
+      Swal.fire({
+        icon: 'success',
+        title: 'Upload thành công!',
+        html: `<p>Giọng đọc <strong>${data.name}</strong> đã được lưu.</p>`,
+        background: '#1e293b', color: '#fff', timer: 3000, showConfirmButton: false
+      })
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Lỗi upload', text: err.message, background: '#1e293b', color: '#fff' })
+    }
+  }
+
   return (
     <>
       <PageHeader title={t('voices.title')} subtitle={t('voices.subtitle')} />
@@ -265,9 +367,16 @@ export default function Voices({ t, voice, setVoice, voices, savedVoices, onPrev
         )}
       </div>
 
-      {/* Saved Voices section (Moved to top) */}
+      {/* Saved Voices section */}
       <div className="saved-voices-section" style={{ marginBottom: "3rem", marginTop: 0 }}>
-        <h2 style={{ fontSize: "1.5rem", marginBottom: "0.25rem", color: "var(--text-main)" }}>Thư viện giọng nói của tôi</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+          <h2 style={{ fontSize: "1.5rem", color: "var(--text-main)", margin: 0 }}>Thư viện giọng nói của tôi</h2>
+          {currentUser?.role === 'admin' && (
+            <button className="btn success btn-sm" onClick={handleUploadCommonVoice} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span>📤</span> Upload hệ thống
+            </button>
+          )}
+        </div>
         <p style={{ color: "var(--text-muted)", marginBottom: "1.5rem" }}>Các giọng nói bạn đã lưu sẽ hiển thị ở đây</p>
 
         {savedVoices.length === 0 ? (

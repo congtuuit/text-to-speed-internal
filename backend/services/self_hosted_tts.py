@@ -30,10 +30,13 @@ def process_self_hosted_tts(text: str, output_path: str, voice: str, url: str, s
             "text": chunk,
             "voice": voice
         }
-        if seed_val is not None:
-            payload["seed"] = seed_val
-        if keep_voice_val:
-            payload["keep_voice"] = keep_voice_val
+        
+        # Nếu là giọng đã cache từ instruct, chỉ gửi text và voice, không cần seed và keep_voice
+        if not voice.startswith("instruct_cache_"):
+            if seed_val is not None:
+                payload["seed"] = seed_val
+            if keep_voice_val:
+                payload["keep_voice"] = keep_voice_val
             
         max_chunk_retries = 3
         for attempt in range(max_chunk_retries):

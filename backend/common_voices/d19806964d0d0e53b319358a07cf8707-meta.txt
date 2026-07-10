@@ -1,0 +1,10 @@
+{
+    "name": "Huy Hoàng - Nam - Miền Nam",
+    "text": "Xin chào, đây là giọng đọc thử tiếng Việt.",
+    "voice": "instruct_cache_82222b750c5ecd6b",
+    "provider": "self_hosted",
+    "output_speed": 1.0,
+    "seed": "",
+    "is_sample": true,
+    "keep_voice": "true"
+}

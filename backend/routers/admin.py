@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User, BatchJob, FileTask, Settings, GeneratedAudio
@@ -205,6 +205,70 @@ class CommonVoiceCreateRequest(BaseModel):
     output_speed: float = 1.0
     is_sample: bool = True
     keep_voice: str = "true"
+
+
+@router.post("/common-voices/upload")
+async def upload_common_voice(
+    request: Request,
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    text: str = Form(...),
+    voice: str = Form(...),
+    seed: str = Form(None),
+    provider: str = Form("self_hosted"),
+    output_speed: float = Form(1.0),
+    keep_voice: str = Form("true"),
+    db: Session = Depends(get_db)
+):
+    """Upload file âm thanh (.wav/.mp3) từ máy khách lên common_voices."""
+    require_admin(request, db)
+
+    if not file.filename.endswith((".wav", ".mp3")):
+        raise HTTPException(status_code=400, detail="Chỉ hỗ trợ upload file .wav hoặc .mp3")
+
+    # Tạo voice_key
+    if seed:
+        raw_str = f"{provider}_{voice}_{seed}"
+    else:
+        raw_str = f"{provider}_{voice}"
+        
+    voice_key = hashlib.md5(raw_str.encode('utf-8')).hexdigest()
+
+    dir_path = _get_common_voices_dir()
+    os.makedirs(dir_path, exist_ok=True)
+
+    dest_audio_path = os.path.join(dir_path, f"{voice_key}.wav")
+    meta_path = os.path.join(dir_path, f"{voice_key}-meta.txt")
+
+    # Lưu file
+    try:
+        with open(dest_audio_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lưu file: {e}")
+
+    # Tạo meta
+    meta_data = {
+        "name": name.strip(),
+        "text": text,
+        "voice": voice,
+        "provider": provider,
+        "output_speed": output_speed,
+        "seed": seed,
+        "is_sample": True,
+        "keep_voice": keep_voice
+    }
+    
+    try:
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta_data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        if os.path.exists(dest_audio_path):
+            os.remove(dest_audio_path)
+        raise HTTPException(status_code=500, detail=f"Lỗi tạo file meta: {e}")
+
+    return {"status": "ok", "voice_id": voice_key, "name": name.strip()}
+
 
 @router.post("/common-voices")
 def create_common_voice(req: CommonVoiceCreateRequest, request: Request, db: Session = Depends(get_db)):

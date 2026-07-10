@@ -327,7 +327,7 @@ class QueueManager:
                                 # Use voice directly from job configuration
                                 cleaned_voice = job.voice
                                 presets = {"female", "male", "female, low pitch", "female, high pitch", "male, low pitch", "male, high pitch"}
-                                if cleaned_voice not in presets and not (cleaned_voice and cleaned_voice.startswith("voice_")):
+                                if cleaned_voice not in presets and not (cleaned_voice and (cleaned_voice.startswith("voice_") or cleaned_voice.startswith("instruct_cache_"))):
                                     # Fallback to saved self_hosted_voice or default
                                     setting_voice = None
                                     if job.owner_id:

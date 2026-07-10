@@ -51,7 +51,7 @@ def _get_self_hosted_url(db) -> str:
 
 def _clean_self_hosted_voice(voice: str) -> str:
     """Chuẩn hoá voice cho self-hosted, fallback về 'female' nếu không hợp lệ."""
-    if voice in SELF_HOSTED_PRESETS or (voice and voice.startswith("voice_")):
+    if voice in SELF_HOSTED_PRESETS or (voice and (voice.startswith("voice_") or voice.startswith("instruct_cache_"))):
         return voice
     return "female"
 
