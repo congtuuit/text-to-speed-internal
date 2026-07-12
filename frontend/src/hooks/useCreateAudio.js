@@ -36,6 +36,16 @@ export function useCreateAudio(t, handlePreviewVoice, selfHostedUrl, settings, f
   const [initializedToken, setInitializedToken] = useState(null);
   const warmupKeyRef = useRef('');
   const warmupInFlightRef = useRef(false);
+  const [hasClearedDefault, setHasClearedDefault] = useState(false);
+
+  useEffect(() => {
+    if (billing?.usage?.chars_used_this_month > 0 && !hasClearedDefault) {
+      if (text === "Xin chào, đây là bản đọc thử tiếng Việt cho sản phẩm TTS Studio.") {
+        setText("");
+      }
+      setHasClearedDefault(true);
+    }
+  }, [billing, hasClearedDefault, text]);
 
   const triggerWarmup = async (payload) => {
     if (!token) return;
