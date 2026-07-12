@@ -9,10 +9,22 @@ def slugify(text: str) -> str:
     if '.' in text:
         text = text.rsplit('.', 1)[0]
     
-    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8')
+    # .normalize("NFD")
+    text = unicodedata.normalize("NFD", text)
+    # .replace(/[\u0300-\u036f]/g, "")
+    text = re.sub(r'[\u0300-\u036f]', '', text)
+    # .replace(/đ/g, "d").replace(/Đ/g, "D")
+    text = text.replace('đ', 'd').replace('Đ', 'D')
+    # .toLowerCase()
     text = text.lower()
-    text = re.sub(r'[^a-z0-9]+', '-', text)
-    text = text.strip('-')
+    # .trim()
+    text = text.strip()
+    # .replace(/\s+/g, " ")
+    text = re.sub(r'\s+', ' ', text)
+    # .replace(/[^\w\s-]/g, "")
+    text = re.sub(r'[^\w\s-]', '', text)
+    # .replace(/\s+/g, "-")
+    text = re.sub(r'\s+', '-', text)
     
     # Cắt ngắn nếu quá dài (tối đa 50 ký tự)
     if len(text) > 50:
